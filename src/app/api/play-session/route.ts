@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 type PlaySessionPayload = {
   professor: {
     name: string;
+    gender?: string;
     hair: string;
     eyes: string;
     nose: string;
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
   const { error } = await supabase.from("play_sessions").insert({
       professor_name: payload.professor.name,
       appearance: {
+        gender: payload.professor.gender || "미정(중성 표현)",
         hair: payload.professor.hair,
         eyes: payload.professor.eyes,
         nose: payload.professor.nose,
