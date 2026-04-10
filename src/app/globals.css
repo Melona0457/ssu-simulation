@@ -1,14 +1,16 @@
+@import url("https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap");
 @import "tailwindcss";
 
 :root {
-  --background: #fff9f0;
-  --foreground: #0f172a;
+  --background: #09080f;
+  --foreground: #fdf2f8;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-sans: "Noto Sans KR", "Apple SD Gothic Neo", "Noto Sans", sans-serif;
+  --font-serif: "Gowun Batang", serif;
   --font-mono: "SFMono-Regular", "Menlo", "Monaco", monospace;
 }
 
@@ -35,6 +37,47 @@ textarea {
   font: inherit;
 }
 
+.anime-button {
+  position: relative;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f43f8a 0%, #e11d48 50%, #be123c 100%);
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  box-shadow:
+    0 8px 24px rgba(244, 63, 148, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition:
+    transform 180ms ease,
+    filter 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.anime-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow:
+    0 12px 32px rgba(244, 63, 148, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.anime-button:active {
+  transform: translateY(0);
+}
+
 ::selection {
-  background: rgba(245, 158, 11, 0.28);
+  background: rgba(244, 114, 182, 0.4);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(244, 114, 182, 0.75), rgba(251, 113, 133, 0.75));
 }
