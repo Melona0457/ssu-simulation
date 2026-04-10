@@ -7,11 +7,13 @@ import {
   chapterFallbackDialogues,
   chapterInfoMap,
   chapterSequence,
+  type DialogueEmotion,
   endingMeta,
   finalRealityLine,
   getDefaultExamDeadline,
   getEndingRank,
   professorGenderOptions,
+  professorVoiceOptions,
   professorTraits,
   type ChapterChoice,
   type EndingRank,
@@ -25,9 +27,21 @@ type ScoreState = Record<GameScoreKey, number>;
 
 type DialogueApiResponse = {
   dialogue?: unknown;
+  emotion?: unknown;
   choices?: unknown;
   fallback?: boolean;
   message?: string;
+};
+
+type RawChoice = {
+  text?: unknown;
+  preview?: unknown;
+  reaction?: unknown;
+  emotion?: unknown;
+  effects?: {
+    affinity?: unknown;
+    intellect?: unknown;
+  };
 };
 
 type EndingApiResponse = {
@@ -53,6 +67,7 @@ const initialScores: ScoreState = {
 const initialProfessorState: ProfessorFormState = {
   name: "",
   gender: "미정(중성 표현)",
+  voiceName: "ko-KR-Neural2-B",
   hair: professorTraits.hair[0].value,
   eyes: professorTraits.eyes[0].value,
   nose: professorTraits.nose[0].value,
@@ -86,10 +101,6 @@ const initialCustomTraits: Record<TraitKey, string> = {
   vibe: "",
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function toSafeNumber(value: unknown, fallback: number) {
   const parsed = Number(value);
 
@@ -100,6 +111,29 @@ function toSafeNumber(value: unknown, fallback: number) {
   return Math.round(parsed);
 }
 
+function toEndingRank(value: unknown, fallback: EndingRank): EndingRank {
+  if (value === "S" || value === "A" || value === "B" || value === "F") {
+    return value;
+  }
+
+  return fallback;
+}
+
+function toDialogueEmotion(value: unknown, fallback: DialogueEmotion): DialogueEmotion {
+  if (
+    value === "neutral" ||
+    value === "stern" ||
+    value === "teasing" ||
+    value === "awkward" ||
+    value === "warm" ||
+    value === "panic"
+  ) {
+    return value;
+  }
+
+  return fallback;
+}
+
 function normalizeChoices(value: unknown, fallback: ChapterChoice[]) {
   if (!Array.isArray(value) || value.length < 3) {
     return fallback;
@@ -107,38 +141,28 @@ function normalizeChoices(value: unknown, fallback: ChapterChoice[]) {
 
   return [0, 1, 2].map((index) => {
     const base = fallback[index];
-    const raw = value[index];
-
-    if (!isRecord(raw)) {
-      return base;
-    }
-
-    const rawEffects = isRecord(raw.effects) ? raw.effects : {};
+    const raw = value[index] as RawChoice | undefined;
 
     return {
-      text: typeof raw.text === "string" && raw.text.trim().length > 0 ? raw.text : base.text,
+      text:
+        typeof raw?.text === "string" && raw.text.trim().length > 0
+          ? raw.text
+          : base.text,
       preview:
-        typeof raw.preview === "string" && raw.preview.trim().length > 0
+        typeof raw?.preview === "string" && raw.preview.trim().length > 0
           ? raw.preview
           : base.preview,
       reaction:
-        typeof raw.reaction === "string" && raw.reaction.trim().length > 0
+        typeof raw?.reaction === "string" && raw.reaction.trim().length > 0
           ? raw.reaction
           : base.reaction,
+      emotion: toDialogueEmotion(raw?.emotion, base.emotion),
       effects: {
-        affinity: toSafeNumber(rawEffects.affinity, base.effects.affinity),
-        intellect: toSafeNumber(rawEffects.intellect, base.effects.intellect),
+        affinity: toSafeNumber(raw?.effects?.affinity, base.effects.affinity),
+        intellect: toSafeNumber(raw?.effects?.intellect, base.effects.intellect),
       },
     };
   });
-}
-
-function toEndingRank(value: unknown, fallback: EndingRank): EndingRank {
-  if (value === "S" || value === "A" || value === "B" || value === "F") {
-    return value;
-  }
-
-  return fallback;
 }
 
 function formatDateTime(value: Date) {
@@ -170,8 +194,146 @@ function formatCountdown(deadlineValue: string, nowMs: number) {
   return `D-${days} ${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function TypewriterText({ text }: { text: string }) {
-  return <p className="leading-8 md:text-lg md:leading-9">{text}</p>;
+const HANGUL_BASE = 0xac00;
+const HANGUL_LAST = 0xd7a3;
+const CHOSEONG = [
+  "ㄱ",
+  "ㄲ",
+  "ㄴ",
+  "ㄷ",
+  "ㄸ",
+  "ㄹ",
+  "ㅁ",
+  "ㅂ",
+  "ㅃ",
+  "ㅅ",
+  "ㅆ",
+  "ㅇ",
+  "ㅈ",
+  "ㅉ",
+  "ㅊ",
+  "ㅋ",
+  "ㅌ",
+  "ㅍ",
+  "ㅎ",
+];
+
+function isHangulSyllable(char: string) {
+  if (!char) {
+    return false;
+  }
+
+  const code = char.charCodeAt(0);
+  return code >= HANGUL_BASE && code <= HANGUL_LAST;
+}
+
+function composeHangul(cho: number, jung: number, jong: number) {
+  return String.fromCharCode(HANGUL_BASE + (cho * 21 + jung) * 28 + jong);
+}
+
+function buildKoreanTypingFrames(text: string) {
+  const frames: string[] = [""];
+  let committed = "";
+
+  for (const char of text) {
+    if (!isHangulSyllable(char)) {
+      committed += char;
+      frames.push(committed);
+      continue;
+    }
+
+    const code = char.charCodeAt(0) - HANGUL_BASE;
+    const cho = Math.floor(code / 588);
+    const jung = Math.floor((code % 588) / 28);
+    const jong = code % 28;
+
+    frames.push(committed + CHOSEONG[cho]);
+    frames.push(committed + composeHangul(cho, jung, 0));
+
+    if (jong > 0) {
+      frames.push(committed + composeHangul(cho, jung, jong));
+    }
+
+    committed += char;
+  }
+
+  if (frames[frames.length - 1] !== text) {
+    frames.push(text);
+  }
+
+  return frames;
+}
+
+function TypewriterText({
+  text,
+  speed = 42,
+  allowSkip = false,
+}: {
+  text: string;
+  speed?: number;
+  allowSkip?: boolean;
+}) {
+  const frames = useMemo(() => buildKoreanTypingFrames(text), [text]);
+  const [frameIndex, setFrameIndex] = useState(0);
+  const timerRef = useRef<number | null>(null);
+  const isTyping = frameIndex < frames.length - 1;
+
+  useEffect(() => {
+    if (frames.length <= 1) {
+      return;
+    }
+
+    timerRef.current = window.setInterval(() => {
+      setFrameIndex((current) => {
+        if (current >= frames.length - 1) {
+          if (timerRef.current !== null) {
+            window.clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          return current;
+        }
+
+        return current + 1;
+      });
+    }, speed);
+
+    return () => {
+      if (timerRef.current !== null) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [frames, speed]);
+
+  const visibleText = frames[Math.min(frameIndex, frames.length - 1)] ?? "";
+  const handleSkip = () => {
+    if (!allowSkip || !isTyping) {
+      return;
+    }
+
+    if (timerRef.current !== null) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    setFrameIndex(frames.length - 1);
+  };
+
+  if (!allowSkip) {
+    return <p className="leading-8 whitespace-pre-wrap md:text-lg md:leading-9">{visibleText}</p>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleSkip}
+      className="w-full cursor-pointer bg-transparent p-0 text-left leading-8 whitespace-pre-wrap md:text-lg md:leading-9"
+      title={isTyping ? "클릭하면 대사를 즉시 끝까지 표시" : undefined}
+    >
+      {visibleText}
+      {isTyping && <span className="ml-1 inline-block animate-pulse text-slate-400">▌</span>}
+    </button>
+  );
 }
 
 function ScoreChip({ label, value }: { label: string; value: number }) {
@@ -204,6 +366,7 @@ export default function Home() {
   const [chapterLoading, setChapterLoading] = useState(false);
   const [chapterMessage, setChapterMessage] = useState("");
   const [dialogue, setDialogue] = useState("");
+  const [dialogueEmotion, setDialogueEmotion] = useState<DialogueEmotion>("neutral");
   const [choices, setChoices] = useState<ChapterChoice[]>([]);
   const [selectedChoice, setSelectedChoice] = useState<ChapterChoice | null>(null);
 
@@ -221,6 +384,14 @@ export default function Home() {
 
   const [musicOn, setMusicOn] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const speechAudioRef = useRef<HTMLAudioElement | null>(null);
+  const speechRequestRef = useRef(0);
+  const [ttsState, setTtsState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [ttsMessage, setTtsMessage] = useState("");
+  const [ttsAudioUrl, setTtsAudioUrl] = useState("");
+  const [ttsVoiceName, setTtsVoiceName] = useState("");
+  const [displayedSpeechText, setDisplayedSpeechText] = useState("");
+  const [typingSpeed, setTypingSpeed] = useState(38);
 
   const [countdownNow, setCountdownNow] = useState(Date.now());
 
@@ -247,6 +418,15 @@ export default function Home() {
   const totalScore = scores.affinity + scores.intellect;
   const currentChapterId = chapterSequence[chapterIndex] ?? chapterSequence[0];
   const currentChapter = chapterInfoMap[currentChapterId];
+  const activeSpeechText = selectedChoice ? selectedChoice.reaction : dialogue;
+  const activeSpeechEmotion = selectedChoice ? selectedChoice.emotion : dialogueEmotion;
+  const availableVoiceOptions = useMemo(
+    () =>
+      professorVoiceOptions.filter((option) =>
+        option.genders.includes(professor.gender),
+      ),
+    [professor.gender],
+  );
 
   useEffect(() => {
     scoresRef.current = scores;
@@ -264,6 +444,139 @@ export default function Home() {
 
     return () => window.clearInterval(timer);
   }, [phase]);
+
+  useEffect(() => {
+    const speechAudio = speechAudioRef.current;
+
+    if (!speechAudio) {
+      return;
+    }
+
+    if (phase !== "chapter") {
+      speechAudio.pause();
+      speechAudio.removeAttribute("src");
+      speechAudio.load();
+      setTtsState("idle");
+      setTtsAudioUrl("");
+      setTtsVoiceName("");
+      setDisplayedSpeechText("");
+      return;
+    }
+
+    const textToSpeak = activeSpeechText.trim();
+
+    if (!textToSpeak || chapterLoading) {
+      return;
+    }
+
+    const requestId = speechRequestRef.current + 1;
+    speechRequestRef.current = requestId;
+    setTtsState("loading");
+    setTtsMessage("");
+    setDisplayedSpeechText("");
+
+    const controller = new AbortController();
+
+    const run = async () => {
+      try {
+        const response = await fetch("/api/tts", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            text: textToSpeak,
+            gender: professor.gender,
+            voiceName: professor.voiceName,
+            emotion: activeSpeechEmotion,
+          }),
+          signal: controller.signal,
+        });
+
+        const data = (await response.json()) as {
+          audioDataUrl?: string;
+          voiceName?: string;
+          message?: string;
+        };
+
+        if (!response.ok || !data.audioDataUrl) {
+          throw new Error(data.message || "TTS 생성 실패");
+        }
+
+        if (speechRequestRef.current !== requestId) {
+          return;
+        }
+
+        speechAudio.pause();
+        speechAudio.src = data.audioDataUrl;
+        speechAudio.currentTime = 0;
+        setTtsAudioUrl(data.audioDataUrl);
+        setTtsVoiceName(data.voiceName || "");
+        await new Promise<void>((resolve) => {
+          const finalize = () => {
+            speechAudio.removeEventListener("loadedmetadata", finalize);
+            speechAudio.removeEventListener("canplaythrough", finalize);
+            resolve();
+          };
+
+          speechAudio.addEventListener("loadedmetadata", finalize, { once: true });
+          speechAudio.addEventListener("canplaythrough", finalize, { once: true });
+
+          if (speechAudio.readyState >= 1) {
+            finalize();
+          }
+        });
+
+        const estimatedFrames = Math.max(textToSpeak.length * 2, 1);
+        const durationMs =
+          Number.isFinite(speechAudio.duration) && speechAudio.duration > 0
+            ? speechAudio.duration * 1000
+            : textToSpeak.length * 110;
+        setTypingSpeed(Math.max(22, Math.min(90, Math.round(durationMs / estimatedFrames))));
+        setDisplayedSpeechText(textToSpeak);
+        setTtsState("ready");
+
+        try {
+          await speechAudio.play();
+        } catch {
+          setTtsMessage("브라우저 정책으로 자동 음성 재생이 차단되었습니다. 재생 버튼을 눌러주세요.");
+        }
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        if (speechRequestRef.current !== requestId) {
+          return;
+        }
+
+        setTtsState("error");
+        setTtsMessage(error instanceof Error ? error.message : "TTS 생성 실패");
+        setDisplayedSpeechText(textToSpeak);
+      }
+    };
+
+    void run();
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    activeSpeechEmotion,
+    activeSpeechText,
+    chapterLoading,
+    phase,
+    professor.gender,
+    professor.voiceName,
+  ]);
+
+  useEffect(() => {
+    if (availableVoiceOptions.some((option) => option.value === professor.voiceName)) {
+      return;
+    }
+
+    updateProfessor("voiceName", availableVoiceOptions[0]?.value ?? "ko-KR-Neural2-B");
+  }, [availableVoiceOptions, professor.voiceName]);
 
   function updateProfessor<K extends keyof ProfessorFormState>(
     key: K,
@@ -336,12 +649,29 @@ export default function Home() {
     }
   }
 
+  async function replaySpeech() {
+    const speechAudio = speechAudioRef.current;
+
+    if (!speechAudio || !ttsAudioUrl) {
+      return;
+    }
+
+    try {
+      speechAudio.currentTime = 0;
+      await speechAudio.play();
+      setTtsMessage("");
+    } catch {
+      setTtsMessage("음성 재생에 실패했습니다. 브라우저 오디오 권한을 확인해주세요.");
+    }
+  }
+
   async function loadChapter(targetChapterIndex: number, scoreSnapshot: ScoreState) {
     const chapterId = chapterSequence[targetChapterIndex];
     const fallback = chapterFallbackDialogues[chapterId];
 
     setChapterLoading(true);
     setDialogue("");
+    setDialogueEmotion("neutral");
     setChoices([]);
     setSelectedChoice(null);
     setChapterMessage("");
@@ -372,6 +702,7 @@ export default function Home() {
           ? data.dialogue
           : fallback.dialogue,
       );
+      setDialogueEmotion(toDialogueEmotion(data.emotion, "neutral"));
       setChoices(normalizeChoices(data.choices, fallback.choices));
 
       if (typeof data.message === "string") {
@@ -379,6 +710,7 @@ export default function Home() {
       }
     } catch (error) {
       setDialogue(fallback.dialogue);
+      setDialogueEmotion("neutral");
       setChoices(fallback.choices);
       setChapterMessage(
         error instanceof Error
@@ -390,7 +722,7 @@ export default function Home() {
     }
   }
 
-  async function startSimulation() {
+  async function startSimulation(skipImageGeneration = false) {
     setPhase("initializing");
     setGeneratedImageUrl("");
     setImageMessage("");
@@ -404,39 +736,43 @@ export default function Home() {
     scoresRef.current = resetScores;
     setStoryLog([`${displayProfessorName}과(와) 시험기간 시뮬레이션을 시작했다.`]);
 
-    try {
-      const response = await fetch("/api/generate-professor-image", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          professorName: displayProfessorName,
-          professorSummary,
-          illustrationPrompt,
-        }),
-      });
+    if (skipImageGeneration) {
+      setImageMessage("디버그 모드: 이미지 생성 없이 바로 진행합니다.");
+    } else {
+      try {
+        const response = await fetch("/api/generate-professor-image", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            professorName: displayProfessorName,
+            professorSummary,
+            illustrationPrompt,
+          }),
+        });
 
-      const data = (await response.json()) as {
-        imageDataUrl?: string;
-        promptUsed?: string;
-        message?: string;
-      };
+        const data = (await response.json()) as {
+          imageDataUrl?: string;
+          promptUsed?: string;
+          message?: string;
+        };
 
-      if (!response.ok || !data.imageDataUrl) {
-        throw new Error(data.message || "교수 스프라이트 생성 실패");
+        if (!response.ok || !data.imageDataUrl) {
+          throw new Error(data.message || "교수 스프라이트 생성 실패");
+        }
+
+        setGeneratedImageUrl(data.imageDataUrl);
+        setImagePromptUsed(data.promptUsed || "");
+        setImageMessage("교수님 전신 스프라이트를 생성했습니다.");
+      } catch (error) {
+        setGeneratedImageUrl("");
+        setImageMessage(
+          error instanceof Error
+            ? `이미지 없이 진행합니다: ${error.message}`
+            : "이미지 없이 진행합니다.",
+        );
       }
-
-      setGeneratedImageUrl(data.imageDataUrl);
-      setImagePromptUsed(data.promptUsed || "");
-      setImageMessage("교수님 전신 스프라이트를 생성했습니다.");
-    } catch (error) {
-      setGeneratedImageUrl("");
-      setImageMessage(
-        error instanceof Error
-          ? `이미지 없이 진행합니다: ${error.message}`
-          : "이미지 없이 진행합니다.",
-      );
     }
 
     setChapterIndex(0);
@@ -614,6 +950,11 @@ export default function Home() {
     setDialogue("");
     setChoices([]);
     setSelectedChoice(null);
+    setDisplayedSpeechText("");
+    setTtsState("idle");
+    setTtsMessage("");
+    setTtsAudioUrl("");
+    setTtsVoiceName("");
     setEndingData(null);
     setEndingLoading(false);
     setSaveState("idle");
@@ -631,6 +972,7 @@ export default function Home() {
         loop
         preload="auto"
       />
+      <audio ref={speechAudioRef} preload="auto" />
 
       <button
         onClick={toggleMusic}
@@ -708,6 +1050,26 @@ export default function Home() {
                       </option>
                     ))}
                   </select>
+                </label>
+
+                <label className="space-y-2 md:col-span-2">
+                  <span className="text-sm font-semibold text-pink-100">교수님 목소리</span>
+                  <select
+                    value={professor.voiceName}
+                    onChange={(event) => updateProfessor("voiceName", event.target.value)}
+                    className="w-full rounded-2xl border border-white/20 bg-black/35 px-4 py-3 outline-none transition focus:border-pink-300"
+                  >
+                    {availableVoiceOptions.map((option, index) => (
+                      <option key={`${option.value}-${index}`} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs leading-6 text-pink-100/65">
+                    Google Cloud 한국어 Standard / WaveNet / Neural2 보이스를 최대한
+                    많이 노출했습니다. 무료 티어 안에서는 테스트 가능하지만, 사용량이
+                    많아지면 과금될 수 있어요.
+                  </p>
                 </label>
 
                 {traitKeys.map((traitKey) => (
@@ -788,11 +1150,18 @@ export default function Home() {
 
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
-                  onClick={startSimulation}
+                  onClick={() => startSimulation(false)}
                   className="anime-button px-8 py-3 text-sm md:text-base"
                   type="button"
                 >
                   교수님 생성하고 시작하기
+                </button>
+                <button
+                  onClick={() => startSimulation(true)}
+                  className="rounded-full border border-amber-200/70 bg-amber-100/90 px-6 py-3 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
+                  type="button"
+                >
+                  디버그 시작 (이미지 생성 건너뛰기)
                 </button>
                 <button
                   onClick={resetToTitle}
@@ -916,11 +1285,39 @@ export default function Home() {
               <div className="mt-4 rounded-2xl border border-black/5 bg-white/70 px-5 py-5 text-base md:text-lg">
                 {chapterLoading ? (
                   <p className="animate-pulse text-slate-500">교수님이 다음 멘트를 고르는 중...</p>
+                ) : ttsState === "loading" && !displayedSpeechText ? (
+                  <p className="animate-pulse text-slate-500">교수님이 입을 여는 중...</p>
                 ) : (
                   <TypewriterText
-                    text={selectedChoice ? selectedChoice.reaction : dialogue}
+                    key={
+                      selectedChoice
+                        ? `reaction-${displayedSpeechText}-${typingSpeed}`
+                        : `dialogue-${displayedSpeechText}-${typingSpeed}`
+                    }
+                    text={displayedSpeechText}
+                    speed={typingSpeed}
+                    allowSkip
                   />
                 )}
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs text-slate-500">
+                  {ttsState === "loading" && "교수님 음성을 생성하는 중..."}
+                  {ttsState === "ready" &&
+                    ttsVoiceName &&
+                    `TTS Voice: ${ttsVoiceName} · 감정: ${activeSpeechEmotion} · 대사 속도 동기화 중`}
+                  {ttsState === "error" && ttsMessage}
+                  {ttsState === "idle" && "대사가 바뀌면 교수님 음성이 자동으로 재생됩니다."}
+                </div>
+                <button
+                  onClick={replaySpeech}
+                  disabled={!ttsAudioUrl || ttsState === "loading"}
+                  className="rounded-full border border-slate-300 bg-white/80 px-4 py-2 text-xs font-bold tracking-[0.14em] text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                  type="button"
+                >
+                  음성 다시 듣기
+                </button>
               </div>
 
               {chapterMessage && (
@@ -980,7 +1377,7 @@ export default function Home() {
                     </p>
                     <h2 className="mt-2 text-3xl font-black md:text-4xl">{endingData.endingTitle}</h2>
                     <div className="mt-4 text-sm leading-7 text-rose-50/95">
-                      <TypewriterText text={endingData.endingStory} />
+                      <TypewriterText key={`ending-${endingData.endingStory}`} text={endingData.endingStory} speed={32} />
                     </div>
                   </div>
 

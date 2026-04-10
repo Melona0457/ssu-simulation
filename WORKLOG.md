@@ -143,3 +143,33 @@
   - `public/next.svg`
   - `public/vercel.svg`
   - `public/window.svg`
+
+## 2026-04-11 추가 작업
+
+### Google Cloud TTS 준비
+
+- Google Cloud 서비스 계정 JSON 키 파일을 로컬에 배치
+- `.env.local`에 Google Cloud TTS 관련 환경 변수 추가
+- 서비스 계정 키가 GitHub에 올라가지 않도록 [.gitignore](/Users/jeongin/ssu-simulation/.gitignore)에 JSON 키 파일명 추가
+
+### Google Cloud TTS 연동
+
+- Google Cloud Text-to-Speech 서버 helper 추가
+- `/api/tts` API route 추가
+- 교수 성별 표현에 따라 한국어 Google TTS 음성을 다르게 매핑
+- 챕터 대사와 선택 직후 반응이 바뀔 때 자동으로 TTS를 생성하고 재생하도록 플레이 화면에 연결
+- 자동 재생이 막힐 때를 대비해 `음성 다시 듣기` 버튼 추가
+
+### TTS 연출 개선
+
+- 교수 생성 화면에 `교수님 목소리` 선택 드롭다운 추가
+- 성별 표현에 맞는 Google 한국어 음성 옵션만 보이도록 연결
+- 챕터 대사/반응 텍스트가 TTS 준비 전에 먼저 뜨지 않도록 표시 타이밍 조정
+- 오디오 길이를 기준으로 타이핑 속도를 조정해 TTS와 텍스트 진행감을 더 가깝게 맞춤
+
+### 감정 기반 TTS 연출 추가
+
+- 챕터 대사 생성 API에서 `emotion` 태그를 함께 생성하도록 확장
+- 선택지 반응에도 감정 태그를 포함하도록 구조 수정
+- Google TTS는 emotion 값에 따라 speaking rate와 pitch를 달리 적용하도록 설정
+- 플레이 화면에서 현재 대사 감정 상태를 확인할 수 있게 표시

@@ -4,6 +4,7 @@ import {
   chapterInfoMap,
   type ChapterChoice,
   type ChapterId,
+  type DialogueEmotion,
 } from "@/lib/game-data";
 import { createOpenAIClient } from "@/lib/openai/server";
 
@@ -19,11 +20,27 @@ type RawChoice = {
   text?: unknown;
   preview?: unknown;
   reaction?: unknown;
+  emotion?: unknown;
   effects?: {
     affinity?: unknown;
     intellect?: unknown;
   };
 };
+
+function normalizeEmotion(value: unknown, fallback: DialogueEmotion): DialogueEmotion {
+  if (
+    value === "neutral" ||
+    value === "stern" ||
+    value === "teasing" ||
+    value === "awkward" ||
+    value === "warm" ||
+    value === "panic"
+  ) {
+    return value;
+  }
+
+  return fallback;
+}
 
 function isChapterId(value: string): value is ChapterId {
   return value in chapterInfoMap;
@@ -52,6 +69,7 @@ function normalizeChoice(input: RawChoice | undefined, fallback: ChapterChoice):
       typeof input?.reaction === "string" && input.reaction.trim().length > 0
         ? input.reaction
         : fallback.reaction,
+    emotion: normalizeEmotion(input?.emotion, fallback.emotion),
     effects: {
       affinity: toSafeNumber(input?.effects?.affinity, fallback.effects.affinity),
       intellect: toSafeNumber(input?.effects?.intellect, fallback.effects.intellect),
@@ -63,6 +81,7 @@ function buildFallback(chapterId: ChapterId) {
   const fallback = chapterFallbackDialogues[chapterId];
   return {
     dialogue: fallback.dialogue,
+    emotion: "neutral" as const,
     choices: fallback.choices,
   };
 }
@@ -111,17 +130,20 @@ export async function POST(request: Request) {
     "JSON 스키마:",
     "{",
     '  "dialogue": "교수의 현재 대사 1~2문장",',
+    '  "emotion": "neutral | stern | teasing | awkward | warm | panic",',
     '  "choices": [',
     "    {",
     '      "text": "선택지 본문",',
     '      "preview": "선택지 보조 설명",',
     '      "reaction": "선택 직후 교수 반응",',
+    '      "emotion": "neutral | stern | teasing | awkward | warm | panic",',
     '      "effects": { "affinity": 0, "intellect": 0 }',
     "    }",
     "  ]",
     "}",
     "조건:",
     "- choices는 정확히 3개.",
+    "- dialogue와 각 reaction에 어울리는 emotion을 반드시 넣을 것.",
     "- affinity, intellect는 각각 -4~12 정수.",
     "- 한 선택지는 반드시 조금 과감한 맑눈광 드립으로 작성.",
     "- reaction은 츤데레 톤 유지.",
@@ -157,6 +179,7 @@ export async function POST(request: Request) {
 
     const parsed = JSON.parse(raw) as {
       dialogue?: unknown;
+      emotion?: unknown;
       choices?: RawChoice[];
     };
 
@@ -169,6 +192,7 @@ export async function POST(request: Request) {
         typeof parsed.dialogue === "string" && parsed.dialogue.trim().length > 0
           ? parsed.dialogue
           : fallback.dialogue,
+      emotion: normalizeEmotion(parsed.emotion, fallback.emotion),
       choices: normalizedChoices,
       fallback: false,
     });

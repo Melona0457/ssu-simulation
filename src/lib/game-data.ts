@@ -1,4 +1,11 @@
 export type GameScoreKey = "affinity" | "intellect";
+export type DialogueEmotion =
+  | "neutral"
+  | "stern"
+  | "teasing"
+  | "awkward"
+  | "warm"
+  | "panic";
 
 export type ChapterId =
   | "STONE_STAIRS"
@@ -22,6 +29,7 @@ type TraitOption = {
 export type ProfessorFormState = {
   name: string;
   gender: ProfessorGender;
+  voiceName: string;
   hair: string;
   eyes: string;
   nose: string;
@@ -45,6 +53,7 @@ export type ChapterChoice = {
   text: string;
   preview: string;
   reaction: string;
+  emotion: DialogueEmotion;
   effects: Record<GameScoreKey, number>;
 };
 
@@ -118,18 +127,21 @@ export const chapterFallbackDialogues: Record<ChapterId, ChapterDialogue> = {
         text: "교수님, 이 떡볶이 한 입 하시면 시험 범위 1페이지 줄여주시나요?",
         preview: "무례 직전의 농담, 하지만 타이밍은 완벽할지도.",
         reaction: "허허... 자네 협상력이 늘었군. 범위는 그대로지만 센스는 인정하지.",
+        emotion: "teasing",
         effects: { affinity: 7, intellect: 2 },
       },
       {
         text: "교수님 학부생 때도 여기서 짜장면 드셨나요? 노하우 전수 부탁드립니다.",
         preview: "안전하고 공감형 접근.",
         reaction: "그땐 지금보다 더 처절했네. 메뉴보다 루틴을 배워가게.",
+        emotion: "warm",
         effects: { affinity: 5, intellect: 5 },
       },
       {
         text: "배달 기사님인 줄 알고 손 흔들 뻔했어요. 너무 힙하셔서요.",
         preview: "맑눈광 플러팅의 정석.",
         reaction: "얘 봐라... 기분은 나쁘지 않군. 대신 내일 문제는 더 힙할 수도 있어.",
+        emotion: "teasing",
         effects: { affinity: 8, intellect: 1 },
       },
     ],
@@ -142,18 +154,21 @@ export const chapterFallbackDialogues: Record<ChapterId, ChapterDialogue> = {
         text: "방금 설명하신 부분, PDF 4페이지랑 다른데 교수님의 밀당인가요?",
         preview: "팩트 체크 + 도발의 조합.",
         reaction: "자료를 그냥 외우지 않았단 뜻이군. 그런 태도는 점수로 남는다.",
+        emotion: "stern",
         effects: { affinity: 4, intellect: 8 },
       },
       {
         text: "시험 문제, 교수님 얼굴처럼 아름답게 내주실 거죠?",
         preview: "위험하지만 분위기를 띄우는 농담.",
         reaction: "아름다움은 상대적인 법이지. 다만 준비한 자에겐 친절할 걸세.",
+        emotion: "teasing",
         effects: { affinity: 6, intellect: 3 },
       },
       {
         text: "수업 듣다가 대학원 생각이 스쳤습니다. 이게 정상인가요?",
         preview: "의욕 어필형 고위험 선택.",
         reaction: "정상은 아니지만, 좋은 징후일 수도 있지. 근거를 가지고 다시 오게.",
+        emotion: "warm",
         effects: { affinity: 5, intellect: 7 },
       },
     ],
@@ -166,18 +181,21 @@ export const chapterFallbackDialogues: Record<ChapterId, ChapterDialogue> = {
         text: "교수님 지금 문제 꼬는 중 아니죠? 전 이미 꼬였습니다.",
         preview: "공포를 유머로 전환.",
         reaction: "문제는 꼬지 않고 사고력을 확인할 뿐일세. 자네가 먼저 꼬였군.",
+        emotion: "stern",
         effects: { affinity: 5, intellect: 6 },
       },
       {
         text: "제 안광 보이세요? 교수님 전공서적이 가져갔어요.",
         preview: "피곤함을 드립으로 포장.",
         reaction: "안광은 잃어도 맥락은 잃지 말게. 그 한 줄이 답안을 살린다.",
+        emotion: "warm",
         effects: { affinity: 4, intellect: 7 },
       },
       {
         text: "교수님이랑 밤샘이라니... 이거 데이트 맞죠? (광기)",
         preview: "위험한 맑눈광 정면돌파.",
         reaction: "데이트는 모르겠고, 공부 파트너로는 봐줄 만하군. 집중하자고.",
+        emotion: "awkward",
         effects: { affinity: 9, intellect: 0 },
       },
     ],
@@ -190,18 +208,21 @@ export const chapterFallbackDialogues: Record<ChapterId, ChapterDialogue> = {
         text: "교수님 여기선 동네 형 같아요. 계산은... 마음만 낼게요.",
         preview: "예의와 플러팅 사이.",
         reaction: "마음만 받지. 대신 내일 답안엔 마음보다 논리를 담게.",
+        emotion: "warm",
         effects: { affinity: 7, intellect: 4 },
       },
       {
         text: "시험 전날엔 소주파인가요 맥주파인가요? 인생 공식 궁금합니다.",
         preview: "조언 유도형 질문.",
         reaction: "시험 전날엔 물과 수면이지. 공식은 간단해도 지키기 어렵다네.",
+        emotion: "stern",
         effects: { affinity: 3, intellect: 8 },
       },
       {
         text: "맛집 찾는 센스까지... 교수님 쩝쩝박사 학위도 있으시네요.",
         preview: "가벼운 칭찬으로 라포 형성.",
         reaction: "학위가 많으면 피곤해져. 자네는 우선 이번 과목부터 졸업하게.",
+        emotion: "teasing",
         effects: { affinity: 8, intellect: 2 },
       },
     ],
@@ -214,12 +235,14 @@ export const chapterFallbackDialogues: Record<ChapterId, ChapterDialogue> = {
         text: "시험지가 두꺼운 건 제 사랑의 무게인가요?",
         preview: "마지막 플러팅, 마지막 도박.",
         reaction: "사랑은 모르겠고, 분량은 공평하지. 끝까지 버텨보게.",
+        emotion: "stern",
         effects: { affinity: 6, intellect: 3 },
       },
       {
         text: "답 대신 편지 쓰면 읽어주실 건가요?",
         preview: "감성형 무모함.",
         reaction: "편지는 나중에. 지금은 답안지에 근거를 쓰게.",
+        emotion: "awkward",
         effects: { affinity: 4, intellect: 4 },
       },
       {
@@ -227,6 +250,7 @@ export const chapterFallbackDialogues: Record<ChapterId, ChapterDialogue> = {
         preview: "메타 유머 + 정신력 회복.",
         reaction:
           "좋군. 자 민상군! 이제 현실세계로 돌아가 공부를 할 시간이야. 시작하세.",
+        emotion: "warm",
         effects: { affinity: 5, intellect: 7 },
       },
     ],
@@ -287,6 +311,73 @@ export const professorGenderOptions: Array<{ label: string; value: ProfessorGend
   { label: "여성", value: "여성" },
   { label: "논바이너리", value: "논바이너리" },
   { label: "미정(중성 표현)", value: "미정(중성 표현)" },
+];
+
+export const professorVoiceOptions: Array<{
+  label: string;
+  value: string;
+  genders: ProfessorGender[];
+}> = [
+  {
+    label: "Neural2 B · 여성 톤",
+    value: "ko-KR-Neural2-B",
+    genders: ["여성"],
+  },
+  {
+    label: "Neural2 C · 남성 톤",
+    value: "ko-KR-Neural2-C",
+    genders: ["남성"],
+  },
+  {
+    label: "Standard A · 여성 톤",
+    value: "ko-KR-Standard-A",
+    genders: ["여성"],
+  },
+  {
+    label: "Standard B · 여성 톤",
+    value: "ko-KR-Standard-B",
+    genders: ["여성"],
+  },
+  {
+    label: "Standard C · 남성 톤",
+    value: "ko-KR-Standard-C",
+    genders: ["남성"],
+  },
+  {
+    label: "Standard D · 남성 톤",
+    value: "ko-KR-Standard-D",
+    genders: ["남성"],
+  },
+  {
+    label: "WaveNet A · 여성 톤",
+    value: "ko-KR-Wavenet-A",
+    genders: ["여성"],
+  },
+  {
+    label: "WaveNet B · 여성 톤",
+    value: "ko-KR-Wavenet-B",
+    genders: ["여성"],
+  },
+  {
+    label: "WaveNet C · 남성 톤",
+    value: "ko-KR-Wavenet-C",
+    genders: ["남성"],
+  },
+  {
+    label: "WaveNet D · 남성 톤",
+    value: "ko-KR-Wavenet-D",
+    genders: ["남성"],
+  },
+  {
+    label: "중성 추천 · Neural2 B",
+    value: "ko-KR-Neural2-B",
+    genders: ["논바이너리", "미정(중성 표현)"],
+  },
+  {
+    label: "중성 추천 · Neural2 C",
+    value: "ko-KR-Neural2-C",
+    genders: ["논바이너리", "미정(중성 표현)"],
+  },
 ];
 
 export const endingMeta: Record<
