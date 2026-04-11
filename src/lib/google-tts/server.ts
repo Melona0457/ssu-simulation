@@ -3,6 +3,39 @@ import path from "node:path";
 import textToSpeech from "@google-cloud/text-to-speech";
 import type { DialogueEmotion, ProfessorGender } from "@/lib/game-data";
 
+type GoogleServiceAccount = {
+  client_email: string;
+  private_key: string;
+  project_id?: string;
+};
+
+function parseServiceAccountFromEnv(): GoogleServiceAccount | null {
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+
+  if (!raw || raw.trim().length === 0) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<GoogleServiceAccount>;
+
+    if (
+      typeof parsed.client_email !== "string" ||
+      typeof parsed.private_key !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      client_email: parsed.client_email,
+      private_key: parsed.private_key,
+      project_id: typeof parsed.project_id === "string" ? parsed.project_id : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function resolveCredentialsPath() {
   const configuredPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
@@ -27,7 +60,20 @@ function resolveCredentialsPath() {
 }
 
 export function createGoogleTtsClient() {
-  const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
+  const envCredentials = parseServiceAccountFromEnv();
+  const projectId =
+    process.env.GOOGLE_CLOUD_PROJECT_ID || envCredentials?.project_id || undefined;
+
+  if (envCredentials && projectId) {
+    return new textToSpeech.TextToSpeechClient({
+      projectId,
+      credentials: {
+        client_email: envCredentials.client_email,
+        private_key: envCredentials.private_key,
+      },
+    });
+  }
+
   const keyFilename = resolveCredentialsPath();
 
   if (!projectId || !keyFilename) {
