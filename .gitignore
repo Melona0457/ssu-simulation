@@ -33,6 +33,7 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 .ssu-simulation-fc472cd47c45.json
+.ssu-simulation-fc472cd47c45.min.json
 
 # vercel
 .vercel

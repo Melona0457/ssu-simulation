@@ -15,6 +15,7 @@ import {
   professorGenderOptions,
   professorVoiceOptions,
   professorTraits,
+  resolveProfessorForGeneration,
   type ChapterChoice,
   type EndingRank,
   type GameScoreKey,
@@ -29,6 +30,7 @@ type DialogueApiResponse = {
   dialogue?: unknown;
   emotion?: unknown;
   choices?: unknown;
+  quiz?: unknown;
   fallback?: boolean;
   message?: string;
 };
@@ -54,6 +56,28 @@ type EndingApiResponse = {
   message?: string;
 };
 
+type StudySummaryContext = {
+  summary: string;
+  keyPoints: string[];
+  sourceModel: string;
+};
+
+type SurpriseQuiz = {
+  concept: string;
+  question: string;
+  options: string[];
+  answerIndex: number;
+  explanation: string;
+};
+
+type RawQuiz = {
+  concept?: unknown;
+  question?: unknown;
+  options?: unknown;
+  answerIndex?: unknown;
+  explanation?: unknown;
+};
+
 const scoreLabels: Record<GameScoreKey, string> = {
   affinity: "친밀도",
   intellect: "지성",
@@ -67,12 +91,12 @@ const initialScores: ScoreState = {
 const initialProfessorState: ProfessorFormState = {
   name: "",
   gender: "미정(중성 표현)",
-  voiceName: "ko-KR-Neural2-B",
-  hair: professorTraits.hair[0].value,
-  eyes: professorTraits.eyes[0].value,
-  nose: professorTraits.nose[0].value,
-  face: professorTraits.face[0].value,
-  vibe: professorTraits.vibe[0].value,
+  voiceName: "Kore",
+  hair: "",
+  eyes: "",
+  nose: "",
+  face: "",
+  vibe: "",
   customPrompt: "",
   studyNotes: "",
   examDeadline: getDefaultExamDeadline(),
@@ -86,11 +110,11 @@ const TRAIT_CUSTOM_VALUE = "__CUSTOM__";
 const TRAIT_UNSET_VALUE = "__UNSET__";
 
 const initialTraitModes: Record<TraitKey, TraitMode> = {
-  hair: "preset",
-  eyes: "preset",
-  nose: "preset",
-  face: "preset",
-  vibe: "preset",
+  hair: "unset",
+  eyes: "unset",
+  nose: "unset",
+  face: "unset",
+  vibe: "unset",
 };
 
 const initialCustomTraits: Record<TraitKey, string> = {
@@ -163,6 +187,47 @@ function normalizeChoices(value: unknown, fallback: ChapterChoice[]) {
       },
     };
   });
+}
+
+function normalizeQuiz(value: unknown) {
+  const raw = value as RawQuiz | null | undefined;
+
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  const question =
+    typeof raw.question === "string" && raw.question.trim().length > 0
+      ? raw.question.trim()
+      : "";
+
+  const options = Array.isArray(raw.options)
+    ? raw.options
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter((item) => item.length > 0)
+        .slice(0, 4)
+    : [];
+
+  const answerIndex = toSafeNumber(raw.answerIndex, -1);
+  const explanation =
+    typeof raw.explanation === "string" && raw.explanation.trim().length > 0
+      ? raw.explanation.trim()
+      : "";
+
+  if (!question || options.length !== 4 || answerIndex < 0 || answerIndex > 3) {
+    return null;
+  }
+
+  return {
+    concept:
+      typeof raw.concept === "string" && raw.concept.trim().length > 0
+        ? raw.concept.trim()
+        : "핵심 개념",
+    question,
+    options,
+    answerIndex,
+    explanation,
+  } as SurpriseQuiz;
 }
 
 function formatDateTime(value: Date) {
@@ -381,6 +446,13 @@ export default function Home() {
 
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveMessage, setSaveMessage] = useState("");
+  const [noteSummaryLoading, setNoteSummaryLoading] = useState(false);
+  const [noteSummaryMessage, setNoteSummaryMessage] = useState("");
+  const [studySummaryContext, setStudySummaryContext] = useState<StudySummaryContext | null>(null);
+  const [surpriseQuiz, setSurpriseQuiz] = useState<SurpriseQuiz | null>(null);
+  const [quizSelectedIndex, setQuizSelectedIndex] = useState<number | null>(null);
+  const [quizSolved, setQuizSolved] = useState(false);
+  const [quizFeedback, setQuizFeedback] = useState("");
 
   const [musicOn, setMusicOn] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -575,7 +647,7 @@ export default function Home() {
       return;
     }
 
-    updateProfessor("voiceName", availableVoiceOptions[0]?.value ?? "ko-KR-Neural2-B");
+    updateProfessor("voiceName", availableVoiceOptions[0]?.value ?? "Kore");
   }, [availableVoiceOptions, professor.voiceName]);
 
   function updateProfessor<K extends keyof ProfessorFormState>(
@@ -628,6 +700,76 @@ export default function Home() {
     }
   }
 
+  async function summarizeStudyNotes() {
+    const rawNotes = professor.studyNotes.trim();
+
+    if (!rawNotes) {
+      setNoteSummaryMessage("요약할 학습 노트를 먼저 입력해주세요.");
+      return;
+    }
+
+    setNoteSummaryLoading(true);
+    setNoteSummaryMessage("");
+
+    try {
+      const response = await fetch("/api/summarize-study-notes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          rawText: rawNotes,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        summary?: unknown;
+        keyPoints?: unknown;
+        model?: unknown;
+        message?: unknown;
+      };
+
+      if (
+        !response.ok ||
+        typeof data.summary !== "string" ||
+        data.summary.trim().length === 0
+      ) {
+        throw new Error(
+          typeof data.message === "string" ? data.message : "학습 노트 요약 실패",
+        );
+      }
+
+      const normalizedPoints = Array.isArray(data.keyPoints)
+        ? data.keyPoints
+            .map((item) => (typeof item === "string" ? item.trim() : ""))
+            .filter((item) => item.length > 0)
+        : [];
+
+      const mergedSummary =
+        normalizedPoints.length > 0
+          ? `${data.summary}\n\n핵심 포인트\n${normalizedPoints.map((point) => `- ${point}`).join("\n")}`
+          : data.summary;
+      const sourceModel =
+        typeof data.model === "string" && data.model.trim().length > 0
+          ? data.model.trim()
+          : "gpt-4.1-mini";
+
+      updateProfessor("studyNotes", mergedSummary);
+      setStudySummaryContext({
+        summary: data.summary,
+        keyPoints: normalizedPoints,
+        sourceModel,
+      });
+      setNoteSummaryMessage(
+        `OpenAI 요약 완료 (${sourceModel})`,
+      );
+    } catch (error) {
+      setNoteSummaryMessage(error instanceof Error ? error.message : "학습 노트 요약 실패");
+    } finally {
+      setNoteSummaryLoading(false);
+    }
+  }
+
   async function toggleMusic() {
     const audio = audioRef.current;
 
@@ -665,9 +807,20 @@ export default function Home() {
     }
   }
 
-  async function loadChapter(targetChapterIndex: number, scoreSnapshot: ScoreState) {
+  async function loadChapter(
+    targetChapterIndex: number,
+    scoreSnapshot: ScoreState,
+    promptOverride?: {
+      professorName?: string;
+      professorSummary?: string;
+      studyNotes?: string;
+    },
+  ) {
     const chapterId = chapterSequence[targetChapterIndex];
     const fallback = chapterFallbackDialogues[chapterId];
+    const professorNameForPrompt = promptOverride?.professorName ?? displayProfessorName;
+    const professorSummaryForPrompt = promptOverride?.professorSummary ?? professorSummary;
+    const studyNotesForPrompt = promptOverride?.studyNotes ?? professor.studyNotes;
 
     setChapterLoading(true);
     setDialogue("");
@@ -675,6 +828,10 @@ export default function Home() {
     setChoices([]);
     setSelectedChoice(null);
     setChapterMessage("");
+    setSurpriseQuiz(null);
+    setQuizSelectedIndex(null);
+    setQuizSolved(false);
+    setQuizFeedback("");
 
     try {
       const response = await fetch("/api/generate-chapter-dialogue", {
@@ -684,10 +841,11 @@ export default function Home() {
         },
         body: JSON.stringify({
           chapterId,
-          professorName: displayProfessorName,
-          professorSummary,
+          professorName: professorNameForPrompt,
+          professorSummary: professorSummaryForPrompt,
           totalScore: scoreSnapshot.affinity + scoreSnapshot.intellect,
-          studyNotes: professor.studyNotes,
+          studyNotes: studyNotesForPrompt,
+          studyQuizContext: studySummaryContext,
         }),
       });
 
@@ -704,6 +862,7 @@ export default function Home() {
       );
       setDialogueEmotion(toDialogueEmotion(data.emotion, "neutral"));
       setChoices(normalizeChoices(data.choices, fallback.choices));
+      setSurpriseQuiz(normalizeQuiz(data.quiz));
 
       if (typeof data.message === "string") {
         setChapterMessage(data.message);
@@ -723,6 +882,42 @@ export default function Home() {
   }
 
   async function startSimulation(skipImageGeneration = false) {
+    const randomizedTraits: string[] = [];
+    if (!professor.hair.trim()) {
+      randomizedTraits.push("헤어");
+    }
+    if (!professor.eyes.trim()) {
+      randomizedTraits.push("눈매");
+    }
+    if (!professor.nose.trim()) {
+      randomizedTraits.push("코");
+    }
+    if (!professor.face.trim()) {
+      randomizedTraits.push("얼굴형");
+    }
+    if (!professor.vibe.trim()) {
+      randomizedTraits.push("분위기");
+    }
+    if (!professor.customPrompt.trim()) {
+      randomizedTraits.push("성격 디테일");
+    }
+
+    const resolvedProfessor = resolveProfessorForGeneration(professor);
+    const resolvedProfessorName = resolvedProfessor.name.trim() || "이름 미정 교수님";
+    const resolvedProfessorForPrompt = {
+      ...resolvedProfessor,
+      name: resolvedProfessorName,
+    };
+    const resolvedProfessorSummary = buildProfessorSummary(resolvedProfessorForPrompt);
+    const resolvedIllustrationPrompt = buildIllustrationPrompt(resolvedProfessorForPrompt);
+    const randomizedNotice =
+      randomizedTraits.length > 0
+        ? `미선택 항목 랜덤 배정: ${randomizedTraits.join(", ")}`
+        : "";
+    const joinStatusMessage = (...parts: string[]) =>
+      parts.filter((part) => part.length > 0).join(" / ");
+
+    setProfessor(resolvedProfessor);
     setPhase("initializing");
     setGeneratedImageUrl("");
     setImageMessage("");
@@ -730,14 +925,23 @@ export default function Home() {
     setSaveState("idle");
     setSaveMessage("");
     setEndingData(null);
+    setSurpriseQuiz(null);
+    setQuizSelectedIndex(null);
+    setQuizSolved(false);
+    setQuizFeedback("");
 
     const resetScores = { ...initialScores };
     setScores(resetScores);
     scoresRef.current = resetScores;
-    setStoryLog([`${displayProfessorName}과(와) 시험기간 시뮬레이션을 시작했다.`]);
+    setStoryLog([`${resolvedProfessorName}과(와) 시험기간 시뮬레이션을 시작했다.`]);
 
     if (skipImageGeneration) {
-      setImageMessage("디버그 모드: 이미지 생성 없이 바로 진행합니다.");
+      setImageMessage(
+        joinStatusMessage(
+          randomizedNotice,
+          "디버그 모드: 이미지 생성 없이 바로 진행합니다.",
+        ),
+      );
     } else {
       try {
         const response = await fetch("/api/generate-professor-image", {
@@ -746,9 +950,9 @@ export default function Home() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            professorName: displayProfessorName,
-            professorSummary,
-            illustrationPrompt,
+            professorName: resolvedProfessorName,
+            professorSummary: resolvedProfessorSummary,
+            illustrationPrompt: resolvedIllustrationPrompt,
           }),
         });
 
@@ -764,25 +968,34 @@ export default function Home() {
 
         setGeneratedImageUrl(data.imageDataUrl);
         setImagePromptUsed(data.promptUsed || "");
-        setImageMessage("교수님 전신 스프라이트를 생성했습니다.");
+        setImageMessage(
+          joinStatusMessage(randomizedNotice, "교수님 전신 스프라이트를 생성했습니다."),
+        );
       } catch (error) {
         setGeneratedImageUrl("");
         setImageMessage(
-          error instanceof Error
-            ? `이미지 없이 진행합니다: ${error.message}`
-            : "이미지 없이 진행합니다.",
+          joinStatusMessage(
+            randomizedNotice,
+            error instanceof Error
+              ? `이미지 없이 진행합니다: ${error.message}`
+              : "이미지 없이 진행합니다.",
+          ),
         );
       }
     }
 
     setChapterIndex(0);
     setPhase("chapter");
-    await loadChapter(0, resetScores);
+    await loadChapter(0, resetScores, {
+      professorName: resolvedProfessorName,
+      professorSummary: resolvedProfessorSummary,
+      studyNotes: resolvedProfessor.studyNotes,
+    });
     window.scrollTo({ top: 0, behavior: "auto" });
   }
 
   function chooseOption(choice: ChapterChoice) {
-    if (selectedChoice || chapterLoading) {
+    if (selectedChoice || chapterLoading || (surpriseQuiz && !quizSolved)) {
       return;
     }
 
@@ -803,6 +1016,43 @@ export default function Home() {
     ]);
   }
 
+  function answerSurpriseQuiz(optionIndex: number) {
+    if (!surpriseQuiz || quizSolved || selectedChoice || chapterLoading) {
+      return;
+    }
+
+    setQuizSelectedIndex(optionIndex);
+    setQuizSolved(true);
+
+    const isCorrect = optionIndex === surpriseQuiz.answerIndex;
+    const intellectDelta = isCorrect ? 4 : -1;
+
+    setScores((current) => {
+      const next = {
+        ...current,
+        intellect: current.intellect + intellectDelta,
+      };
+      scoresRef.current = next;
+      return next;
+    });
+
+    const resultLine = isCorrect
+      ? `깜짝 퀴즈 정답! 지성 +4 (${surpriseQuiz.concept})`
+      : `깜짝 퀴즈 오답! 지성 -1 (${surpriseQuiz.concept})`;
+    const explanationLine = surpriseQuiz.explanation
+      ? `해설: ${surpriseQuiz.explanation}`
+      : "";
+
+    setQuizFeedback([resultLine, explanationLine].filter((line) => line.length > 0).join(" "));
+
+    setStoryLog((current) => [
+      ...current,
+      `[깜짝 퀴즈] ${surpriseQuiz.question}`,
+      `[선택] ${surpriseQuiz.options[optionIndex] ?? ""}`,
+      resultLine,
+    ]);
+  }
+
   async function generateEnding(scoreSnapshot: ScoreState) {
     setEndingLoading(true);
 
@@ -818,6 +1068,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           professorName: displayProfessorName,
+          professorSummary,
           totalScore: total,
           affinityScore: scoreSnapshot.affinity,
           intellectScore: scoreSnapshot.intellect,
@@ -959,6 +1210,13 @@ export default function Home() {
     setEndingLoading(false);
     setSaveState("idle");
     setSaveMessage("");
+    setNoteSummaryLoading(false);
+    setNoteSummaryMessage("");
+    setStudySummaryContext(null);
+    setSurpriseQuiz(null);
+    setQuizSelectedIndex(null);
+    setQuizSolved(false);
+    setQuizFeedback("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -1066,9 +1324,8 @@ export default function Home() {
                     ))}
                   </select>
                   <p className="text-xs leading-6 text-pink-100/65">
-                    Google Cloud 한국어 Standard / WaveNet / Neural2 보이스를 최대한
-                    많이 노출했습니다. 무료 티어 안에서는 테스트 가능하지만, 사용량이
-                    많아지면 과금될 수 있어요.
+                    Gemini TTS 프리뷰 보이스 목록입니다. 같은 텍스트라도 보이스에 따라
+                    성격 톤이 꽤 다르게 들립니다.
                   </p>
                 </label>
 
@@ -1120,7 +1377,19 @@ export default function Home() {
                 </label>
 
                 <label className="space-y-2 md:col-span-2">
-                  <span className="text-sm font-semibold text-pink-100">학습 노트/PDF 요약</span>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-pink-100">
+                      학습 노트/PDF 요약
+                    </span>
+                    <button
+                      type="button"
+                      onClick={summarizeStudyNotes}
+                      disabled={noteSummaryLoading}
+                      className="rounded-full border border-pink-200/60 bg-pink-100/90 px-4 py-2 text-xs font-semibold text-pink-900 transition hover:bg-pink-100 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {noteSummaryLoading ? "OpenAI 요약 중..." : "OpenAI로 요약하기"}
+                    </button>
+                  </div>
                   <textarea
                     value={professor.studyNotes}
                     onChange={(event) => updateProfessor("studyNotes", event.target.value)}
@@ -1128,6 +1397,9 @@ export default function Home() {
                     className="w-full rounded-2xl border border-white/20 bg-black/35 px-4 py-3 outline-none transition focus:border-pink-300"
                     placeholder="시험 범위 핵심 키워드나 요약본을 넣으면 챕터 대사에 반영됩니다."
                   />
+                  {noteSummaryMessage && (
+                    <p className="text-xs leading-6 text-pink-100/75">{noteSummaryMessage}</p>
+                  )}
                 </label>
 
                 <label className="space-y-2 md:col-span-2">
@@ -1324,6 +1596,45 @@ export default function Home() {
                 <p className="mt-3 text-xs text-slate-500">{chapterMessage}</p>
               )}
 
+              {surpriseQuiz && !selectedChoice && (
+                <div className="mt-4 rounded-2xl border border-amber-200/75 bg-amber-50 px-4 py-4">
+                  <p className="text-xs font-bold tracking-[0.14em] text-amber-700 uppercase">
+                    Surprise Quiz · {surpriseQuiz.concept}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-amber-900">{surpriseQuiz.question}</p>
+                  <div className="mt-3 grid gap-2">
+                    {surpriseQuiz.options.map((option, index) => {
+                      const isSelected = quizSelectedIndex === index;
+                      const isCorrectChoice = quizSolved && index === surpriseQuiz.answerIndex;
+                      return (
+                        <button
+                          key={`${option}-${index}`}
+                          type="button"
+                          onClick={() => answerSurpriseQuiz(index)}
+                          disabled={quizSolved || chapterLoading}
+                          className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                            isCorrectChoice
+                              ? "border-emerald-500 bg-emerald-100 text-emerald-900"
+                              : isSelected
+                                ? "border-rose-300 bg-rose-100 text-rose-900"
+                                : "border-amber-200 bg-white text-amber-900 hover:bg-amber-100"
+                          } disabled:cursor-not-allowed disabled:opacity-80`}
+                        >
+                          {index + 1}. {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {quizFeedback ? (
+                    <p className="mt-3 text-xs leading-6 text-slate-700">{quizFeedback}</p>
+                  ) : (
+                    <p className="mt-3 text-xs leading-6 text-slate-500">
+                      퀴즈를 풀면 다음 선택지가 열립니다.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="mt-4 grid gap-3">
                 {selectedChoice ? (
                   <button
@@ -1338,7 +1649,7 @@ export default function Home() {
                     <button
                       key={`${choice.text}-${index}`}
                       onClick={() => chooseOption(choice)}
-                      disabled={chapterLoading}
+                      disabled={chapterLoading || Boolean(surpriseQuiz && !quizSolved)}
                       className="rounded-[20px] border border-pink-200/80 bg-white/80 px-4 py-4 text-left transition hover:-translate-y-0.5 hover:border-pink-400 hover:bg-pink-50 disabled:cursor-not-allowed disabled:opacity-70"
                       type="button"
                     >
