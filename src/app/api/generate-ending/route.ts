@@ -5,10 +5,15 @@ import {
   getEndingRank,
   type EndingRank,
 } from "@/lib/game-data";
-import { createOpenAIClient } from "@/lib/openai/server";
+import {
+  createGeminiClient,
+  extractTextFromGeminiResponse,
+  getGeminiTextModel,
+} from "@/lib/gemini/server";
 
 type EndingRequestPayload = {
   professorName: string;
+  professorSummary?: string;
   totalScore: number;
   affinityScore: number;
   intellectScore: number;
@@ -29,13 +34,13 @@ export async function POST(request: Request) {
   const payload = (await request.json()) as EndingRequestPayload;
   const rank = getEndingRank(payload.totalScore);
   const fallback = fallbackEnding(rank, payload.professorName);
-  const openai = createOpenAIClient();
+  const gemini = createGeminiClient();
 
-  if (!openai) {
+  if (!gemini) {
     return NextResponse.json({
       ...fallback,
       fallback: true,
-      message: "OPENAI_API_KEY가 없어 기본 엔딩을 사용했습니다.",
+      message: "GEMINI_API_KEY가 없어 기본 엔딩을 사용했습니다.",
     });
   }
 
@@ -43,6 +48,9 @@ export async function POST(request: Request) {
     "너는 한국어 게임 시나리오 작가다.",
     "캠퍼스 미연시 패러디 게임의 엔딩을 작성하라.",
     `교수 이름: ${payload.professorName}`,
+    payload.professorSummary
+      ? `교수 페르소나 요약: ${payload.professorSummary}`
+      : "교수 페르소나 요약: 없음",
     `누적 점수: ${payload.totalScore}`,
     `친밀도 점수: ${payload.affinityScore}`,
     `지성 점수: ${payload.intellectScore}`,
@@ -54,31 +62,36 @@ export async function POST(request: Request) {
     '  "endingStory": "2~4문장 엔딩 서사"',
     "}",
     "제약:",
-    "- 교수는 츤데레 톤을 유지.",
-    "- 학생은 맑눈광 느낌을 살짝 남길 것.",
+    "- 교수의 성격/말투는 교수 페르소나 요약을 우선 반영.",
+    "- 학생 화자는 자연스러운 대학생 톤으로 작성.",
     "- endingStory 마지막 문장은 반드시 다음 문구로 끝낼 것:",
     `  ${finalRealityLine}`,
   ].join("\n");
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      temperature: 0.9,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "당신은 게임 엔딩 라이터다. JSON 스키마를 엄격히 준수하고 한국어만 사용하라.",
-        },
+    const response = await gemini.models.generateContent({
+      model: getGeminiTextModel(),
+      contents: [
         {
           role: "user",
-          content: prompt,
+          parts: [
+            {
+              text: [
+                "당신은 게임 엔딩 라이터다.",
+                "JSON 스키마를 엄격히 준수하고 한국어만 사용하라.",
+                prompt,
+              ].join("\n"),
+            },
+          ],
         },
       ],
+      config: {
+        temperature: 0.9,
+        responseMimeType: "application/json",
+      },
     });
 
-    const raw = completion.choices[0]?.message?.content;
+    const raw = extractTextFromGeminiResponse(response);
 
     if (!raw) {
       return NextResponse.json({

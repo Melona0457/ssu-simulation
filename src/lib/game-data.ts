@@ -319,66 +319,68 @@ export const professorVoiceOptions: Array<{
   genders: ProfessorGender[];
 }> = [
   {
-    label: "Neural2 B · 여성 톤",
-    value: "ko-KR-Neural2-B",
-    genders: ["여성"],
+    label: "Kore · 안정적이고 또렷한 톤",
+    value: "Kore",
+    genders: ["남성", "여성", "논바이너리", "미정(중성 표현)"],
   },
   {
-    label: "Neural2 C · 남성 톤",
-    value: "ko-KR-Neural2-C",
-    genders: ["남성"],
+    label: "Enceladus · 차분하고 낮은 톤",
+    value: "Enceladus",
+    genders: ["남성", "여성", "논바이너리", "미정(중성 표현)"],
   },
   {
-    label: "Standard A · 여성 톤",
-    value: "ko-KR-Standard-A",
-    genders: ["여성"],
-  },
-  {
-    label: "Standard B · 여성 톤",
-    value: "ko-KR-Standard-B",
-    genders: ["여성"],
-  },
-  {
-    label: "Standard C · 남성 톤",
-    value: "ko-KR-Standard-C",
-    genders: ["남성"],
-  },
-  {
-    label: "Standard D · 남성 톤",
-    value: "ko-KR-Standard-D",
-    genders: ["남성"],
-  },
-  {
-    label: "WaveNet A · 여성 톤",
-    value: "ko-KR-Wavenet-A",
-    genders: ["여성"],
-  },
-  {
-    label: "WaveNet B · 여성 톤",
-    value: "ko-KR-Wavenet-B",
-    genders: ["여성"],
-  },
-  {
-    label: "WaveNet C · 남성 톤",
-    value: "ko-KR-Wavenet-C",
-    genders: ["남성"],
-  },
-  {
-    label: "WaveNet D · 남성 톤",
-    value: "ko-KR-Wavenet-D",
-    genders: ["남성"],
-  },
-  {
-    label: "중성 추천 · Neural2 B",
-    value: "ko-KR-Neural2-B",
-    genders: ["논바이너리", "미정(중성 표현)"],
-  },
-  {
-    label: "중성 추천 · Neural2 C",
-    value: "ko-KR-Neural2-C",
-    genders: ["논바이너리", "미정(중성 표현)"],
+    label: "Puck · 밝고 경쾌한 톤",
+    value: "Puck",
+    genders: ["남성", "여성", "논바이너리", "미정(중성 표현)"],
   },
 ];
+
+const randomPersonalityPrompts = [
+  "차갑게 보이지만 학생의 성장을 챙기는 타입",
+  "유머를 섞어 긴장을 풀어주지만 평가 기준은 엄격한 타입",
+  "말수는 적지만 핵심 피드백은 정확하게 주는 타입",
+  "겉으로는 무심하지만 질문에는 끝까지 답해주는 타입",
+];
+
+export const professorSpriteStylePreset = [
+  "premium Korean romance-fantasy visual novel key art aesthetic",
+  "anime-style crisp clean line art",
+  "soft cel shading with smooth skin gradients",
+  "high-detail glossy hair strands and highlights",
+  "expressive eyes with elegant facial rendering",
+  "polished commercial game illustration finish",
+  "vivid but balanced magenta-cyan accent lighting",
+];
+
+function pickRandom<T>(items: T[]) {
+  const index = Math.floor(Math.random() * items.length);
+  return items[index];
+}
+
+export function resolveProfessorForGeneration(form: ProfessorFormState): ProfessorFormState {
+  const resolved = { ...form };
+
+  if (!resolved.hair.trim()) {
+    resolved.hair = pickRandom(professorTraits.hair).value;
+  }
+  if (!resolved.eyes.trim()) {
+    resolved.eyes = pickRandom(professorTraits.eyes).value;
+  }
+  if (!resolved.nose.trim()) {
+    resolved.nose = pickRandom(professorTraits.nose).value;
+  }
+  if (!resolved.face.trim()) {
+    resolved.face = pickRandom(professorTraits.face).value;
+  }
+  if (!resolved.vibe.trim()) {
+    resolved.vibe = pickRandom(professorTraits.vibe).value;
+  }
+  if (!resolved.customPrompt.trim()) {
+    resolved.customPrompt = pickRandom(randomPersonalityPrompts);
+  }
+
+  return resolved;
+}
 
 export const endingMeta: Record<
   EndingRank,
@@ -435,10 +437,10 @@ export function buildProfessorSummary(form: ProfessorFormState) {
     .map((trait) => trait.trim())
     .filter((trait) => trait.length > 0);
   const appearanceDescription =
-    selectedTraits.length > 0 ? selectedTraits.join(", ") : "외형 정보 일부 미정";
-  const vibe = form.vibe.trim() || "분위기 미정";
+    selectedTraits.length > 0 ? selectedTraits.join(", ") : "외형 랜덤 배정 예정";
+  const vibe = form.vibe.trim() || "분위기 랜덤 배정 예정";
   const customPrompt =
-    form.customPrompt.trim() || "웃으며 압박하는 타입, 하지만 실력은 확실히 챙겨주는 타입";
+    form.customPrompt.trim() || "성격 디테일 랜덤 배정 예정";
 
   return `${name}은(는) ${form.gender} 교수 설정이다. 외형은 ${appearanceDescription}이며 전체 분위기는 ${vibe}다. 학생 입장에서는 ${customPrompt}으로 느껴진다.`;
 }
@@ -448,20 +450,25 @@ export function buildIllustrationPrompt(form: ProfessorFormState) {
     .map((trait) => trait.trim())
     .filter((trait) => trait.length > 0);
 
-  const visualTraits =
-    selectedTraits.length > 0
-      ? selectedTraits
-      : ["clean academic outfit", "stylish but professional", "expressive face"];
-
-  return [
+  const visualTraits = selectedTraits.length > 0 ? selectedTraits : ["랜덤 배정된 외형 디테일"];
+  const promptParts = [
     "full-body 2D Korean campus visual novel professor sprite",
-    "anime dating sim aesthetic",
     "standing pose",
-    "safe for work, professional academic attire",
+    `style lock: ${professorSpriteStylePreset.join(", ")}`,
     `gender presentation: ${form.gender}`,
     ...visualTraits,
-    form.customPrompt.trim() || "soft pink highlights, dramatic expression, polished game art",
-  ].join(", ");
+  ];
+  const vibe = form.vibe.trim();
+  const personality = form.customPrompt.trim();
+
+  if (vibe) {
+    promptParts.push(`overall vibe: ${vibe}`);
+  }
+  if (personality) {
+    promptParts.push(`personality notes: ${personality}`);
+  }
+
+  return promptParts.join(", ");
 }
 
 export function getDefaultExamDeadline() {

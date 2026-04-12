@@ -151,6 +151,7 @@
 - Google Cloud 서비스 계정 JSON 키 파일을 로컬에 배치
 - `.env.local`에 Google Cloud TTS 관련 환경 변수 추가
 - 서비스 계정 키가 GitHub에 올라가지 않도록 [.gitignore](/Users/jeongin/ssu-simulation/.gitignore)에 JSON 키 파일명 추가
+- Vercel env 업로드용으로 생성했던 minified JSON 임시 파일은 삭제
 
 ### Google Cloud TTS 연동
 
