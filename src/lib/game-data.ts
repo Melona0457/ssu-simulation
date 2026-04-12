@@ -1,4 +1,5 @@
 export type GameScoreKey = "affinity" | "intellect";
+
 export type DialogueEmotion =
   | "neutral"
   | "stern"
@@ -8,36 +9,49 @@ export type DialogueEmotion =
   | "panic";
 
 export type ChapterId =
+  | "ORIENTATION_GATE"
   | "STONE_STAIRS"
+  | "CAMPUS_CAFE"
   | "CLASSROOM"
+  | "TEAM_PROJECT"
   | "LIBRARY"
-  | "INTERSECTION"
-  | "EXAM";
+  | "LAB_CORRIDOR"
+  | "SUNSET_YARD"
+  | "CONVENIENCE_STORE"
+  | "NIGHT_BENCH"
+  | "DAWN_REVIEW"
+  | "EXAM_HALL";
 
-export type EndingRank = "S" | "A" | "B" | "F";
+export type EndingRank = "ENDING_1" | "ENDING_2" | "ENDING_3" | "ENDING_4" | "ENDING_5";
+export type IllustrationStyleKey =
+  | "DESIGN_1_ROMANCE_FANTASY"
+  | "DESIGN_2_CLEAN_CHARACTER_CARD"
+  | "DESIGN_3_CAMPUS_VISUAL_NOVEL";
+
 export type ProfessorGender =
+  | "남자"
+  | "여자"
   | "남성"
   | "여성"
   | "논바이너리"
   | "미정(중성 표현)";
-
-type TraitOption = {
-  label: string;
-  value: string;
-};
+export type PlayerGender = "남자" | "여자";
 
 export type ProfessorFormState = {
   name: string;
   gender: ProfessorGender;
-  voiceName: string;
-  hair: string;
-  eyes: string;
-  nose: string;
-  face: string;
-  vibe: string;
+  age: string;
+  speakingStyle: string;
+  illustrationStyle: IllustrationStyleKey;
+  feature1: string;
+  feature2: string;
+  feature3: string;
   customPrompt: string;
-  studyNotes: string;
-  examDeadline: string;
+};
+
+export type PlayerFormState = {
+  name: string;
+  gender: PlayerGender;
 };
 
 export type ChapterInfo = {
@@ -46,6 +60,7 @@ export type ChapterInfo = {
   location: string;
   scene: string;
   backdrop: string;
+  sequenceGroup: 1 | 2 | 3 | 4 | 5 | 6;
   keywords: string[];
 };
 
@@ -62,288 +77,643 @@ export type ChapterDialogue = {
   choices: ChapterChoice[];
 };
 
-export const chapterSequence: ChapterId[] = [
-  "STONE_STAIRS",
-  "CLASSROOM",
-  "LIBRARY",
-  "INTERSECTION",
-  "EXAM",
+export const playerGenderOptions: Array<{ label: string; value: PlayerGender }> = [
+  { label: "남자", value: "남자" },
+  { label: "여자", value: "여자" },
 ];
 
+export const professorGenderOptions: Array<{ label: string; value: ProfessorGender }> = [
+  { label: "남자", value: "남자" },
+  { label: "여자", value: "여자" },
+];
+
+export const professorSpeakingStyleOptions = [
+  "차분하고 이성적인 말투",
+  "무심한 츤데레 말투",
+  "유머 섞인 직설 말투",
+  "다정하지만 단호한 말투",
+];
+
+export const illustrationStyleOptions: Array<{
+  label: string;
+  value: IllustrationStyleKey;
+  description: string;
+}> = [
+  {
+    label: "일러스트디자인1",
+    value: "DESIGN_1_ROMANCE_FANTASY",
+    description:
+      "고채도 핑크/바이올렛, 반짝이는 하이라이트, 로맨스 판타지 포스터 감성",
+  },
+  {
+    label: "일러스트디자인2",
+    value: "DESIGN_2_CLEAN_CHARACTER_CARD",
+    description:
+      "밝은 파스텔 톤, 깔끔한 라인, 캐릭터 카드형 구성, 캐주얼하고 또렷한 느낌",
+  },
+  {
+    label: "일러스트디자인3",
+    value: "DESIGN_3_CAMPUS_VISUAL_NOVEL",
+    description:
+      "캠퍼스 배경 위 비주얼노벨 스프라이트, 안정적인 채도, 서사 중심 게임 화면 톤",
+  },
+];
+
+const illustrationStyleProfiles: Record<
+  IllustrationStyleKey,
+  { name: string; keywords: string[] }
+> = {
+  DESIGN_1_ROMANCE_FANTASY: {
+    name: "romance fantasy poster mood",
+    keywords: [
+      "vivid magenta and rose accents",
+      "glossy hair and eye highlights",
+      "cinematic rim lighting",
+      "sparkle particles and soft bloom",
+      "dramatic, premium anime game poster finish",
+    ],
+  },
+  DESIGN_2_CLEAN_CHARACTER_CARD: {
+    name: "clean character card mood",
+    keywords: [
+      "bright pastel palette",
+      "clean linework with tidy edges",
+      "soft shading, low visual noise",
+      "readable character-first composition",
+      "youthful and friendly webtoon-like mood",
+    ],
+  },
+  DESIGN_3_CAMPUS_VISUAL_NOVEL: {
+    name: "campus visual novel mood",
+    keywords: [
+      "balanced natural colors",
+      "polished sprite readability on campus scene",
+      "gentle depth with atmospheric light",
+      "story-focused visual novel game feeling",
+      "commercial Korean campus game illustration tone",
+    ],
+  },
+};
+
+export const professorFeatureSuggestions: Record<
+  "feature1" | "feature2" | "feature3",
+  string[]
+> = {
+  feature1: [
+    "단정한 흑발 헤어",
+    "가볍게 넘긴 포마드",
+    "자연스러운 웨이브 단발",
+    "깔끔한 묶음 머리",
+    "새치 섞인 클래식 컷",
+  ],
+  feature2: [
+    "차분한 눈매",
+    "날카로운 눈매",
+    "안경 너머 또렷한 눈",
+    "부드러운 반달 눈매",
+    "피곤하지만 집중된 눈빛",
+  ],
+  feature3: [
+    "오똑한 콧날",
+    "작고 둥근 코",
+    "선명한 턱선",
+    "갸름한 얼굴형",
+    "단정한 분위기의 얼굴 비율",
+  ],
+};
+
+const DEFAULT_BACKDROP =
+  "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1600&q=80";
+
 export const chapterInfoMap: Record<ChapterId, ChapterInfo> = {
+  ORIENTATION_GATE: {
+    id: "ORIENTATION_GATE",
+    title: "캠퍼스 입구",
+    location: "정문 앞",
+    scene: "시험기간의 시작",
+    backdrop: DEFAULT_BACKDROP,
+    sequenceGroup: 1,
+    keywords: ["입장", "루틴", "시작"],
+  },
   STONE_STAIRS: {
     id: "STONE_STAIRS",
-    title: "돌계",
-    location: "돌계단",
-    scene: "배달 음식과 캠퍼스의 낭만",
-    backdrop:
-      "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1600&q=80",
-    keywords: ["식후아아", "메뉴추천", "길빵", "낮잠"],
+    title: "돌계단",
+    location: "중앙 돌계단",
+    scene: "첫 인상과 기류 파악",
+    backdrop: DEFAULT_BACKDROP,
+    sequenceGroup: 1,
+    keywords: ["첫만남", "길찾기", "긴장"],
+  },
+  CAMPUS_CAFE: {
+    id: "CAMPUS_CAFE",
+    title: "교내 카페",
+    location: "학생회관 카페",
+    scene: "짧은 휴식 속 질문",
+    backdrop: DEFAULT_BACKDROP,
+    sequenceGroup: 2,
+    keywords: ["카페인", "휴식", "집중"],
   },
   CLASSROOM: {
     id: "CLASSROOM",
-    title: "각자 건물 강의실",
+    title: "강의실",
     location: "전공 강의실",
-    scene: "질문하는 척하며 기분 탐색",
-    backdrop:
-      "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1600&q=80",
-    keywords: ["학점방어", "교수님성대모사", "종강언제", "PDF오류"],
+    scene: "수업 직후 1:1 대화",
+    backdrop: DEFAULT_BACKDROP,
+    sequenceGroup: 2,
+    keywords: ["질문", "피드백", "핵심개념"],
+  },
+  TEAM_PROJECT: {
+    id: "TEAM_PROJECT",
+    title: "팀플 존",
+    location: "스터디룸 앞",
+    scene: "조별과제와 시험 압박",
+    backdrop: DEFAULT_BACKDROP,
+    sequenceGroup: 3,
+    keywords: ["팀플", "우선순위", "분업"],
   },
   LIBRARY: {
     id: "LIBRARY",
     title: "중앙도서관",
-    location: "중도 자판기 앞",
-    scene: "새벽 2시, 안광 상실한 만남",
-    backdrop:
-      "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=1600&q=80",
-    keywords: ["핫식스", "안광상실", "과잠", "도서관귀신"],
+    location: "자판기 앞",
+    scene: "집중력 한계 구간",
+    backdrop: DEFAULT_BACKDROP,
+    sequenceGroup: 3,
+    keywords: ["새벽", "집중", "복습"],
   },
-  INTERSECTION: {
-    id: "INTERSECTION",
-    title: "고민사거리",
-    location: "음식점/술집 거리",
-    scene: "우연한 저녁 만남",
-    backdrop:
-      "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=80",
-    keywords: ["우연한만남", "인생조언", "알코올지수", "내돈내산"],
+  LAB_CORRIDOR: {
+    id: "LAB_CORRIDOR",
+    title: "연구실 복도",
+    location: "연구동 3층",
+    scene: "예상문제 힌트 탐색",
+    backdrop: DEFAULT_BACKDROP,
+    sequenceGroup: 4,
+    keywords: ["힌트", "연구실", "예상문제"],
   },
-  EXAM: {
-    id: "EXAM",
-    title: "시험치는 강의실",
+  SUNSET_YARD: {
+    id: "SUNSET_YARD",
+    title: "노을 마당",
+    location: "본관 앞 잔디",
+    scene: "감정선이 흔들리는 시점",
+    backdrop: DEFAULT_BACKDROP,
+    sequenceGroup: 4,
+    keywords: ["노을", "멘탈", "리듬"],
+  },
+  CONVENIENCE_STORE: {
+    id: "CONVENIENCE_STORE",
+    title: "편의점",
+    location: "기숙사 편의점",
+    scene: "전날 밤 최종 선택",
+    backdrop: DEFAULT_BACKDROP,
+    sequenceGroup: 5,
+    keywords: ["전날밤", "수면", "최종정리"],
+  },
+  NIGHT_BENCH: {
+    id: "NIGHT_BENCH",
+    title: "야간 벤치",
+    location: "도서관 옆 벤치",
+    scene: "마지막 멘탈 점검",
+    backdrop: DEFAULT_BACKDROP,
+    sequenceGroup: 5,
+    keywords: ["불안", "멘탈", "핵심5개"],
+  },
+  DAWN_REVIEW: {
+    id: "DAWN_REVIEW",
+    title: "새벽 복습",
+    location: "강의동 복도",
+    scene: "시험 직전 암기",
+    backdrop: DEFAULT_BACKDROP,
+    sequenceGroup: 6,
+    keywords: ["오답", "새벽", "최종점검"],
+  },
+  EXAM_HALL: {
+    id: "EXAM_HALL",
+    title: "시험장",
     location: "결전의 강의실",
     scene: "시험지 배부 직전",
-    backdrop:
-      "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1600&q=80",
-    keywords: ["OMR카드", "재수강금지", "펜떨어지는소리", "마지막플러팅"],
+    backdrop: DEFAULT_BACKDROP,
+    sequenceGroup: 6,
+    keywords: ["시험지", "근거", "실전운영"],
   },
 };
 
+export const chapterPool: ChapterId[] = [
+  "ORIENTATION_GATE",
+  "STONE_STAIRS",
+  "CAMPUS_CAFE",
+  "CLASSROOM",
+  "TEAM_PROJECT",
+  "LIBRARY",
+  "LAB_CORRIDOR",
+  "SUNSET_YARD",
+  "CONVENIENCE_STORE",
+  "NIGHT_BENCH",
+  "DAWN_REVIEW",
+  "EXAM_HALL",
+];
+
 export const chapterFallbackDialogues: Record<ChapterId, ChapterDialogue> = {
-  STONE_STAIRS: {
-    dialogue:
-      "배달 앱 알림이 울리는 순간, 산책 나온 교수님이 돌계단 아래에서 올려다본다. 묘하게 핑크빛 필터가 낀 것 같은데, 분위기는 전혀 달콤하지 않다.",
+  ORIENTATION_GATE: {
+    dialogue: "교수: 시험기간엔 첫 루틴이 성적을 좌우해요. 당신은 오늘 어떤 시작을 할 건가요?",
     choices: [
       {
-        text: "교수님, 이 떡볶이 한 입 하시면 시험 범위 1페이지 줄여주시나요?",
-        preview: "무례 직전의 농담, 하지만 타이밍은 완벽할지도.",
-        reaction: "허허... 자네 협상력이 늘었군. 범위는 그대로지만 센스는 인정하지.",
-        emotion: "teasing",
-        effects: { affinity: 7, intellect: 2 },
-      },
-      {
-        text: "교수님 학부생 때도 여기서 짜장면 드셨나요? 노하우 전수 부탁드립니다.",
-        preview: "안전하고 공감형 접근.",
-        reaction: "그땐 지금보다 더 처절했네. 메뉴보다 루틴을 배워가게.",
+        text: "오늘 계획표부터 짜고 시작할게요.",
+        preview: "안정적인 출발",
+        reaction: "교수: 좋아요. 시작이 단단하면 끝도 덜 흔들리죠.",
         emotion: "warm",
-        effects: { affinity: 5, intellect: 5 },
+        effects: { affinity: 7, intellect: 11 },
       },
       {
-        text: "배달 기사님인 줄 알고 손 흔들 뻔했어요. 너무 힙하셔서요.",
-        preview: "맑눈광 플러팅의 정석.",
-        reaction: "얘 봐라... 기분은 나쁘지 않군. 대신 내일 문제는 더 힙할 수도 있어.",
+        text: "일단 감으로 부딪쳐보고 정리할래요.",
+        preview: "즉흥형 접근",
+        reaction: "교수: 실행력은 좋지만, 근거 없는 자신감은 위험해요.",
+        emotion: "stern",
+        effects: { affinity: 5, intellect: 7 },
+      },
+      {
+        text: "교수님만 믿고 따라가면 안 될까요?",
+        preview: "감정선 우선",
+        reaction: "교수: 믿음은 고맙지만 답안지는 당신이 써야 해요.",
+        emotion: "awkward",
+        effects: { affinity: 9, intellect: 5 },
+      },
+    ],
+  },
+  STONE_STAIRS: {
+    dialogue: "교수: 강의실을 헤매는 학생이 있다니요? 이거 정말인가요?",
+    choices: [
+      {
+        text: "죄송합니다. 경상관 어떻게 가요?",
+        preview: "정중한 질문",
+        reaction: "교수: 길은 알려드릴게요. 대신 수업도 제대로 찾아와야죠.",
+        emotion: "neutral",
+        effects: { affinity: 8, intellect: 10 },
+      },
+      {
+        text: "그냥 수업째고 데이트나 하죠.",
+        preview: "장난기 있는 선택",
+        reaction: "교수: 농담은 재밌네요. 출석은 전혀 안 재밌지만요.",
         emotion: "teasing",
-        effects: { affinity: 8, intellect: 1 },
+        effects: { affinity: 10, intellect: 4 },
+      },
+      {
+        text: "대기까페핑 중이요. 우물쭈물댄다.",
+        preview: "소극적 반응",
+        reaction: "교수: 우물쭈물할 시간에 한 줄이라도 더 보는 게 낫겠어요.",
+        emotion: "stern",
+        effects: { affinity: 5, intellect: 6 },
+      },
+    ],
+  },
+  CAMPUS_CAFE: {
+    dialogue: "교수: 카페인은 집중을 돕지만, 계획 없는 밤샘을 합리화하진 않아요.",
+    choices: [
+      {
+        text: "딱 두 시간만 정해서 집중할게요.",
+        preview: "시간 제한 전략",
+        reaction: "교수: 훌륭하네요. 시간 통제가 곧 시험 통제예요.",
+        emotion: "warm",
+        effects: { affinity: 6, intellect: 12 },
+      },
+      {
+        text: "오늘은 그냥 버티는 게 목표예요.",
+        preview: "생존 모드",
+        reaction: "교수: 생존도 전략이지만, 내일을 위한 여지는 남겨두세요.",
+        emotion: "neutral",
+        effects: { affinity: 6, intellect: 8 },
+      },
+      {
+        text: "교수님이 사주면 더 집중될 것 같아요.",
+        preview: "플러팅형 선택",
+        reaction: "교수: 집중이 커피값에 달려 있다면 큰일이네요.",
+        emotion: "teasing",
+        effects: { affinity: 9, intellect: 6 },
       },
     ],
   },
   CLASSROOM: {
-    dialogue:
-      "수업 직후 강의실. 교수님은 노트를 정리하며 나가려다 멈췄다. 질문을 할지, 눈치껏 빠질지 선택의 시간이다.",
+    dialogue: "교수: 질문은 환영입니다. 단, 질문의 질은 점수의 질과 비슷해요.",
     choices: [
       {
-        text: "방금 설명하신 부분, PDF 4페이지랑 다른데 교수님의 밀당인가요?",
-        preview: "팩트 체크 + 도발의 조합.",
-        reaction: "자료를 그냥 외우지 않았단 뜻이군. 그런 태도는 점수로 남는다.",
-        emotion: "stern",
-        effects: { affinity: 4, intellect: 8 },
-      },
-      {
-        text: "시험 문제, 교수님 얼굴처럼 아름답게 내주실 거죠?",
-        preview: "위험하지만 분위기를 띄우는 농담.",
-        reaction: "아름다움은 상대적인 법이지. 다만 준비한 자에겐 친절할 걸세.",
-        emotion: "teasing",
-        effects: { affinity: 6, intellect: 3 },
-      },
-      {
-        text: "수업 듣다가 대학원 생각이 스쳤습니다. 이게 정상인가요?",
-        preview: "의욕 어필형 고위험 선택.",
-        reaction: "정상은 아니지만, 좋은 징후일 수도 있지. 근거를 가지고 다시 오게.",
+        text: "핵심 개념 두 개만 다시 짚어주세요.",
+        preview: "핵심 타격",
+        reaction: "교수: 좋아요. 질문이 정확하면 답도 정확해집니다.",
         emotion: "warm",
+        effects: { affinity: 6, intellect: 12 },
+      },
+      {
+        text: "시험 범위 줄여주시면 안 돼요?",
+        preview: "무리수 제안",
+        reaction: "교수: 범위는 공평해야 하니까요. 대신 힌트는 줄 수 있어요.",
+        emotion: "stern",
+        effects: { affinity: 7, intellect: 7 },
+      },
+      {
+        text: "교수님 스타일로 서술형 써보면 될까요?",
+        preview: "말투 분석형",
+        reaction: "교수: 제 말투보다 논리 구조를 가져가세요. 그게 정답에 가깝습니다.",
+        emotion: "neutral",
+        effects: { affinity: 8, intellect: 10 },
+      },
+    ],
+  },
+  TEAM_PROJECT: {
+    dialogue: "교수: 팀플과 시험이 겹치면 우선순위를 냉정하게 정해야 해요.",
+    choices: [
+      {
+        text: "팀플은 역할 나누고 시험에 집중할게요.",
+        preview: "분업형 전략",
+        reaction: "교수: 분리와 집중, 시험기간에 가장 강한 방식이죠.",
+        emotion: "warm",
+        effects: { affinity: 6, intellect: 11 },
+      },
+      {
+        text: "다 제가 하고 마음 편히 시험 볼래요.",
+        preview: "과몰입형 선택",
+        reaction: "교수: 책임감은 좋지만, 과하면 둘 다 무너집니다.",
+        emotion: "stern",
+        effects: { affinity: 8, intellect: 6 },
+      },
+      {
+        text: "팀원들에게 기도하고 공부만 할게요.",
+        preview: "운에 맡기기",
+        reaction: "교수: 기도보다 체크리스트가 더 높은 확률입니다.",
+        emotion: "teasing",
         effects: { affinity: 5, intellect: 7 },
       },
     ],
   },
   LIBRARY: {
-    dialogue:
-      "새벽 2시, 자판기 불빛 아래 교수님과 눈이 마주친다. 도서관 공기는 차갑고, 농담은 이상하게 뜨겁다.",
+    dialogue: "교수: 새벽엔 집중력이 떨어진 만큼 선택이 더 중요해집니다.",
     choices: [
       {
-        text: "교수님 지금 문제 꼬는 중 아니죠? 전 이미 꼬였습니다.",
-        preview: "공포를 유머로 전환.",
-        reaction: "문제는 꼬지 않고 사고력을 확인할 뿐일세. 자네가 먼저 꼬였군.",
+        text: "중요도 높은 문제만 골라 복습할게요.",
+        preview: "선택과 집중",
+        reaction: "교수: 잘 골랐어요. 버릴 줄 아는 것도 실력이에요.",
+        emotion: "warm",
+        effects: { affinity: 7, intellect: 12 },
+      },
+      {
+        text: "전 범위 끝까지 버티겠습니다.",
+        preview: "체력전",
+        reaction: "교수: 의지는 좋지만, 시험은 체력보다 판단력이 필요해요.",
+        emotion: "stern",
+        effects: { affinity: 6, intellect: 8 },
+      },
+      {
+        text: "교수님 옆자리에서 공부하면 더 잘될까요?",
+        preview: "몰입도 높은 장난",
+        reaction: "교수: 집중은 거리보다 태도에서 나옵니다.",
+        emotion: "awkward",
+        effects: { affinity: 10, intellect: 5 },
+      },
+    ],
+  },
+  LAB_CORRIDOR: {
+    dialogue: "교수: 복도에서 우연히 마주친 김에, 마지막 힌트를 주죠.",
+    choices: [
+      {
+        text: "힌트를 키워드로 바꿔서 정리할게요.",
+        preview: "구조화 선택",
+        reaction: "교수: 네, 그 방식이면 시험장에서 떠올리기 쉬워요.",
+        emotion: "warm",
+        effects: { affinity: 7, intellect: 11 },
+      },
+      {
+        text: "힌트 그대로 문장째 외울래요.",
+        preview: "암기형 선택",
+        reaction: "교수: 문장을 외우면 응용 문제에서 흔들릴 수 있어요.",
+        emotion: "stern",
+        effects: { affinity: 6, intellect: 7 },
+      },
+      {
+        text: "교수님 표정만 봐도 답이 보이는 것 같아요.",
+        preview: "감정선 강화",
+        reaction: "교수: 표정 해석보다 개념 해석이 더 안전합니다.",
+        emotion: "teasing",
+        effects: { affinity: 9, intellect: 6 },
+      },
+    ],
+  },
+  SUNSET_YARD: {
+    dialogue: "교수: 해 질 무렵엔 멘탈이 흔들리기 쉽죠. 지금 리듬을 정합시다.",
+    choices: [
+      {
+        text: "30분 공부, 10분 휴식으로 리듬 맞출게요.",
+        preview: "리듬 최적화",
+        reaction: "교수: 좋아요. 리듬을 지키면 불안이 줄어듭니다.",
+        emotion: "warm",
+        effects: { affinity: 7, intellect: 11 },
+      },
+      {
+        text: "휴식 없이 끝까지 달려볼게요.",
+        preview: "극한 집중",
+        reaction: "교수: 단기적으로는 가능하지만, 후반 흔들림을 감수해야 해요.",
+        emotion: "stern",
+        effects: { affinity: 5, intellect: 8 },
+      },
+      {
+        text: "응원 한마디만 해주시면 버틸 수 있어요.",
+        preview: "정서 의존",
+        reaction: "교수: 잘하고 있어요. 다만 내일은 스스로 버티는 연습도 필요하죠.",
+        emotion: "warm",
+        effects: { affinity: 10, intellect: 6 },
+      },
+    ],
+  },
+  CONVENIENCE_STORE: {
+    dialogue: "교수: 시험 전날 밤, 마지막 선택은 언제나 단순해야 합니다.",
+    choices: [
+      {
+        text: "필기 하나만 보고 바로 잘게요.",
+        preview: "수면 우선",
+        reaction: "교수: 가장 실전적인 선택이네요. 내일의 집중력이 달라집니다.",
+        emotion: "warm",
+        effects: { affinity: 6, intellect: 12 },
+      },
+      {
+        text: "한 챕터만 더 보고 잘게요.",
+        preview: "적당한 욕심",
+        reaction: "교수: 욕심을 조절하면 좋은 결과로 이어질 수 있어요.",
+        emotion: "neutral",
+        effects: { affinity: 7, intellect: 9 },
+      },
+      {
+        text: "밤새서 완벽하게 끝내겠습니다.",
+        preview: "하이리스크",
+        reaction: "교수: 완벽보다 안정이 시험엔 더 강합니다.",
         emotion: "stern",
         effects: { affinity: 5, intellect: 6 },
       },
+    ],
+  },
+  NIGHT_BENCH: {
+    dialogue: "교수: 불안할수록 기준을 좁히세요. 지금 필요한 건 확신 한 줄입니다.",
+    choices: [
       {
-        text: "제 안광 보이세요? 교수님 전공서적이 가져갔어요.",
-        preview: "피곤함을 드립으로 포장.",
-        reaction: "안광은 잃어도 맥락은 잃지 말게. 그 한 줄이 답안을 살린다.",
+        text: "핵심 개념 5개만 확실히 잡을래요.",
+        preview: "축약형 전략",
+        reaction: "교수: 네, 그 다섯 개가 내일의 중심축이 될 겁니다.",
         emotion: "warm",
-        effects: { affinity: 4, intellect: 7 },
+        effects: { affinity: 7, intellect: 11 },
       },
       {
-        text: "교수님이랑 밤샘이라니... 이거 데이트 맞죠? (광기)",
-        preview: "위험한 맑눈광 정면돌파.",
-        reaction: "데이트는 모르겠고, 공부 파트너로는 봐줄 만하군. 집중하자고.",
+        text: "모든 개념을 얕게라도 훑을래요.",
+        preview: "광범위 확인",
+        reaction: "교수: 넓게 보는 건 좋지만, 깊이가 빠지지 않게 조심하세요.",
+        emotion: "neutral",
+        effects: { affinity: 6, intellect: 8 },
+      },
+      {
+        text: "교수님 생각하면서 멘탈부터 챙길래요.",
+        preview: "감정 안정형",
+        reaction: "교수: 멘탈 관리도 중요하죠. 다만 마지막은 반드시 개념으로 마무리해요.",
         emotion: "awkward",
-        effects: { affinity: 9, intellect: 0 },
+        effects: { affinity: 10, intellect: 6 },
       },
     ],
   },
-  INTERSECTION: {
-    dialogue:
-      "해장국집 문을 열자 교수님이 혼자 앉아 있다. 강의실 밖의 교수님은 낯설고, 그래서 더 어렵다.",
+  DAWN_REVIEW: {
+    dialogue: "교수: 새벽 복습은 답을 늘리기보다 실수를 줄이는 시간입니다.",
     choices: [
       {
-        text: "교수님 여기선 동네 형 같아요. 계산은... 마음만 낼게요.",
-        preview: "예의와 플러팅 사이.",
-        reaction: "마음만 받지. 대신 내일 답안엔 마음보다 논리를 담게.",
+        text: "자주 틀린 유형만 다시 확인할게요.",
+        preview: "오답 집중",
+        reaction: "교수: 네, 그게 가장 높은 효율이에요.",
         emotion: "warm",
-        effects: { affinity: 7, intellect: 4 },
+        effects: { affinity: 7, intellect: 12 },
       },
       {
-        text: "시험 전날엔 소주파인가요 맥주파인가요? 인생 공식 궁금합니다.",
-        preview: "조언 유도형 질문.",
-        reaction: "시험 전날엔 물과 수면이지. 공식은 간단해도 지키기 어렵다네.",
-        emotion: "stern",
-        effects: { affinity: 3, intellect: 8 },
+        text: "처음부터 끝까지 다시 빠르게 볼게요.",
+        preview: "전체 순환",
+        reaction: "교수: 빠르게 훑되, 중요한 포인트에서 멈출 줄 알아야 해요.",
+        emotion: "neutral",
+        effects: { affinity: 6, intellect: 9 },
       },
       {
-        text: "맛집 찾는 센스까지... 교수님 쩝쩝박사 학위도 있으시네요.",
-        preview: "가벼운 칭찬으로 라포 형성.",
-        reaction: "학위가 많으면 피곤해져. 자네는 우선 이번 과목부터 졸업하게.",
+        text: "이제 운에 맡기고 산책할래요.",
+        preview: "기분 전환",
+        reaction: "교수: 산책은 좋아요. 다만 최소한의 확인은 하고 가요.",
         emotion: "teasing",
-        effects: { affinity: 8, intellect: 2 },
+        effects: { affinity: 8, intellect: 6 },
       },
     ],
   },
-  EXAM: {
-    dialogue:
-      "시험지 배부 직전. 펜 떨어지는 소리까지 크게 들린다. 교수님이 교단에서 마지막으로 교실을 훑는다.",
+  EXAM_HALL: {
+    dialogue: "교수: 시험지 배부 직전입니다. 마지막으로 스스로에게 어떤 말을 건넬 건가요?",
     choices: [
       {
-        text: "시험지가 두꺼운 건 제 사랑의 무게인가요?",
-        preview: "마지막 플러팅, 마지막 도박.",
-        reaction: "사랑은 모르겠고, 분량은 공평하지. 끝까지 버텨보게.",
-        emotion: "stern",
-        effects: { affinity: 6, intellect: 3 },
-      },
-      {
-        text: "답 대신 편지 쓰면 읽어주실 건가요?",
-        preview: "감성형 무모함.",
-        reaction: "편지는 나중에. 지금은 답안지에 근거를 쓰게.",
-        emotion: "awkward",
-        effects: { affinity: 4, intellect: 4 },
-      },
-      {
-        text: "현실세계 복귀 멘트 미리 부탁드립니다. 각오하고 싶어요.",
-        preview: "메타 유머 + 정신력 회복.",
-        reaction:
-          "좋군. 자 민상군! 이제 현실세계로 돌아가 공부를 할 시간이야. 시작하세.",
+        text: "근거부터 쓰자, 천천히 가자.",
+        preview: "정석형 마인드셋",
+        reaction: "교수: 좋아요. 그 한 문장이 오늘 답안 전체를 지켜줄 겁니다.",
         emotion: "warm",
-        effects: { affinity: 5, intellect: 7 },
+        effects: { affinity: 6, intellect: 12 },
+      },
+      {
+        text: "어려우면 과감히 넘기고 쉬운 것부터.",
+        preview: "실전 운영형",
+        reaction: "교수: 운영 감각이 있네요. 페이스만 잃지 마세요.",
+        emotion: "neutral",
+        effects: { affinity: 7, intellect: 10 },
+      },
+      {
+        text: "교수님을 믿고 감으로 찍겠습니다.",
+        preview: "위험한 농담",
+        reaction: "교수: 믿음은 고맙지만, 점수는 근거에서 나옵니다.",
+        emotion: "stern",
+        effects: { affinity: 9, intellect: 5 },
       },
     ],
   },
 };
 
-export const professorTraits: Record<
-  "hair" | "eyes" | "nose" | "face" | "vibe",
-  TraitOption[] & { label?: string }
-> = {
-  hair: Object.assign(
-    [
-      { label: "단정한 포마드", value: "단정한 포마드" },
-      { label: "자연스러운 반곱슬", value: "자연스러운 반곱슬" },
-      { label: "묶은 장발", value: "묶은 장발" },
-      { label: "새치 섞인 클래식 컷", value: "새치 섞인 클래식 컷" },
-    ],
-    { label: "헤어" },
-  ),
-  eyes: Object.assign(
-    [
-      { label: "날카로운 눈매", value: "날카로운 눈매" },
-      { label: "부드러운 눈매", value: "부드러운 눈매" },
-      { label: "안경 너머 차분한 눈", value: "안경 너머 차분한 눈" },
-      { label: "피곤하지만 맑은 눈", value: "피곤하지만 맑은 눈" },
-    ],
-    { label: "눈매" },
-  ),
-  nose: Object.assign(
-    [
-      { label: "오똑한 콧날", value: "오똑한 콧날" },
-      { label: "작고 둥근 코", value: "작고 둥근 코" },
-      { label: "매부리 느낌 코", value: "매부리 느낌 코" },
-    ],
-    { label: "코" },
-  ),
-  face: Object.assign(
-    [
-      { label: "각진 얼굴형", value: "각진 얼굴형" },
-      { label: "갸름한 얼굴형", value: "갸름한 얼굴형" },
-      { label: "둥근 얼굴형", value: "둥근 얼굴형" },
-    ],
-    { label: "얼굴형" },
-  ),
-  vibe: Object.assign(
-    [
-      { label: "무심한 츤데레", value: "무심한 츤데레" },
-      { label: "냉철한 멘토", value: "냉철한 멘토" },
-      { label: "유머 있는 철벽", value: "유머 있는 철벽" },
-      { label: "다정한 독설가", value: "다정한 독설가" },
-    ],
-    { label: "분위기" },
-  ),
+const chapterGroups: Record<1 | 2 | 3 | 4 | 5 | 6, ChapterId[]> = {
+  1: ["ORIENTATION_GATE", "STONE_STAIRS"],
+  2: ["CAMPUS_CAFE", "CLASSROOM"],
+  3: ["TEAM_PROJECT", "LIBRARY"],
+  4: ["LAB_CORRIDOR", "SUNSET_YARD"],
+  5: ["CONVENIENCE_STORE", "NIGHT_BENCH"],
+  6: ["DAWN_REVIEW", "EXAM_HALL"],
 };
 
-export const professorGenderOptions: Array<{ label: string; value: ProfessorGender }> = [
-  { label: "남성", value: "남성" },
-  { label: "여성", value: "여성" },
-  { label: "논바이너리", value: "논바이너리" },
-  { label: "미정(중성 표현)", value: "미정(중성 표현)" },
-];
+function pickOne<T>(items: T[]) {
+  const index = Math.floor(Math.random() * items.length);
+  return items[index];
+}
 
-export const professorVoiceOptions: Array<{
-  label: string;
-  value: string;
-  genders: ProfessorGender[];
-}> = [
-  {
-    label: "Kore · 안정적이고 또렷한 톤",
-    value: "Kore",
-    genders: ["남성", "여성", "논바이너리", "미정(중성 표현)"],
-  },
-  {
-    label: "Enceladus · 차분하고 낮은 톤",
-    value: "Enceladus",
-    genders: ["남성", "여성", "논바이너리", "미정(중성 표현)"],
-  },
-  {
-    label: "Puck · 밝고 경쾌한 톤",
-    value: "Puck",
-    genders: ["남성", "여성", "논바이너리", "미정(중성 표현)"],
-  },
-];
+export function pickSixChaptersForRun() {
+  const picked: ChapterId[] = [];
+  const groupOrder = [1, 2, 3, 4, 5, 6] as const;
 
-const randomPersonalityPrompts = [
-  "차갑게 보이지만 학생의 성장을 챙기는 타입",
-  "유머를 섞어 긴장을 풀어주지만 평가 기준은 엄격한 타입",
-  "말수는 적지만 핵심 피드백은 정확하게 주는 타입",
-  "겉으로는 무심하지만 질문에는 끝까지 답해주는 타입",
-];
+  groupOrder.forEach((groupKey) => {
+    picked.push(pickOne(chapterGroups[groupKey]));
+  });
+
+  return picked;
+}
+
+export const chapterSequence: ChapterId[] = pickSixChaptersForRun();
+
+export const endingMeta: Record<
+  EndingRank,
+  { key: string; title: string; description: string }
+> = {
+  ENDING_1: {
+    key: "ending-1",
+    title: "엔딩 1 (임시): 캠퍼스의 전설",
+    description:
+      "시험도, 감정도, 페이스도 모두 완성도 높게 마무리했습니다. 교수님은 마지막까지 냉정했지만, 그 눈빛엔 분명한 신뢰가 남았습니다.",
+  },
+  ENDING_2: {
+    key: "ending-2",
+    title: "엔딩 2 (임시): 안정적인 합격선",
+    description:
+      "완벽하진 않았지만 전략적으로 잘 버텨냈습니다. 교수님은 짧게 고개를 끄덕이며 다음 성장을 기대한다고 말합니다.",
+  },
+  ENDING_3: {
+    key: "ending-3",
+    title: "엔딩 3 (임시): 간신히 생환",
+    description:
+      "아슬아슬한 선택들이 이어졌지만 끝내 시험장을 걸어나왔습니다. 결과보다도 끝까지 포기하지 않은 태도가 인상적으로 남았습니다.",
+  },
+  ENDING_4: {
+    key: "ending-4",
+    title: "엔딩 4 (임시): 재정비 필요",
+    description:
+      "흔들림이 많았고 준비가 다소 부족했습니다. 교수님은 냉정한 피드백과 함께 다음 시험을 위한 구체적인 보완 포인트를 남깁니다.",
+  },
+  ENDING_5: {
+    key: "ending-5",
+    title: "엔딩 5 (임시): 리스타트",
+    description:
+      "이번 시험은 분명 쉽지 않았고 결과도 아쉬웠습니다. 하지만 이 플레이는 실패가 아니라 다음 라운드를 위한 데이터가 됩니다.",
+  },
+};
+
+export const finalRealityLine =
+  "이제 현실세계로 돌아가 공부를 할 시간이야.";
+
+export function getEndingRank(totalScore100: number): EndingRank {
+  if (totalScore100 >= 81) {
+    return "ENDING_1";
+  }
+
+  if (totalScore100 >= 61) {
+    return "ENDING_2";
+  }
+
+  if (totalScore100 >= 41) {
+    return "ENDING_3";
+  }
+
+  if (totalScore100 >= 21) {
+    return "ENDING_4";
+  }
+
+  return "ENDING_5";
+}
 
 export const professorSpriteStylePreset = [
-  "premium Korean romance-fantasy visual novel key art aesthetic",
+  "premium Korean anime game illustration quality",
   "anime-style crisp clean line art",
   "soft cel shading with smooth skin gradients",
   "high-detail glossy hair strands and highlights",
@@ -352,129 +722,81 @@ export const professorSpriteStylePreset = [
   "vivid but balanced magenta-cyan accent lighting",
 ];
 
-function pickRandom<T>(items: T[]) {
-  const index = Math.floor(Math.random() * items.length);
-  return items[index];
+function normalizeWithFallback(value: string, fallback: string) {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : fallback;
 }
 
 export function resolveProfessorForGeneration(form: ProfessorFormState): ProfessorFormState {
-  const resolved = { ...form };
+  const pickFeature = (slot: "feature1" | "feature2" | "feature3") =>
+    pickOne(professorFeatureSuggestions[slot]);
 
-  if (!resolved.hair.trim()) {
-    resolved.hair = pickRandom(professorTraits.hair).value;
-  }
-  if (!resolved.eyes.trim()) {
-    resolved.eyes = pickRandom(professorTraits.eyes).value;
-  }
-  if (!resolved.nose.trim()) {
-    resolved.nose = pickRandom(professorTraits.nose).value;
-  }
-  if (!resolved.face.trim()) {
-    resolved.face = pickRandom(professorTraits.face).value;
-  }
-  if (!resolved.vibe.trim()) {
-    resolved.vibe = pickRandom(professorTraits.vibe).value;
-  }
-  if (!resolved.customPrompt.trim()) {
-    resolved.customPrompt = pickRandom(randomPersonalityPrompts);
-  }
-
-  return resolved;
-}
-
-export const endingMeta: Record<
-  EndingRank,
-  { key: string; title: string; description: string }
-> = {
-  S: {
-    key: "graduate-school",
-    title: "[S랭크] 대학원생 엔딩 (납치형)",
-    description:
-      "자네, 싹수가 노란데... 나랑 같이 연구해 보지 않겠나? 교수님은 농담처럼 말했지만 연구실 자리 배치는 이미 끝난 듯하다.",
-  },
-  A: {
-    key: "valedictorian",
-    title: "[A랭크] 수석 졸업 엔딩 (성공형)",
-    description:
-      "민상군, 자네는 내 최고의 제자였네. A+ 성적표가 조용히 책상 위에 내려앉는다.",
-  },
-  B: {
-    key: "partner",
-    title: "[B랭크] 비즈니스 파트너 엔딩 (평범형)",
-    description:
-      "수고했네. F는 면했군. 나가서 밥이나 먹게. 어색하지만 따뜻한 악수가 이어진다.",
-  },
-  F: {
-    key: "retake",
-    title: "[F랭크] 재수강 엔딩 (공포형)",
-    description:
-      "민상군... 우리 다음 학기에 또 보겠군? 교수님의 섬뜩한 미소와 함께 시간표 앱이 열린다.",
-  },
-};
-
-export const finalRealityLine =
-  "자 민상군! 이제 꿈에서 깨어나세요. 이제 현실세계로 돌아가 공부를 할 시간이야.";
-
-export function getEndingRank(totalScore: number): EndingRank {
-  if (totalScore >= 72) {
-    return "S";
-  }
-
-  if (totalScore >= 56) {
-    return "A";
-  }
-
-  if (totalScore >= 38) {
-    return "B";
-  }
-
-  return "F";
+  return {
+    name: normalizeWithFallback(form.name, "이름 미정 교수"),
+    gender: form.gender,
+    age: normalizeWithFallback(form.age, "30"),
+    speakingStyle: normalizeWithFallback(
+      form.speakingStyle,
+      pickOne(professorSpeakingStyleOptions),
+    ),
+    illustrationStyle: form.illustrationStyle || "DESIGN_3_CAMPUS_VISUAL_NOVEL",
+    feature1: normalizeWithFallback(form.feature1, pickFeature("feature1")),
+    feature2: normalizeWithFallback(form.feature2, pickFeature("feature2")),
+    feature3: normalizeWithFallback(form.feature3, pickFeature("feature3")),
+    customPrompt: normalizeWithFallback(
+      form.customPrompt,
+      "무심해 보이지만 학생의 성장을 끝까지 챙기는 타입",
+    ),
+  };
 }
 
 export function buildProfessorSummary(form: ProfessorFormState) {
-  const name = form.name.trim() || "이름 미정 교수님";
-  const selectedTraits = [form.face, form.hair, form.eyes, form.nose]
-    .map((trait) => trait.trim())
-    .filter((trait) => trait.length > 0);
-  const appearanceDescription =
-    selectedTraits.length > 0 ? selectedTraits.join(", ") : "외형 랜덤 배정 예정";
-  const vibe = form.vibe.trim() || "분위기 랜덤 배정 예정";
-  const customPrompt =
-    form.customPrompt.trim() || "성격 디테일 랜덤 배정 예정";
+  const professorName = normalizeWithFallback(form.name, "이름 미정 교수");
+  const ageText = normalizeWithFallback(form.age, "30");
+  const styleText = normalizeWithFallback(form.speakingStyle, "차분한 말투");
+  const selectedStyle =
+    illustrationStyleProfiles[form.illustrationStyle] ??
+    illustrationStyleProfiles.DESIGN_3_CAMPUS_VISUAL_NOVEL;
+  const featureList = [form.feature1, form.feature2, form.feature3]
+    .map((feature) => feature.trim())
+    .filter((feature) => feature.length > 0)
+    .join(", ");
+  const customPrompt = normalizeWithFallback(
+    form.customPrompt,
+    "무심해 보이지만 학생의 성장을 챙긴다",
+  );
 
-  return `${name}은(는) ${form.gender} 교수 설정이다. 외형은 ${appearanceDescription}이며 전체 분위기는 ${vibe}다. 학생 입장에서는 ${customPrompt}으로 느껴진다.`;
+  return `${professorName}은(는) ${ageText}대 ${form.gender} 교수다. 말투는 ${styleText}이고, 외형/분위기 키워드는 ${featureList || "미정"}이다. 일러스트 무드는 ${selectedStyle.name} 기준이다. 성격 메모: ${customPrompt}.`;
 }
 
 export function buildIllustrationPrompt(form: ProfessorFormState) {
-  const selectedTraits = [form.face, form.hair, form.eyes, form.nose, form.vibe]
-    .map((trait) => trait.trim())
-    .filter((trait) => trait.length > 0);
+  const professorName = normalizeWithFallback(form.name, "이름 미정 교수");
+  const selectedStyle =
+    illustrationStyleProfiles[form.illustrationStyle] ??
+    illustrationStyleProfiles.DESIGN_3_CAMPUS_VISUAL_NOVEL;
+  const features = [form.feature1, form.feature2, form.feature3]
+    .map((feature) => feature.trim())
+    .filter((feature) => feature.length > 0);
 
-  const visualTraits = selectedTraits.length > 0 ? selectedTraits : ["랜덤 배정된 외형 디테일"];
   const promptParts = [
     "full-body 2D Korean campus visual novel professor sprite",
     "standing pose",
     `style lock: ${professorSpriteStylePreset.join(", ")}`,
+    `style profile name: ${selectedStyle.name}`,
+    `style profile keywords: ${selectedStyle.keywords.join(", ")}`,
+    `character: ${professorName}`,
     `gender presentation: ${form.gender}`,
-    ...visualTraits,
+    `age decade: ${normalizeWithFallback(form.age, "30")}s`,
+    `speaking impression: ${normalizeWithFallback(form.speakingStyle, "차분한 말투")}`,
+    `visual features: ${features.length > 0 ? features.join(", ") : "clean, professional, attractive"}`,
+    `personality note: ${normalizeWithFallback(form.customPrompt, "겉으로는 무심하지만 학생을 챙김")}`,
   ];
-  const vibe = form.vibe.trim();
-  const personality = form.customPrompt.trim();
-
-  if (vibe) {
-    promptParts.push(`overall vibe: ${vibe}`);
-  }
-  if (personality) {
-    promptParts.push(`personality notes: ${personality}`);
-  }
 
   return promptParts.join(", ");
 }
 
-export function getDefaultExamDeadline() {
-  const target = new Date();
-  target.setDate(target.getDate() + 7);
-  target.setHours(9, 0, 0, 0);
-  const local = new Date(target.getTime() - target.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
+export function clampScore100(rawScore: number, chapterCount: number) {
+  const maxRaw = Math.max(1, chapterCount * 20);
+  const score = Math.round((Math.max(0, rawScore) / maxRaw) * 100);
+  return Math.max(0, Math.min(100, score));
 }

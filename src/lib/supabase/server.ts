@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 export type PlaySessionInsert = {
   professor_name: string;
   appearance: {
+    ageGroup?: string;
     gender?: string;
     hair: string;
     eyes: string;
