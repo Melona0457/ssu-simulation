@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   buildIllustrationPrompt,
   buildProfessorSummary,
@@ -10,7 +10,6 @@ import {
   endingMeta,
   finalRealityLine,
   getEndingRank,
-  illustrationStyleOptions,
   pickSixChaptersForRun,
   playerGenderOptions,
   professorFeatureSuggestions,
@@ -18,7 +17,9 @@ import {
   professorSpeakingStyleOptions,
   resolveProfessorForGeneration,
   type ChapterChoice,
+  type ChapterDialogue,
   type ChapterId,
+  type EndingRank,
   type PlayerFormState,
   type ProfessorFormState,
 } from "@/lib/game-data";
@@ -39,6 +40,13 @@ type EndingState = {
   score100: number;
 };
 
+type SessionPackResponse = {
+  chapters?: Partial<Record<ChapterId, ChapterDialogue>>;
+  endingPolish?: Partial<Record<EndingRank, { title?: string; description?: string }>>;
+  fallback?: boolean;
+  message?: string;
+};
+
 const initialPlayerState: PlayerFormState = {
   name: "",
   gender: "남자",
@@ -53,8 +61,12 @@ const initialProfessorState: ProfessorFormState = {
   feature1: "",
   feature2: "",
   feature3: "",
+  feature4: "",
   customPrompt: "",
 };
+
+const preGameBackgroundImageUrl = "/backgrounds/pre-game-bg.webp";
+const mainCoverImageUrl = "/backgrounds/screen1-cover.webp";
 
 function toDisplayPlayerName(name: string) {
   const trimmed = name.trim();
@@ -96,6 +108,96 @@ function stripProfessorPrefix(text: string) {
     .trim();
 }
 
+function getAffinityMood(percent: number) {
+  if (percent >= 80) {
+    return "두근두근";
+  }
+
+  if (percent >= 60) {
+    return "호감 상승";
+  }
+
+  if (percent >= 35) {
+    return "분위기 탐색";
+  }
+
+  return "어색한 시작";
+}
+
+const HANGUL_BASE = 0xac00;
+const HANGUL_LAST = 0xd7a3;
+const HANGUL_MEDIAL_COUNT = 21;
+const HANGUL_FINAL_COUNT = 28;
+const HANGUL_INITIAL_BLOCK = HANGUL_MEDIAL_COUNT * HANGUL_FINAL_COUNT;
+const HANGUL_INITIAL_COMPAT = [
+  "ㄱ",
+  "ㄲ",
+  "ㄴ",
+  "ㄷ",
+  "ㄸ",
+  "ㄹ",
+  "ㅁ",
+  "ㅂ",
+  "ㅃ",
+  "ㅅ",
+  "ㅆ",
+  "ㅇ",
+  "ㅈ",
+  "ㅉ",
+  "ㅊ",
+  "ㅋ",
+  "ㅌ",
+  "ㅍ",
+  "ㅎ",
+] as const;
+
+function isHangulSyllable(char: string) {
+  if (!char) {
+    return false;
+  }
+
+  const code = char.charCodeAt(0);
+  return code >= HANGUL_BASE && code <= HANGUL_LAST;
+}
+
+function buildHangulTypingFrames(text: string) {
+  const frames: string[] = [];
+  let committed = "";
+
+  const pushFrame = (value: string) => {
+    if (frames[frames.length - 1] !== value) {
+      frames.push(value);
+    }
+  };
+
+  for (const char of text) {
+    if (!isHangulSyllable(char)) {
+      committed += char;
+      pushFrame(committed);
+      continue;
+    }
+
+    const syllableIndex = char.charCodeAt(0) - HANGUL_BASE;
+    const initialIndex = Math.floor(syllableIndex / HANGUL_INITIAL_BLOCK);
+    const medialIndex = Math.floor((syllableIndex % HANGUL_INITIAL_BLOCK) / HANGUL_FINAL_COUNT);
+    const finalIndex = syllableIndex % HANGUL_FINAL_COUNT;
+    const withoutFinalCharCode =
+      HANGUL_BASE + (initialIndex * HANGUL_MEDIAL_COUNT + medialIndex) * HANGUL_FINAL_COUNT;
+    const withoutFinal = String.fromCharCode(withoutFinalCharCode);
+
+    pushFrame(`${committed}${HANGUL_INITIAL_COMPAT[initialIndex]}`);
+    pushFrame(`${committed}${withoutFinal}`);
+
+    if (finalIndex > 0) {
+      pushFrame(`${committed}${char}`);
+    }
+
+    committed += char;
+  }
+
+  return frames.length > 0 ? frames : [text];
+}
+
 export default function Home() {
   const [phase, setPhase] = useState<Phase>("screen1_title");
 
@@ -103,7 +205,6 @@ export default function Home() {
   const [professor, setProfessor] = useState<ProfessorFormState>(initialProfessorState);
 
   const [generatedImageUrl, setGeneratedImageUrl] = useState("");
-  const [imagePromptUsed, setImagePromptUsed] = useState("");
   const [imageMessage, setImageMessage] = useState("");
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
@@ -115,6 +216,15 @@ export default function Home() {
 
   const [ending, setEnding] = useState<EndingState | null>(null);
   const [isCreditFinished, setIsCreditFinished] = useState(false);
+  const [isPreparingSession, setIsPreparingSession] = useState(false);
+  const [sessionPackMessage, setSessionPackMessage] = useState("");
+  const [sessionDialogues, setSessionDialogues] = useState<
+    Partial<Record<ChapterId, ChapterDialogue>>
+  >({});
+  const [sessionEndingPolish, setSessionEndingPolish] = useState<
+    Partial<Record<EndingRank, { title: string; description: string }>>
+  >({});
+  const [typedProfessorLine, setTypedProfessorLine] = useState("");
 
   const playerName = useMemo(() => toDisplayPlayerName(player.name), [player.name]);
   const professorName = useMemo(() => toDisplayProfessorName(professor.name), [professor.name]);
@@ -125,7 +235,9 @@ export default function Home() {
 
   const currentChapterId = selectedChapterIds[chapterIndex];
   const currentChapterInfo = currentChapterId ? chapterInfoMap[currentChapterId] : null;
-  const currentDialogue = currentChapterId ? chapterFallbackDialogues[currentChapterId] : null;
+  const currentDialogue = currentChapterId
+    ? sessionDialogues[currentChapterId] ?? chapterFallbackDialogues[currentChapterId]
+    : null;
   const currentSelectedChoice =
     selectedChoiceIndex !== null && currentDialogue
       ? currentDialogue.choices[selectedChoiceIndex]
@@ -141,6 +253,59 @@ export default function Home() {
           Math.round(((chapterIndex + (selectedChoiceIndex !== null ? 1 : 0)) / selectedChapterIds.length) * 100),
         )
       : 0;
+  const affinityPercent =
+    selectedChapterIds.length > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (Math.max(0, rawScore) / Math.max(1, selectedChapterIds.length * 20)) * 100,
+          ),
+        )
+      : 0;
+  const affinityMood = getAffinityMood(affinityPercent);
+
+  useEffect(() => {
+    if (phase !== "screen4_8_chapter") {
+      setTypedProfessorLine("");
+      return;
+    }
+
+    const line = activeProfessorLine.trim();
+
+    if (!line) {
+      setTypedProfessorLine("");
+      return;
+    }
+
+    const frames = buildHangulTypingFrames(line);
+    setTypedProfessorLine(frames[0] ?? "");
+
+    if (frames.length <= 1) {
+      return;
+    }
+
+    let frameIndex = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const tick = () => {
+      frameIndex += 1;
+
+      if (frameIndex >= frames.length) {
+        return;
+      }
+
+      setTypedProfessorLine(frames[frameIndex]);
+      timer = setTimeout(tick, 52);
+    };
+
+    timer = setTimeout(tick, 52);
+
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [activeProfessorLine, phase]);
 
   function updatePlayer<K extends keyof PlayerFormState>(
     key: K,
@@ -204,11 +369,9 @@ export default function Home() {
       }
 
       setGeneratedImageUrl(data.imageDataUrl);
-      setImagePromptUsed(data.promptUsed || "");
       setImageMessage("교수님 생성이 완료되었습니다.");
     } catch (error) {
       setGeneratedImageUrl("");
-      setImagePromptUsed("");
       setImageMessage(
         error instanceof Error
           ? `이미지 생성 실패: ${error.message}`
@@ -219,22 +382,102 @@ export default function Home() {
     }
   }
 
-  function startStory() {
+  async function startStory() {
+    if (isPreparingSession) {
+      return;
+    }
+
     const resolvedProfessor = resolveProfessorForGeneration(professor);
     const runChapters = pickSixChaptersForRun();
+    const professorNameForPrompt = toDisplayProfessorName(resolvedProfessor.name);
+    const professorSummaryForPrompt = buildProfessorSummary(resolvedProfessor);
 
+    setIsPreparingSession(true);
+    setSessionPackMessage("세션 스토리를 준비 중입니다...");
     setProfessor(resolvedProfessor);
     setSelectedChapterIds(runChapters);
     setChapterIndex(0);
     setSelectedChoiceIndex(null);
     setRawScore(0);
     setEnding(null);
+    setSessionDialogues({});
+    setSessionEndingPolish({});
     setStoryLog([
       `${playerName}(${player.gender})의 시험기간 시뮬레이션 시작`,
       `${toDisplayProfessorName(resolvedProfessor.name)} 교수님과의 첫 만남이 시작되었다.`,
     ]);
 
-    setPhase("screen4_8_chapter");
+    try {
+      const response = await fetch("/api/generate-session-pack", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chapterIds: runChapters,
+          playerName,
+          professorName: professorNameForPrompt,
+          professorSummary: professorSummaryForPrompt,
+        }),
+      });
+
+      const data = (await response.json()) as SessionPackResponse;
+
+      if (!response.ok) {
+        throw new Error(data.message || "세션 스토리 생성 실패");
+      }
+
+      if (data.chapters) {
+        setSessionDialogues(data.chapters);
+      }
+
+      if (data.endingPolish) {
+        const normalizedEndingPolish: Partial<
+          Record<EndingRank, { title: string; description: string }>
+        > = {};
+
+        (Object.keys(endingMeta) as EndingRank[]).forEach((rank) => {
+          const polished = data.endingPolish?.[rank];
+          const title =
+            typeof polished?.title === "string" && polished.title.trim().length > 0
+              ? polished.title.trim()
+              : endingMeta[rank].title;
+          const description =
+            typeof polished?.description === "string" &&
+            polished.description.trim().length > 0
+              ? polished.description.trim()
+              : endingMeta[rank].description;
+
+          normalizedEndingPolish[rank] = { title, description };
+        });
+
+        setSessionEndingPolish(normalizedEndingPolish);
+      }
+
+      if (data.fallback) {
+        setSessionPackMessage(data.message || "기본 챕터 대사/엔딩으로 시작합니다.");
+      } else {
+        setSessionPackMessage("세션 스토리 준비 완료");
+      }
+    } catch (error) {
+      setSessionPackMessage(
+        error instanceof Error
+          ? `세션 생성 실패: ${error.message}. 기본 데이터로 시작합니다.`
+          : "세션 생성 실패로 기본 데이터로 시작합니다.",
+      );
+    } finally {
+      setIsPreparingSession(false);
+      setPhase("screen4_8_chapter");
+    }
+  }
+
+  async function makeProfessorAndStartStory() {
+    if (isGeneratingImage || isPreparingSession) {
+      return;
+    }
+
+    await generateProfessorImage();
+    await startStory();
   }
 
   function chooseOption(choiceIndex: number) {
@@ -269,11 +512,12 @@ export default function Home() {
     const score100 = clampScore100(rawScore, selectedChapterIds.length);
     const rank = getEndingRank(score100);
     const endingTemplate = endingMeta[rank];
+    const polishedEnding = sessionEndingPolish[rank];
 
     setEnding({
       rank,
-      title: endingTemplate.title,
-      description: endingTemplate.description,
+      title: polishedEnding?.title || endingTemplate.title,
+      description: polishedEnding?.description || endingTemplate.description,
       score100,
     });
     setPhase("screen9_ending");
@@ -293,7 +537,6 @@ export default function Home() {
     setPlayer(initialPlayerState);
     setProfessor(initialProfessorState);
     setGeneratedImageUrl("");
-    setImagePromptUsed("");
     setImageMessage("");
     setSelectedChapterIds([]);
     setChapterIndex(0);
@@ -302,13 +545,17 @@ export default function Home() {
     setStoryLog([]);
     setEnding(null);
     setIsCreditFinished(false);
+    setIsPreparingSession(false);
+    setSessionPackMessage("");
+    setSessionDialogues({});
+    setSessionEndingPolish({});
   }
 
   return (
-    <main className="min-h-screen bg-[#eeeeee] text-black">
+    <main className="min-h-screen text-black">
       {phase === "screen1_title" && (
         <section
-          className="flex min-h-screen cursor-pointer items-center justify-center px-6"
+          className="relative flex min-h-screen cursor-pointer items-end justify-center overflow-hidden px-4 py-8 md:px-8 md:py-10"
           onClick={goScreen2}
           role="button"
           tabIndex={0}
@@ -318,234 +565,337 @@ export default function Home() {
             }
           }}
         >
-          <div className="text-center">
-            <h1 className="text-5xl font-semibold leading-[1.35] md:text-6xl">
-              교수님과 두근두근
+          <div className="absolute inset-0 bg-[#f1c8da]" />
+          <div
+            className="absolute inset-0 scale-[1.06] bg-cover bg-center opacity-55 blur-[8px]"
+            style={{ backgroundImage: `url(${mainCoverImageUrl})` }}
+          />
+          <div
+            className="absolute inset-0 bg-no-repeat"
+            style={{
+              backgroundImage: `url(${mainCoverImageUrl})`,
+              backgroundPosition: "center center",
+              backgroundSize: "contain",
+            }}
+          />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_16%,rgba(255,199,226,0.58),rgba(255,199,226,0)_52%),radial-gradient(circle_at_14%_84%,rgba(255,193,221,0.56),rgba(255,193,221,0)_56%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,208,227,0.08),rgba(64,20,42,0.52))]" />
+
+          <div className="relative z-10 mx-auto w-full max-w-[1120px] px-2 text-center md:px-4">
+            <h1 className="text-[clamp(42px,6.6vw,110px)] font-black leading-[1.01] tracking-[-0.04em] text-[#ffd6e7] [text-shadow:_0_4px_0_#8c3f64,_0_9px_26px_rgba(38,10,24,0.5)]">
+              ♡교수님과 두근두근♡
               <br />
               시험기간 시뮬레이션
             </h1>
-            <p className="mt-20 text-xl text-neutral-700">화면을 클릭하여 게임을 시작해 주세요</p>
+            <p className="screen1-touch-guide mt-4 text-[clamp(18px,2.2vw,34px)] font-bold leading-none text-white [text-shadow:_0_2px_10px_rgba(0,0,0,0.82)]">
+              화면을 클릭하여 게임을 시작해 주세요
+            </p>
           </div>
         </section>
       )}
 
       {phase === "screen2_player" && (
-        <section className="flex min-h-screen items-center justify-center px-4 py-8">
-          <div className="w-full max-w-2xl border-2 border-black bg-[#f4f4f4] p-10 text-center">
-            <h2 className="text-5xl font-semibold leading-[1.25]">
-              당신의 이름과
-              <br />
-              성별은?
+        <section
+          className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-8"
+          style={{
+            backgroundImage: [
+              "linear-gradient(180deg, rgba(69,20,44,0.28), rgba(61,18,40,0.44))",
+              `url(${preGameBackgroundImageUrl})`,
+              "radial-gradient(circle at 82% 16%, rgba(255,176,212,0.58), rgba(255,176,212,0) 52%)",
+              "radial-gradient(circle at 16% 82%, rgba(255,188,217,0.55), rgba(255,188,217,0) 55%)",
+              "linear-gradient(135deg, #d98baa 0%, #e9a9c2 28%, #f6c6d8 54%, #e1a1bf 100%)",
+            ].join(", "),
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          <div className="w-full max-w-[980px] text-center">
+            <h2 className="text-[clamp(56px,8vw,112px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8b3a60,_0_12px_30px_rgba(0,0,0,0.45)]">
+              당신의 이름과 성별은?
             </h2>
-            <p className="mt-8 text-lg text-neutral-700">이름은 최대 3자까지 가능합니다.</p>
 
-            <div className="mx-auto mt-8 max-w-lg space-y-4 border-2 border-black p-6">
+            <div className="mx-auto mt-8 max-w-[760px] rounded-[26px] border-4 border-[#c6809e] bg-[rgba(255,237,245,0.55)] px-6 py-8 shadow-[0_14px_38px_rgba(72,20,45,0.2)] backdrop-blur-[3px] md:px-8 md:py-10">
               <input
                 value={player.name}
                 onChange={(event) => updatePlayer("name", event.target.value)}
-                className="w-full border-2 border-black bg-white px-4 py-3 text-center text-xl"
-                placeholder="이름 입력 (미입력 시 김멋사)"
+                className="h-16 w-full rounded-2xl border-[3px] border-[#bb6f91] bg-white/92 px-4 text-center text-3xl font-semibold text-[#4d1d37] outline-none placeholder:text-[#b57d94] focus:ring-2 focus:ring-[#d778a1]/65"
+                placeholder="이름은 최대 3자까지 가능합니다."
                 maxLength={3}
               />
-              <div className="flex items-center justify-center gap-6 text-lg">
+
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
                 {playerGenderOptions.map((option) => (
-                  <label key={option.value} className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="player-gender"
-                      checked={player.gender === option.value}
-                      onChange={() => updatePlayer("gender", option.value)}
-                    />
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => updatePlayer("gender", option.value)}
+                    className={`min-w-[128px] rounded-full border-[3px] px-6 py-2 text-3xl font-bold transition ${
+                      player.gender === option.value
+                        ? "border-[#b15f84] bg-[linear-gradient(180deg,#ffd8ea,#f7a9c8)] text-[#5d1e3c] shadow-[inset_0_2px_0_rgba(255,255,255,0.8),0_6px_12px_rgba(0,0,0,0.18)]"
+                        : "border-[#c798ad] bg-white/78 text-[#6a2a49] hover:bg-white"
+                    }`}
+                  >
                     {option.label}
-                  </label>
+                  </button>
                 ))}
               </div>
+
+              <p className="mt-6 text-[clamp(28px,3vw,46px)] font-semibold leading-[1.3] text-[#6a2a49]">
+                이름을 입력하지 않을 시
+                <br />
+                [김멋사]로 자동 설정 됩니다.
+              </p>
             </div>
 
             <button
               type="button"
               onClick={confirmPlayerInfo}
-              className="mt-10 border-2 border-black bg-white px-10 py-3 text-2xl font-semibold hover:bg-neutral-100"
+              className="screen2-confirm-btn mt-8"
             >
-              확인
+              <span className="screen2-confirm-gloss" aria-hidden />
+              <span className="screen2-confirm-line screen2-confirm-line-vertical" aria-hidden />
+              <span className="screen2-confirm-line screen2-confirm-line-horizontal" aria-hidden />
+              <span className="screen2-confirm-heart screen2-confirm-heart-left" aria-hidden>
+                ♡
+              </span>
+              <span className="screen2-confirm-label">확인</span>
+              <span className="screen2-confirm-heart screen2-confirm-heart-right" aria-hidden>
+                ♡
+              </span>
             </button>
           </div>
         </section>
       )}
 
       {phase === "screen3_professor" && (
-        <section className="flex min-h-screen items-center justify-center px-4 py-8">
-          <div className="grid w-full max-w-6xl gap-4 border-2 border-black bg-[#f6f6f6] p-6 md:grid-cols-[1fr_280px]">
-            <article>
-              <h2 className="text-5xl font-semibold">교수님 생성</h2>
+        <section
+          className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-6 md:px-8 md:py-8"
+          style={{
+            backgroundImage: [
+              "linear-gradient(180deg, rgba(67,20,42,0.3), rgba(69,16,41,0.48))",
+              `url(${preGameBackgroundImageUrl})`,
+              "radial-gradient(circle at 80% 18%, rgba(255,188,219,0.56), rgba(255,188,219,0) 54%)",
+              "radial-gradient(circle at 14% 82%, rgba(255,194,219,0.53), rgba(255,194,219,0) 56%)",
+              "linear-gradient(145deg, #d892b0 0%, #e5aac3 34%, #f8d4e4 58%, #d895b5 100%)",
+            ].join(", "),
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          <div className="w-full max-w-[1240px] text-center">
+            <h2 className="text-[clamp(56px,8vw,108px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8a3a5f,_0_12px_30px_rgba(0,0,0,0.45)]">
+              교수님 생성
+            </h2>
 
-              <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-[120px_1fr] md:items-center">
-                <label className="text-2xl">이름</label>
-                <input
-                  value={professor.name}
-                  onChange={(event) => updateProfessor("name", event.target.value)}
-                  className="h-12 border-2 border-black px-3 text-lg"
-                  placeholder="교수 이름"
-                />
+            <article className="mx-auto mt-5 rounded-[28px] border-4 border-[#be809d] bg-[rgba(255,239,246,0.55)] px-5 py-5 shadow-[0_14px_40px_rgba(68,18,40,0.2)] backdrop-blur-[4px] md:px-8 md:py-7">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-8">
+                <div className="space-y-3 text-left">
+                  <div className="grid grid-cols-[92px_1fr] items-center gap-3">
+                    <label className="text-[44px] font-bold leading-none text-[#5f213f]">이름</label>
+                    <input
+                      value={professor.name}
+                      onChange={(event) => updateProfessor("name", event.target.value)}
+                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60"
+                      placeholder="교수 이름"
+                    />
+                  </div>
 
-                <label className="text-2xl">성별</label>
-                <div className="flex items-center gap-5 text-xl">
-                  {professorGenderOptions.map((option) => (
-                    <label key={option.value} className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="professor-gender"
-                        checked={professor.gender === option.value}
-                        onChange={() => updateProfessor("gender", option.value)}
-                      />
-                      {option.label}
-                    </label>
-                  ))}
+                  <div className="grid grid-cols-[92px_1fr] items-center gap-3">
+                    <span className="text-[44px] font-bold leading-none text-[#5f213f]">성별</span>
+                    <div className="flex gap-2">
+                      {professorGenderOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => updateProfessor("gender", option.value)}
+                          className={`h-16 min-w-[120px] rounded-full border-[3px] text-[44px] font-bold leading-none transition ${
+                            professor.gender === option.value
+                              ? "border-[#b05f84] bg-[linear-gradient(180deg,#ffd8ea,#f7a9c8)] text-[#5e1f3e] shadow-[inset_0_2px_0_rgba(255,255,255,0.82),0_6px_12px_rgba(0,0,0,0.18)]"
+                              : "border-[#c99aae] bg-white/80 text-[#6b2b4a] hover:bg-white"
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-[92px_1fr] items-center gap-3">
+                    <label className="text-[44px] font-bold leading-none text-[#5f213f]">나이</label>
+                    <input
+                      value={professor.age}
+                      onChange={(event) => updateProfessor("age", event.target.value)}
+                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60"
+                      placeholder="예: 30"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-[92px_1fr] items-center gap-3">
+                    <label className="text-[44px] font-bold leading-none text-[#5f213f]">말투</label>
+                    <select
+                      value={professor.speakingStyle}
+                      onChange={(event) => updateProfessor("speakingStyle", event.target.value)}
+                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none focus:ring-2 focus:ring-[#d977a1]/60"
+                    >
+                      <option value="">선택</option>
+                      {professorSpeakingStyleOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                <label className="text-2xl">나이</label>
-                <input
-                  value={professor.age}
-                  onChange={(event) => updateProfessor("age", event.target.value)}
-                  className="h-12 border-2 border-black px-3 text-lg"
-                  placeholder="예: 30"
-                />
+                <div className="space-y-3 text-left">
+                  <div className="grid grid-cols-[132px_1fr] items-center gap-3">
+                    <label className="whitespace-nowrap text-[44px] font-bold leading-none text-[#5f213f]">
+                      요소1
+                    </label>
+                    <input
+                      value={professor.feature1}
+                      onChange={(event) => updateProfessor("feature1", event.target.value)}
+                      list="feature1-options"
+                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60"
+                      placeholder="헤어스타일"
+                    />
+                  </div>
 
-                <label className="text-2xl">말투</label>
-                <select
-                  value={professor.speakingStyle}
-                  onChange={(event) => updateProfessor("speakingStyle", event.target.value)}
-                  className="h-12 border-2 border-black px-3 text-lg"
-                >
-                  <option value="">선택</option>
-                  {professorSpeakingStyleOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                  <div className="grid grid-cols-[132px_1fr] items-center gap-3">
+                    <label className="whitespace-nowrap text-[44px] font-bold leading-none text-[#5f213f]">
+                      요소2
+                    </label>
+                    <input
+                      value={professor.feature2}
+                      onChange={(event) => updateProfessor("feature2", event.target.value)}
+                      list="feature2-options"
+                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60"
+                      placeholder="눈매"
+                    />
+                  </div>
 
-                <label className="text-2xl">일러스트 스타일</label>
-                <select
-                  value={professor.illustrationStyle}
-                  onChange={(event) =>
-                    updateProfessor(
-                      "illustrationStyle",
-                      event.target.value as ProfessorFormState["illustrationStyle"],
-                    )
-                  }
-                  className="h-12 border-2 border-black px-3 text-lg"
-                >
-                  {illustrationStyleOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <p className="mt-2 text-sm text-neutral-700">
-                {
-                  illustrationStyleOptions.find(
-                    (option) => option.value === professor.illustrationStyle,
-                  )?.description
-                }
-              </p>
+                  <div className="grid grid-cols-[132px_1fr] items-center gap-3">
+                    <label className="whitespace-nowrap text-[44px] font-bold leading-none text-[#5f213f]">
+                      요소3
+                    </label>
+                    <input
+                      value={professor.feature3}
+                      onChange={(event) => updateProfessor("feature3", event.target.value)}
+                      list="feature3-options"
+                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60"
+                      placeholder="코/얼굴형"
+                    />
+                  </div>
 
-              <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <input
-                  value={professor.feature1}
-                  onChange={(event) => updateProfessor("feature1", event.target.value)}
-                  list="feature1-options"
-                  className="h-12 border-2 border-black px-3 text-lg"
-                  placeholder="요소1 (헤어스타일)"
-                />
-                <datalist id="feature1-options">
-                  {professorFeatureSuggestions.feature1.map((option) => (
-                    <option key={`feature1-${option}`} value={option} />
-                  ))}
-                </datalist>
-                <input
-                  value={professor.feature2}
-                  onChange={(event) => updateProfessor("feature2", event.target.value)}
-                  list="feature2-options"
-                  className="h-12 border-2 border-black px-3 text-lg"
-                  placeholder="요소2 (눈매)"
-                />
-                <datalist id="feature2-options">
-                  {professorFeatureSuggestions.feature2.map((option) => (
-                    <option key={`feature2-${option}`} value={option} />
-                  ))}
-                </datalist>
-                <input
-                  value={professor.feature3}
-                  onChange={(event) => updateProfessor("feature3", event.target.value)}
-                  list="feature3-options"
-                  className="h-12 border-2 border-black px-3 text-lg"
-                  placeholder="요소3 (코/얼굴형)"
-                />
-                <datalist id="feature3-options">
-                  {professorFeatureSuggestions.feature3.map((option) => (
-                    <option key={`feature3-${option}`} value={option} />
-                  ))}
-                </datalist>
+                  <div className="grid grid-cols-[132px_1fr] items-center gap-3">
+                    <label className="whitespace-nowrap text-[44px] font-bold leading-none text-[#5f213f]">
+                      요소4
+                    </label>
+                    <input
+                      value={professor.feature4}
+                      onChange={(event) => updateProfessor("feature4", event.target.value)}
+                      list="feature4-options"
+                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60"
+                      placeholder="입꼬리/피부톤"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <p className="mt-6 text-2xl">
-                그 외 원하는 교수님에 대한 요구사항을 작성해주세요!
+              <datalist id="feature1-options">
+                {professorFeatureSuggestions.feature1.map((option) => (
+                  <option key={`feature1-${option}`} value={option} />
+                ))}
+              </datalist>
+              <datalist id="feature2-options">
+                {professorFeatureSuggestions.feature2.map((option) => (
+                  <option key={`feature2-${option}`} value={option} />
+                ))}
+              </datalist>
+              <datalist id="feature3-options">
+                {professorFeatureSuggestions.feature3.map((option) => (
+                  <option key={`feature3-${option}`} value={option} />
+                ))}
+              </datalist>
+              <datalist id="feature4-options">
+                {professorFeatureSuggestions.feature4.map((option) => (
+                  <option key={`feature4-${option}`} value={option} />
+                ))}
+              </datalist>
+
+              <div className="mt-5 rounded-3xl border-[3px] border-[#c186a3] bg-[rgba(255,241,247,0.6)] px-4 py-4 md:px-6">
+                <p className="text-[clamp(30px,3.2vw,46px)] font-bold leading-[1.22] text-[#5f223f]">
+                  그 외 원하는 교수님에 대한 요구사항을 작성해주세요!
+                  <br />
+                  (AI를 통해 반영해드립니다.)
+                </p>
+                <textarea
+                  value={professor.customPrompt}
+                  onChange={(event) => updateProfessor("customPrompt", event.target.value)}
+                  className="mt-3 h-28 w-full rounded-2xl border-[3px] border-[#be7898] bg-white/92 px-4 py-3 text-xl font-medium text-[#5a1f3a] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 md:h-32 md:text-2xl"
+                  placeholder="ex) 항상 무뚝뚝하고 차갑지만 나와 둘이 있을 때는 다정함, 강아지상의 초미남"
+                />
+              </div>
+
+              <p className="mt-3 text-[clamp(22px,2.3vw,34px)] font-semibold leading-[1.2] text-[#5a1f39]">
+                전부 입력, 및 선택하셨으면 &apos;만들기&apos;를 눌러주세요
                 <br />
-                (AI를 통해 반영해드립니다.)
+                (최대 3번까지 생성 가능합니다.)
               </p>
 
-              <textarea
-                value={professor.customPrompt}
-                onChange={(event) => updateProfessor("customPrompt", event.target.value)}
-                className="mt-4 h-28 w-full border-2 border-black px-3 py-2 text-lg"
-                placeholder="예) 평소 무뚝뚝한데 가끔씩 웃어주는 교수님"
-              />
-
-              <p className="mt-2 text-sm text-neutral-700">
-                전부 입력하지 않아도 &quot;만들기&quot;를 누르면 랜덤 요소로 자동 보정됩니다.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
                 <button
                   type="button"
-                  onClick={generateProfessorImage}
-                  disabled={isGeneratingImage}
-                  className="border-2 border-black bg-white px-8 py-3 text-2xl font-semibold hover:bg-neutral-100 disabled:opacity-70"
+                  onClick={makeProfessorAndStartStory}
+                  disabled={isGeneratingImage || isPreparingSession}
+                  className="screen2-confirm-btn screen3-create-btn disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {isGeneratingImage ? "생성 중..." : "만들기"}
+                  <span className="screen2-confirm-gloss" aria-hidden />
+                  <span
+                    className="screen2-confirm-line screen2-confirm-line-vertical"
+                    aria-hidden
+                  />
+                  <span
+                    className="screen2-confirm-line screen2-confirm-line-horizontal"
+                    aria-hidden
+                  />
+                  <span className="screen2-confirm-heart screen2-confirm-heart-left" aria-hidden>
+                    ♡
+                  </span>
+                  <span className="screen2-confirm-label">
+                    {isGeneratingImage || isPreparingSession ? "생성중..." : "만들기"}
+                  </span>
+                  <span className="screen2-confirm-heart screen2-confirm-heart-right" aria-hidden>
+                    ♡
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={startStory}
-                  className="border-2 border-black bg-white px-8 py-3 text-2xl font-semibold hover:bg-neutral-100"
+                  disabled={isPreparingSession}
+                  className="rounded-full border-2 border-[#b87995] bg-white/80 px-7 py-2 text-xl font-semibold text-[#5c223e] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  시작하기
+                  {isPreparingSession ? "준비 중..." : "스토리만 바로 시작"}
                 </button>
               </div>
 
-              {imageMessage && <p className="mt-3 text-base text-neutral-700">{imageMessage}</p>}
-            </article>
-
-            <aside className="border-l-2 border-black pl-4">
-              <h3 className="text-3xl font-semibold">생성 예시 이미지</h3>
-              <div className="mt-4 flex h-[360px] items-center justify-center border-2 border-black bg-[#dedede]">
-                {generatedImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+              {generatedImageUrl && (
+                <div className="mx-auto mt-4 max-w-[420px] rounded-2xl border-[3px] border-[#bf7e9f] bg-[rgba(255,242,248,0.72)] p-3">
+                  <p className="text-[22px] font-semibold text-[#5e2240]">생성 예시 이미지</p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={generatedImageUrl}
-                    alt="생성된 교수 이미지"
-                    className="h-full w-full object-contain"
+                    alt="생성된 교수 이미지 예시"
+                    className="mt-2 h-auto w-full rounded-xl border-2 border-[#c78ea8] object-cover shadow-[0_8px_18px_rgba(71,22,43,0.2)]"
                   />
-                ) : (
-                  <p className="px-4 text-center text-neutral-700">만들기를 누르면 이미지가 생성됩니다.</p>
-                )}
-              </div>
-              {imagePromptUsed && (
-                <p className="mt-3 text-xs leading-5 text-neutral-600">Prompt: {imagePromptUsed}</p>
+                </div>
               )}
-            </aside>
+
+              {imageMessage && <p className="mt-2 text-lg text-[#612842]">{imageMessage}</p>}
+              {sessionPackMessage && (
+                <p className="mt-1 text-base text-[#67314a]">{sessionPackMessage}</p>
+              )}
+            </article>
           </div>
         </section>
       )}
@@ -559,8 +909,20 @@ export default function Home() {
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,20,35,0.22),rgba(10,20,35,0.66))]" />
 
           <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-4 pt-8 md:px-8">
-            <div className="ml-auto h-8 w-[320px] border border-black bg-white/60 p-1">
-              <div className="h-full bg-[#3b82f6]" style={{ width: `${progressPercent}%` }} />
+            <div className="flex items-end justify-between gap-4">
+              <div className="w-full max-w-[340px] rounded border border-white/40 bg-black/45 px-3 py-2 text-white">
+                <p className="text-sm">호감도 게이지 · {affinityMood}</p>
+                <div className="mt-2 h-4 overflow-hidden rounded-full border border-white/60 bg-white/20">
+                  <div
+                    className="h-full bg-[linear-gradient(90deg,#60a5fa_0%,#a78bfa_50%,#f472b6_100%)] transition-[width] duration-700 ease-out"
+                    style={{ width: `${affinityPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="h-8 w-[320px] border border-black bg-white/60 p-1">
+                <div className="h-full bg-[#3b82f6]" style={{ width: `${progressPercent}%` }} />
+              </div>
             </div>
 
             <div className="mt-3 rounded bg-black/45 px-4 py-2 text-sm text-white">
@@ -583,7 +945,7 @@ export default function Home() {
             </div>
 
             <div className="absolute inset-x-3 bottom-3 z-20 rounded border border-[#8b8b8b] bg-[rgba(30,30,30,0.62)] p-3 text-white md:inset-x-6 md:bottom-6 md:p-4">
-              <p className="text-2xl font-semibold">교수: {activeProfessorLine}</p>
+              <p className="text-2xl font-semibold">교수: {typedProfessorLine}</p>
 
               <div className="mt-3 grid gap-2">
                 {currentDialogue.choices.map((choice, index) => (
@@ -643,8 +1005,8 @@ export default function Home() {
       )}
 
       {phase === "screen10_reality" && (
-        <section className="flex min-h-screen items-center justify-center px-4">
-          <div className="max-w-4xl text-center text-5xl leading-[1.45] text-black">
+        <section className="flex min-h-screen items-center justify-center bg-[#e6e6e6] px-4 py-8">
+          <div className="w-full max-w-[1240px] text-center text-[clamp(54px,5.8vw,96px)] leading-[1.36] text-black">
             <p>
               {playerName}!<br />
               {finalRealityLine}
@@ -656,7 +1018,7 @@ export default function Home() {
             <button
               type="button"
               onClick={goCreditScreen}
-              className="mt-12 border-2 border-black bg-white px-8 py-3 text-2xl font-semibold hover:bg-neutral-100"
+              className="mt-16 border-[3px] border-black bg-white px-14 py-4 text-[clamp(48px,4.7vw,76px)] font-semibold leading-none text-black hover:bg-[#f8f8f8]"
             >
               크레딧 보기
             </button>

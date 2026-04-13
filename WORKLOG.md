@@ -1,176 +1,918 @@
 # WORKLOG
 
-이 파일은 이 프로젝트의 작업 기록을 누적하는 용도입니다.
-앞으로 기능을 추가하거나 수정할 때마다 여기에 이어서 정리하면 됩니다.
+이 문서는 프로젝트의 실제 의사결정과 구현 변경사항을 누적 기록합니다.
+현재 기준 버전은 `v1`이며, 이후 변경은 아래 형식으로 계속 추가합니다.
 
-## 2026-04-09
+## 버전 기준
 
-### 프로젝트 초기 세팅
+### v0 (초기 베이스)
 
-- 빈 레포에 Next.js App Router + TypeScript + Tailwind 기반 앱 생성
-- 기본 메타데이터와 전역 스타일을 프로젝트 톤에 맞게 정리
-- Google 폰트 의존성을 제거하고 로컬 시스템 폰트 스택으로 변경
+- Next.js + TypeScript 기반 초기 앱 구성
+- 교수 커스터마이징 + 이미지 생성 + 챕터형 플레이의 프로토타입 구현
+- TTS 실험 기능을 포함한 확장 테스트 진행
 
-### MVP 핵심 흐름 구현
+### v1 (현재 운영 기준, 와이어프레임 정렬 버전)
 
-- 교수님 커스터마이징 중심의 메인 화면 구현
-- 정형 파츠 선택:
-  - 머리
-  - 눈
-  - 코
-  - 얼굴형
-  - 분위기
-- 자유 텍스트 입력:
-  - LLM 추가 커스터마이징 문구 입력 가능
-- 커스터마이징 결과를 바탕으로 아래 값 생성
-  - 교수 페르소나 요약 문장
-  - 이미지 생성용 프롬프트 초안
+- 서비스 기획서 + 1차 회의 결과 + 와이어프레임(화면1~11) 기준으로 흐름 재정렬
+- 베타 범위에서 TTS 제외, 저장/불러오기/설정은 후순위로 이동
+- 챕터/엔딩 정책, UI 문구/연출, 내부 프롬프트 정책까지 반영 완료
 
-### 시뮬레이션 MVP 구현
+## 2026-04-12 변경 로그 (v0 -> v1 핵심 반영)
 
-- 3챕터 분기형 시뮬레이션 구현
-- 챕터별 선택지와 결과 로그 표시
-- 점수 축 3개 구성
-  - 교수 대응력
-  - 시험 전략
-  - 멘탈 유지력
-- 총점 기반 엔딩 분기 구현
+### 기획 확정사항 반영
 
-### 데이터 구조 분리
+- 베타에서 TTS 제외
+- 챕터 구조를 `10~15개 풀 중 6개 선별` 방식으로 확정
+- 엔딩은 `5개 + 100점 구간` 방식으로 변경
+- 화면 흐름을 와이어프레임 1~11 기준으로 고정
+- 교수 커스터마이징 항목을 간단형(축소형)으로 조정
+- `저장/불러오기/설정`은 로그인/회원가입 미도입 베타에서 후순위 처리
+- 숭실 배경/문구는 내부 데모 전용 사용 범위로 정의
 
-- 시뮬레이션용 데이터와 커스터마이징 옵션을 [mvp-data.ts](/Users/jeongin/ssu-simulation/src/lib/mvp-data.ts)에 분리
-- 이후 6챕터 확장, 선택지 추가, 엔딩 추가가 쉽도록 구조화
+### 데이터/로직 변경
 
-### Supabase 연동 준비 및 적용
+- 챕터 풀을 12개로 확장하고, 시퀀스 그룹별로 6개를 뽑는 선택 로직 추가
+- 점수 정규화 로직(`100점 환산`) 기준으로 엔딩 분기 계산
+- 임시 엔딩 5종(타이틀/설명) 세팅
+- `요소1/요소2/요소3`를 외형 정보 입력 칸으로 명확화하고 추천 선택지(datalist) 제공
 
-- Supabase를 결과 저장용 DB로 사용하도록 구조 설계
-- 플레이 결과 저장 API 구현
-- Supabase 서버 클라이언트 helper 추가
-- `play_sessions` 테이블 스키마 작성
-- `.env.local` 기반 환경 변수 구조 정리
+### 일러스트 프롬프트 정책
 
-관련 파일:
+- 사용자 선택값 + LLM 입력을 합치는 내부 프롬프트에 `일러스트디자인1~3` 스타일 프로필 반영
+- 스타일별 무드/키워드 고정값을 내부 프롬프트에 포함해 생성 일관성 강화
 
-- [schema.sql](/Users/jeongin/ssu-simulation/supabase/schema.sql)
-- [route.ts](/Users/jeongin/ssu-simulation/src/app/api/play-session/route.ts)
-- [server.ts](/Users/jeongin/ssu-simulation/src/lib/supabase/server.ts)
+### UI/문구/버그 수정
 
-### OpenAI 이미지 생성 연결
+- 대사 앞 중복 표기 버그 수정: `교수: 교수: ...` -> `교수: ...`
+- 엔딩 후 현실 복귀 문구를 요청한 형식으로 변경
+- 화면 흐름을 `타이틀 -> 주인공 입력 -> 교수 생성 -> 챕터 -> 엔딩 -> 현실 문구 -> 크레딧`으로 통일
 
-- OpenAI SDK 설치
-- `OPENAI_API_KEY` 기반 서버 클라이언트 추가
-- 교수 커스터마이징 데이터를 바탕으로 이미지 생성 API 구현
-- 모델 설정:
-  - `gpt-image-1.5`
-  - `quality: medium`
-  - `background: transparent`
-  - `output_format: png`
-- 메인 화면에 `교수님 이미지 생성` 버튼과 결과 프리뷰 패널 추가
+### 크레딧 연출
 
-관련 파일:
+- 크레딧 화면을 정적 목록에서 `아래 -> 위` 롤링 애니메이션으로 변경
+- 롤링 종료 후 중앙에 `화면 터치시 메인 화면으로 돌아갑니다` 문구가 깜빡이도록 구현
 
-- [route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-professor-image/route.ts)
-- [server.ts](/Users/jeongin/ssu-simulation/src/lib/openai/server.ts)
-- [page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+### 수정된 주요 파일
 
-### 문서화
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [src/lib/game-data.ts](/Users/jeongin/ssu-simulation/src/lib/game-data.ts)
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
 
-- 프로젝트 실행/설정 방법을 [README.md](/Users/jeongin/ssu-simulation/README.md)에 정리
-- Supabase 및 OpenAI 환경 변수 예시 추가
-- 작업 기록용 문서로 이 파일 생성
+## 2026-04-13 변경 로그
 
-### 검증
+### 크레딧 타이밍 버그 수정
 
-- `npm run lint` 통과
-- `npx next build --webpack` 통과
+- 문제: 크레딧 이름이 다 올라가기 전에 `화면 터치시 메인 화면으로 돌아갑니다` 문구가 먼저 노출됨
+- 조치: 크레딧 롤 애니메이션 종료 이벤트(`onAnimationEnd`) 이후에만 안내 문구가 뜨도록 조건 조정
+- 결과: 전체 크레딧이 끝난 뒤 안내 문구가 노출됨
 
-### 현재 상태 요약
+### 운영 요청 반영
 
-- 로컬에서 교수 커스터마이징 가능
-- 로컬에서 교수 이미지 생성 가능
-- 3챕터 시뮬레이션 플레이 가능
-- 결과 저장 API 연결 완료
-- Supabase 값이 맞으면 실제 저장 가능
+- `WORKLOG.md`를 최신 기준으로 재정리
+- 기존 장황한 초기 기록은 압축하고, 현재 의사결정 중심 로그 체계로 재구성
 
-### 다음 작업 후보
+## 기획/개발 메모 (Gemini API 비용 효율)
 
-- 생성된 교수 이미지를 Supabase Storage에 저장
-- 이미지 재생성 / variation 버튼 추가
-- 3챕터를 6챕터 구조로 확장
-- PDF 기반 시험 정보 주입 설계
-- LLM으로 챕터 텍스트 일부 동적 생성
-- 엔딩 연출 화면 강화
+- 모델 라우팅 분리: 기본 생성은 저비용 모델, 중요한 장면만 상위 모델 사용
+- 호출 수 최소화: 챕터별 매턴 생성 대신 `세션 단위 선생성 + 재사용`
+- 입력 토큰 절감: 시스템 프롬프트 고정 템플릿화 + 장문 컨텍스트 요약 저장
+- 출력 제한: `maxOutputTokens`와 구조화 응답(JSON 스키마)로 낭비 축소
+- 캐시 우선: 동일 조합(교수 설정/챕터/스타일)은 해시 키로 결과 재사용
+- 배치 처리: 가능한 항목은 한 번에 생성해 왕복 호출 비용 절감
 
-## 2026-04-09 추가 작업
+## 2026-04-13 추가 로그 (Gemini 최소비용 호출 설계안)
 
-### 전신 스프라이트 방향 반영
+### 결정사항
 
-- 교수 이미지 생성 프롬프트를 상반신 중심에서 전신 스프라이트 중심으로 수정
-- 발끝이 잘리지 않도록 full-body, standing pose, margin 지시를 프롬프트에 추가
+- 챕터 본문(대사/선택지)은 런타임 매턴 생성 대신 사전 생성 우선
+- 런타임 LLM 호출은 `세션 시작 1회`(+선택사항: 엔딩 polish 1회) 구조로 제한
+- 대량 사전 생성은 Batch API 우선 적용, 실시간 경로는 Standard API로 분리
 
-### 비주얼노벨형 플레이 화면 구성
+### 구현/수정 내용
 
-- `이 교수님으로 시험 전날 시작하기` 이후 화면을 비주얼노벨 느낌으로 개편
-- 챕터별 배경 톤을 가진 대형 장면 패널 추가
-- 생성된 교수 이미지를 배경 위에 오버레이하도록 구성
-- 하단에 이름 태그 + 대화문 + 선택지 버튼이 함께 있는 대화창 레이아웃 구현
+- 호출 단위를 `chapter-turn` 기준에서 `session-pack` 기준으로 전환하기로 설계
+- 출력 포맷을 구조화 JSON으로 고정해 재시도/파싱 비용을 줄이는 방향으로 확정
+- 동일 파라미터(교수 설정/스타일/선택 챕터 조합)에 대해 결과 캐시 키를 두는 전략 확정
 
-### 챕터 시각 정보 추가
+### 영향 파일
 
-- 각 챕터에 `location`, `backdrop` 정보를 추가
-- 기숙사, 도서관, 시험장 앞 장면이 서로 다른 분위기로 보이도록 구성
+- 문서 설계 단계라 코드 파일 변경 없음
+- WORKLOG 문서만 업데이트
 
-## 2026-04-09 추가 수정
+### 남은 TODO
 
-### 전신 이미지 잘림 보정
+- `session-pack` JSON 스키마 정의
+- Batch 사전생성 스크립트/잡 구성
+- 런타임 캐시 계층(메모리/DB) 설계 및 만료 정책 정의
 
-- 이미지 생성 해상도를 정사각형에서 세로형 `1024x1536`으로 변경
-- 머리와 발이 잘리지 않도록 프롬프트에 여백과 비크롭 지시를 강화
-- 미리보기 이미지에도 `object-top`과 더 큰 세로 높이를 적용
+## 2026-04-13 추가 로그 (A1 실제 적용)
 
-### 화면 전환 구조 수정
+### 결정사항
 
-- `이 교수님으로 시험 전날 시작하기`를 누르면 같은 페이지 내 일부 영역이 아니라
-  플레이 전용 화면이 보이도록 렌더링 구조를 분리
-- 커스터마이징 화면, 플레이 화면, 엔딩 화면이 각각 독립된 전체 화면처럼 보이게 조정
+- A1를 `세션 시작 1회 호출`로 실제 반영
+- 호출 실패/미설정 시 즉시 fallback(기본 챕터/기본 엔딩)로 진행
+- 엔딩 polish는 별도 호출 없이 세션팩 응답에 포함
 
-### 불필요 파일 정리
+### 구현/수정 내용
 
-- 더 이상 쓰지 않는 `.env.example` 삭제
-- Next 기본 스타터 SVG 파일 삭제
-  - `public/file.svg`
-  - `public/globe.svg`
-  - `public/next.svg`
-  - `public/vercel.svg`
-  - `public/window.svg`
+- 신규 API 추가: `/api/generate-session-pack`
+- 입력: 선택된 6챕터 ID + 플레이어명 + 교수명 + 교수 요약
+- 출력: 챕터별 대사/선택지/반응 + 5개 엔딩 polish JSON
+- 프론트 `시작하기` 동작을 세션팩 선생성 흐름으로 변경
+- `스토리 준비 중` 상태/메시지 표시 및 버튼 비활성화 처리
+- 엔딩 계산 시 점수 랭크는 기존 로컬 로직 유지, 텍스트만 session polish 우선 사용
 
-## 2026-04-11 추가 작업
+### 영향 파일
 
-### Google Cloud TTS 준비
+- [src/app/api/generate-session-pack/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-session-pack/route.ts)
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [README.md](/Users/jeongin/ssu-simulation/README.md)
 
-- Google Cloud 서비스 계정 JSON 키 파일을 로컬에 배치
-- `.env.local`에 Google Cloud TTS 관련 환경 변수 추가
-- 서비스 계정 키가 GitHub에 올라가지 않도록 [.gitignore](/Users/jeongin/ssu-simulation/.gitignore)에 JSON 키 파일명 추가
-- Vercel env 업로드용으로 생성했던 minified JSON 임시 파일은 삭제
+### 남은 TODO
 
-### Google Cloud TTS 연동
+- Batch API 기반 사전 생성 파이프라인 구성
+- session-pack 결과 캐시(조합 키) 도입
+- README의 구 버전 문구(TTS 관련) 정리
 
-- Google Cloud Text-to-Speech 서버 helper 추가
-- `/api/tts` API route 추가
-- 교수 성별 표현에 따라 한국어 Google TTS 음성을 다르게 매핑
-- 챕터 대사와 선택 직후 반응이 바뀔 때 자동으로 TTS를 생성하고 재생하도록 플레이 화면에 연결
-- 자동 재생이 막힐 때를 대비해 `음성 다시 듣기` 버튼 추가
+## 2026-04-13 추가 로그 (이미지 생성 비용 질의 정리)
 
-### TTS 연출 개선
+### 결정사항
 
-- 교수 생성 화면에 `교수님 목소리` 선택 드롭다운 추가
-- 성별 표현에 맞는 Google 한국어 음성 옵션만 보이도록 연결
-- 챕터 대사/반응 텍스트가 TTS 준비 전에 먼저 뜨지 않도록 표시 타이밍 조정
-- 오디오 길이를 기준으로 타이핑 속도를 조정해 TTS와 텍스트 진행감을 더 가깝게 맞춤
+- 표정 변형(화남/웃음 등)도 각각 별도 이미지 생성으로 과금됨
+- 기본 캐릭터 1장 + 표정 2장을 만들면 총 3장 기준 비용으로 계산
 
-### 감정 기반 TTS 연출 추가
+### 구현/수정 내용
 
-- 챕터 대사 생성 API에서 `emotion` 태그를 함께 생성하도록 확장
-- 선택지 반응에도 감정 태그를 포함하도록 구조 수정
-- Google TTS는 emotion 값에 따라 speaking rate와 pitch를 달리 적용하도록 설정
-- 플레이 화면에서 현재 대사 감정 상태를 확인할 수 있게 표시
+- 코드 수정 없음 (운영 비용 기준만 확정)
+
+### 영향 파일
+
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 표정 세트 생성 시 `필수 표정 수`를 먼저 고정해 월 비용 상한 계산표 만들기
+
+## 2026-04-13 추가 로그 (PM 논의 반영 메모)
+
+### 결정사항
+
+- PM 방향(시간대/장소 기반 분기 그래프, 공감 가능한 대학생 상황 중심)을 우선 채택
+- 런타임 비용 최소화를 위해 `사전 스토리 구조 고정 + 런타임 최소 호출(A1)` 혼합 전략이 적합
+- 표정 이미지는 감정 키워드 매핑으로 로컬 전환 가능, 단 생성 장수만큼 비용은 선형 증가
+
+### 구현/수정 내용
+
+- 코드 수정 없음 (설계 정렬 단계)
+
+### 영향 파일
+
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 챕터 플로우 다이어그램(시간대별 노드/분기) 수령 후 데이터 스키마 확정
+- 선택지 중립 텍스트 + 페르소나별 점수 가중치 규칙 설계
+- 표정 세트(기본/웃음/화남/슬픔) 생성 시점: 시작 시 일괄 vs 필요 시 지연생성 결정
+
+## 2026-04-13 추가 로그 (사용자 확정안 반영)
+
+### 결정사항
+
+- 점수 UI는 숫자 대신 게이지형으로 노출
+- 선택 직후 게이지가 끊기지 않고 부드럽게 증가하는 모션 적용
+- 표정 이미지 생성(기본+감정 3종)은 현재 릴리즈 범위에서 제외
+- A1 응답은 `배점 + 문장 톤 보정`을 모두 포함하도록 유지
+
+### 구현/수정 내용
+
+- 플레이 화면 상단에 `호감도 게이지`와 상태 문구 추가
+- 게이지 fill width에 transition을 적용해 20 -> 40 같은 구간이 자연스럽게 애니메이션되도록 처리
+- session-pack 프롬프트 제약 강화:
+  - 선택지는 중립적으로 작성
+  - 배점은 교수 페르소나에 따라 차등
+  - 문장 톤과 배점의 일관성 유지
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [src/app/api/generate-session-pack/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-session-pack/route.ts)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 게이지 시안(색/두께/위치) 최종 디자인 튜닝
+- PM 플로우차트 기준으로 챕터 노드/분기 데이터 정규화
+
+## 2026-04-13 추가 로그 (화면1~3 시안 반영)
+
+### 결정사항
+
+- 화면1~3 프리게임 UI를 전달받은 시안 기준으로 우선 반영
+- 배경은 이미지 교체가 쉬운 URL 슬롯 방식으로 구성
+- 화면3은 시안 우선 배치(대형 폼 + 만들기 버튼 중심)로 개편
+
+### 구현/수정 내용
+
+- 화면1:
+  - 메인표지 태그, 중앙 대형 프레임, 하단 타이틀/시작문구 오버레이 구성
+- 화면2:
+  - 대형 타이틀, 반투명 입력 패널, 성별 토글, 핑크 확인 버튼 구성
+- 화면3:
+  - 좌우 2열 입력 구조(이름/성별/나이/말투 + 요소1~3), 요구사항 대형 텍스트영역, 하단 만들기 버튼 구성
+  - `만들기` 클릭 시 교수 이미지 생성 후 스토리 시작으로 연결
+- 배경 URL 슬롯 추가:
+  - `/backgrounds/pre-game-bg.png`
+  - `/backgrounds/screen1-cover.png`
+  - 파일이 없어도 그라디언트 fallback으로 화면이 유지되게 처리
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 실사용 배경 원본 이미지 파일을 `public/backgrounds`에 배치
+- 화면2에서 성별 UI 위치/크기 최종 미세조정
+
+## 2026-04-13 추가 로그 (화면1 시안 변경 반영)
+
+### 결정사항
+
+- 변경된 화면1 시안 기준으로 메인표지 구조를 재조정
+- 프레임/라벨형 구성에서 `풀스크린 일러스트 + 하단 타이틀 오버레이` 구조로 변경
+- 배경 이미지는 기존과 동일하게 교체 가능한 URL 슬롯 방식 유지
+
+### 구현/수정 내용
+
+- `screen1_title` 섹션 JSX 재구성
+  - 배경 레이어: 이미지 + 색보정 그라디언트
+  - 전면 레이어: 하단 중심 대형 타이틀/안내문구
+- 기존 `메인표지` 라벨 및 카드 프레임 제거
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 실제 최종 배경 이미지 파일 교체 후 텍스트 위치 미세조정
+
+## 2026-04-13 추가 로그 (화면1 시작문구 블링크)
+
+### 결정사항
+
+- 화면1 `화면을 클릭하여 게임을 시작해 주세요` 문구에 깜빡임 모션 적용
+
+### 구현/수정 내용
+
+- `screen1-touch-guide` 클래스 추가
+- `screen1-touch-guide-blink` keyframes로 on/off 형태 블링크 애니메이션 적용
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 깜빡임 속도(1.05s) 체감 확인 후 필요 시 조정
+
+## 2026-04-13 추가 로그 (화면2 확인 버튼 디테일 재현)
+
+### 결정사항
+
+- 화면2 `확인` 버튼을 참고 이미지 기준으로 재질감/외곽선/양끝 하트까지 세밀하게 구현
+
+### 구현/수정 내용
+
+- 버튼 전용 클래스 `screen2-confirm-btn` 추가
+- 반투명 광택 그라디언트, 이중 외곽선, 내부 검은 내각선, 눌림 그림자 적용
+- 좌우 끝 하트 장식을 별도 요소(`screen2-confirm-heart-left/right`)로 배치
+- 중앙 라벨 고정 정렬(`screen2-confirm-label`) 처리
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 실제 시안 대비 하트 크기/간격 1차 미세조정
+
+## 2026-04-13 추가 로그 (화면2 버튼 단순화 재수정)
+
+### 결정사항
+
+- 화면2 확인 버튼은 텍스처(광택/입자) 없이 단순 형태 중심으로 조정
+- 하트는 원 안 장식이 아닌 `하트 모양` 자체로 배치
+- 버튼 세로 길이를 기존보다 크게 확장
+
+### 구현/수정 내용
+
+- `screen2-confirm-btn` 스타일 단순화:
+  - 단색에 가까운 그라디언트
+  - 외곽선/내각선 유지
+  - 과한 광택 효과 제거
+- `screen2-confirm-heart`에서 원형 배경/테두리 제거 후 하트 글리프만 남김
+- 버튼 높이/패딩 증가로 세로 비율 확장
+
+### 영향 파일
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 버튼 높이와 하트 좌우 여백 픽셀 단위 추가 튜닝
+
+## 2026-04-13 추가 로그 (화면2 버튼 글씨 롤백)
+
+### 결정사항
+
+- 화면2 확인 버튼의 글씨 스타일은 이전(원래) 톤으로 복원
+
+### 구현/수정 내용
+
+- `screen2-confirm-btn`의 글씨 관련 스타일 변경
+  - 색상: `#5e1f3e`
+  - 글자 간격: 원래 값으로 조정
+  - stroke/shadow 제거
+- `screen2-confirm-label`이 버튼의 글씨 스타일을 그대로 상속하도록 정리
+
+### 영향 파일
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 버튼 형태 확정 후 글씨 크기 최종 미세조정
+
+## 다음 로그 작성 규칙
+
+- 날짜별로 섹션 추가
+- 아래 4가지는 반드시 기록
+- `결정사항`
+- `구현/수정 내용`
+- `영향 파일`
+- `남은 TODO`
+
+## 2026-04-13 추가 로그 (화면2 버튼 교차선 제거 및 외곽선만 유지)
+
+### 결정사항
+
+- 화면2 확인 버튼 내부 검은선은 교차 표현을 없애고 외곽 윤곽만 보이도록 변경
+
+### 구현/수정 내용
+
+- `screen2-confirm-btn::before`
+  - 기존 전체 테두리/마스킹 방식 제거
+  - 수평 0~100%, 수직 20~80% 영역에서 `border-top`, `border-bottom`만 표시
+- `screen2-confirm-btn::after`
+  - 기존 전체 테두리/마스킹 방식 제거
+  - 수평 20~80%, 수직 0~100% 영역에서 `border-left`, `border-right`만 표시
+- 결과적으로 중앙 교차선이 사라지고 바깥 윤곽선만 남도록 정리
+
+### 영향 파일
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 실제 화면에서 하트와 선 끝 맞물림(코너 접점) 최종 미세조정
+
+## 2026-04-13 추가 로그 (화면2 버튼 선 구조 정리 및 시안 근접화)
+
+### 결정사항
+
+- 교차형 검은선 구조를 폐기하고 시안 기준으로 더 깔끔한 단일 내부 타원선 중심으로 정리
+
+### 구현/수정 내용
+
+- `screen2-confirm-btn::before`
+  - 검은 내부선을 단일 타원 테두리로 변경 (`border` 전체 적용)
+  - 위치를 `left/right 5.5%`, `top/bottom 18%`로 조정해 교차 없이 안정적으로 배치
+- `screen2-confirm-btn::after`
+  - 보조 장식선을 연한 핑크 타원 테두리로 변경 (`border` 전체 적용)
+  - 위치를 `left/right 3.6%`, `top/bottom 11%`로 조정
+  - `inset` 하이라이트를 추가해 시안의 레이어감에 가깝게 정리
+- 결과: 모서리 겹침/교차 아티팩트 제거, 버튼 라인이 더 단정한 형태로 렌더링
+
+### 영향 파일
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 실제 시안 대비 하트 위치(좌우 여백)와 검은선 굵기(2px/3px) 최종 미세조정
+
+## 2026-04-13 추가 로그 (화면2 확인 버튼 SVG 전환)
+
+### 결정사항
+
+- 화면2 확인 버튼은 CSS 가상요소 합성 방식을 중단하고 SVG 기반으로 교체
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - `screen2-confirm-btn` 내부를 인라인 SVG로 변경
+  - 버튼 외곽/내곽 라인, 내부 검은 타원선, 좌우 하트를 SVG에서 직접 렌더링
+  - 텍스트 `확인`은 기존처럼 HTML 레이어(`screen2-confirm-label`) 유지
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - 기존 `::before`, `::after`, 하트 관련 CSS 제거
+  - SVG 전용 레이아웃 클래스(`.screen2-confirm-svg`) 추가
+  - 버튼 상호작용(hover/active/focus-visible)만 남겨 단순화
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 실제 시안 대비 SVG 좌우 하트 위치/내부 검은선 굵기 미세조정
+
+## 2026-04-13 추가 로그 (가져온 확인 버튼 SVG 파일 연결)
+
+### 결정사항
+
+- 화면2 확인 버튼은 로컬 생성 SVG 대신 디자이너 제공 파일(`public/ui/buttons/confirm-button.svg`)을 직접 사용
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 인라인 SVG 마크업 제거
+  - `next/image`의 `Image` 컴포넌트로 `/ui/buttons/confirm-button.svg` 렌더링하도록 변경
+  - 버튼 접근성을 위해 `aria-label="확인"` 유지
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - `.screen2-confirm-svg`를 파일 기반 SVG 렌더에 맞게 유지(`object-fit: contain`)
+
+### 영향 파일
+
+- [public/ui/buttons/confirm-button.svg](/Users/jeongin/ssu-simulation/public/ui/buttons/confirm-button.svg)
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 실제 시안 대비 버튼 크기(clamp 값)와 vertical 정렬 위치 미세조정
+
+## 2026-04-13 추가 로그 (엔딩2 화면 가독성 문제 해결)
+
+### 결정사항
+
+- 엔딩2(`screen10_reality`)는 항상 밝은 배경에서 검은 텍스트로 표시되도록 고정
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - `screen10_reality` 섹션에 배경색 `bg-[#e6e6e6]` 적용
+  - 엔딩 문구 컨테이너의 반응형 글자 크기/줄간격을 시안 톤으로 조정
+  - `크레딧 보기` 버튼 크기/테두리 굵기/타이포를 시안에 맞게 상향 조정
+- 결과: 다크 배경 위 검은 글자 문제(가독성 저하) 제거
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 실제 시안 대비 문장 줄바꿈 위치와 버튼 y축 위치 미세조정
+
+## 2026-04-14 추가 로그 (챕터 교수 대사 한글 조합형 타이핑 효과 적용)
+
+### 결정사항
+
+- 챕터 화면에서 교수 대사는 한 번에 표시하지 않고 타이핑 애니메이션으로 출력
+- 한글은 조합 과정을 보이도록 단계 출력 적용
+  - 예: `안` -> `ㅇ`, `아`, `안`
+  - 예: `안녕` -> `ㅇ`, `아`, `안`, `안ㄴ`, `안녀`, `안녕`
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - `useEffect` 추가: `activeProfessorLine` 변경 시 프레임 단위 타이핑 재생
+  - `buildHangulTypingFrames` 헬퍼 추가: 한글 음절(초성/중성/종성) 기반 조합형 출력 프레임 생성
+  - `typedProfessorLine` 상태 추가 후 챕터 대사 렌더를 해당 상태로 전환
+- 결과: 챕터 진입/선택지 반응 대사 모두 타이핑 효과로 표시됨
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 타이핑 속도(현재 52ms/frame) 사용자 체감 기준으로 추가 미세조정 가능
+
+## 2026-04-14 추가 로그 (화면1/2/3 배경 이미지 webp 교체)
+
+### 결정사항
+
+- 화면1은 `screen1-cover.webp` 사용
+- 화면2/3은 `pre-game-bg.webp` 공용 사용
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - `mainCoverImageUrl` 경로를 `/backgrounds/screen1-cover.webp`로 변경
+  - `preGameBackgroundImageUrl` 경로를 `/backgrounds/pre-game-bg.webp`로 변경
+- 결과: 화면1/2/3 배경이 업로드한 webp 파일로 반영됨
+
+### 영향 파일
+
+- [public/backgrounds/screen1-cover.webp](/Users/jeongin/ssu-simulation/public/backgrounds/screen1-cover.webp)
+- [public/backgrounds/pre-game-bg.webp](/Users/jeongin/ssu-simulation/public/backgrounds/pre-game-bg.webp)
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 실제 화면에서 배경 크롭(모바일/데스크톱) 시안 대비 위치 미세조정 필요 시 `background-position` 값 조정
+
+## 2026-04-14 추가 로그 (화면1 배경 잘림 완화 레이어 구조 적용)
+
+### 결정사항
+
+- 화면1 배경은 단일 `cover` 방식 대신, `contain` 전면 + 블러 `cover` 후면 구조로 변경
+- 목적: 모바일/데스크톱 비율 차이에서 메인 이미지 잘림 최소화
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 배경 레이어를 5단계로 분리
+  - 베이스 단색 레이어 추가
+  - 후면: `mainCoverImageUrl`를 `cover + blur`로 깔아 빈 공간 자연스럽게 채움
+  - 전면: `mainCoverImageUrl`를 `background-size: contain`으로 전체 이미지 노출
+  - 상단: 기존 방사/선형 그라데이션 오버레이 유지
+- 결과: 기기 비율이 달라도 화면1 메인 배경 잘림이 크게 완화됨
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 모바일에서 전면 이미지 위치를 더 위/아래로 미세 조정 필요 시 `background-position` 퍼센트 조절
+
+## 2026-04-14 추가 로그 (화면1 풀/반 화면 글자 크기 편차 완화)
+
+### 결정사항
+
+- 화면1 제목/서브텍스트의 `vw` 의존도를 낮추고 최대 크기 상한을 줄여, 창 너비 변화 시 과도한 확대를 방지
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 제목 컨테이너 `max-width`를 `1300px -> 1120px`로 조정
+  - 제목 글자 크기 `clamp(56px, 8.2vw, 150px) -> clamp(42px, 6.6vw, 110px)`
+  - 안내 문구 글자 크기 `clamp(26px, 2.9vw, 50px) -> clamp(18px, 2.2vw, 34px)`
+  - 제목 줄간격을 `0.98 -> 1.01`로 완만하게 조정
+- 결과: 컴퓨터 전체화면에서 텍스트가 과도하게 커져 화면을 가리는 문제 완화
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 실제 시안 대비 제목 위치(하단 offset) 필요 시 `py`/`margin-top` 미세조정
+
+## 2026-04-14 추가 로그 (화면2 확인 버튼 검은 타원선 컴포넌트화)
+
+### 결정사항
+
+- 화면2 확인 버튼의 검은 타원선 2개를 CSS 가상요소(`::before`, `::after`) 대신 DOM 컴포넌트(`span`)로 전환
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 버튼 내부에 선 전용 컴포넌트 2개 추가
+  - `screen2-confirm-line-vertical`
+  - `screen2-confirm-line-horizontal`
+  - 레이어 순서: 버튼 배경 -> 선 컴포넌트 -> 하트/글자
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - 기존 `screen2-confirm-btn::before`, `screen2-confirm-btn::after` 제거
+  - 공통 선 클래스 `.screen2-confirm-line` + 방향별 클래스 2개로 분리
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 필요 시 선 굵기(3px) 및 inset 비율(0/5/15%)을 시안 기준으로 추가 미세조정
+
+## 2026-04-14 추가 로그 (화면2 확인 버튼 하트 좌표 퍼센트 고정)
+
+### 결정사항
+
+- 화면2 확인 버튼의 좌우 하트는 버튼 기준 좌표 `5%`, `95%` 지점에 배치
+
+### 구현/수정 내용
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - 하트 공통 transform을 `translateY(-50%)` -> `translate(-50%, -50%)`로 변경해 좌표 중심 정렬 적용
+  - 좌측 하트: `left: 5%`
+  - 우측 하트: `left: 95%`
+- 결과: 하트 중심점이 버튼 너비 기준 5%/95%에 고정됨
+
+### 영향 파일
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 시안 기준 하트 크기/외곽선 굵기 추가 미세조정
+
+## 2026-04-14 추가 로그 (화면2 버튼 선 컴포넌트 내부 연핑크 채움)
+
+### 결정사항
+
+- 화면2 확인 버튼의 선 컴포넌트 2개 내부를 아주 연한 핑크색으로 채움
+
+### 구현/수정 내용
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - `.screen2-confirm-line-vertical`에 `background: rgba(255, 238, 247, 0.38)` 적용
+  - `.screen2-confirm-line-horizontal`에 `background: rgba(255, 238, 247, 0.38)` 적용
+- 결과: 두 선 컴포넌트 내부가 연한 핑크 톤으로 채워져 시안 질감에 가까워짐
+
+### 영향 파일
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 시안 비교 후 채움 농도(alpha) 0.30~0.45 범위 미세조정 가능
+
+## 2026-04-14 추가 로그 (화면2 버튼 선 컴포넌트 내부 불투명 처리)
+
+### 결정사항
+
+- 화면2 확인 버튼 선 컴포넌트 2개의 내부 채움은 반투명 대신 불투명으로 고정
+
+### 구현/수정 내용
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - `.screen2-confirm-line-vertical` 배경
+    - `rgba(255, 238, 247, 0.38)` -> `rgb(255, 238, 247)`
+  - `.screen2-confirm-line-horizontal` 배경
+    - `rgba(255, 238, 247, 0.38)` -> `rgb(255, 238, 247)`
+- 결과: 선 컴포넌트 내부가 완전 불투명 연핑크로 렌더링됨
+
+### 영향 파일
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 시안과 비교해 연핑크 명도 자체(색상값) 미세조정 가능
+
+## 2026-04-14 추가 로그 (화면2 확인 버튼 시안 근접 미세조정)
+
+### 결정사항
+
+- 화면2 확인 버튼을 시안 톤에 맞추기 위해 색/선 굵기/하트 스케일을 한 번에 조정
+
+### 구현/수정 내용
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - 버튼 본체 색감을 `크림 -> 핑크` 그라데이션으로 변경
+  - 바깥 링/그림자 명암을 완화해 덜 딱딱하게 조정
+  - 상단 광택 레이어(`.screen2-confirm-btn::before`) 추가
+  - 선 컴포넌트 2개 내부를 동일 그라데이션으로 통일
+  - 검은 타원선 굵기 `3px -> 2px`, 색 농도 완화
+  - 하트 크기 축소 및 외곽선 농도 완화
+  - 버튼 텍스트 최대 크기 축소(풀화면 과대 느낌 완화)
+- 결과: 기존 대비 시안의 부드러운 핑크 질감/광택/선 강도에 더 근접
+
+### 영향 파일
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 하트 라인 두께와 내부 선 inset(5%/15%)을 시안 픽셀 기준으로 마지막 미세조정
+
+## 2026-04-14 추가 로그 (화면2 버튼 내부 2컴포넌트 일체감/그라데이션 강화)
+
+### 결정사항
+
+- 내부 선 컴포넌트 2개가 분리되어 보이지 않고 하나의 내부 패널처럼 보이도록 톤을 통일
+- 버튼 본체와 내부 패널의 색 대비를 더 뚜렷하게 조정
+
+### 구현/수정 내용
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - 버튼 본체 배경을 더 진한 핑크 계열로 조정
+  - 내부 하이라이트(`.screen2-confirm-btn::before`) 위치/농도 미세 조정
+  - 내부 2컴포넌트(`vertical`, `horizontal`)에 동일 그라데이션 적용
+  - 내부 2컴포넌트 보더 색/농도를 통일하여 연결감 강화
+  - 내부 2컴포넌트에 동일한 inset 하이라이트를 넣어 한 덩어리 질감 부여
+  - horizontal inset을 `5% -> 4.8%`로 소폭 조정해 접합부 완화
+- 결과: 내부 두 컴포넌트가 시각적으로 하나의 패널처럼 보이면서 버튼 본체와 명확히 구분됨
+
+### 영향 파일
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 시안 대비 코너 접합부(노치) 형태가 더 필요하면 `top/bottom`과 `left/right` 비율을 픽셀 단위로 추가 튜닝
+
+## 2026-04-14 추가 로그 (화면2 버튼 내부 2컴포넌트 검은 외곽선 제거)
+
+### 결정사항
+
+- 화면2 확인 버튼 내부 2컴포넌트(세로/가로)의 검은 외곽선을 모두 제거
+
+### 구현/수정 내용
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - `.screen2-confirm-line-vertical`의 좌우 보더 삭제
+  - `.screen2-confirm-line-horizontal`의 상하 보더 삭제
+- 결과: 내부 패널은 그라데이션 면으로만 표현되고 검은 라인은 사라짐
+
+### 영향 파일
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 필요 시 내부 패널 경계 표현을 연한 톤 보더(비검은색)로 대체 가능
+
+## 2026-04-14 추가 로그 (화면2 확인 버튼 광택 레이어 추가)
+
+### 결정사항
+
+- 화면2 확인 버튼에 유리광 느낌을 주기 위해 광택 레이어 1개 추가
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 버튼 내부에 `.screen2-confirm-gloss` 컴포넌트 추가
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - `.screen2-confirm-gloss` 스타일 추가
+  - 상단 선형 하이라이트 + 좌측 상단 타원 하이라이트를 중첩해 광택 표현
+  - `mix-blend-mode: screen` 적용
+  - 광택 클리핑을 위해 버튼에 `overflow: hidden` 추가
+  - 글자/하트 z-index를 상향(`5`)하여 광택 레이어 위에 유지
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 광택 강도가 과하면 opacity 값(0.52/0.32 등) 소폭 하향 조정 가능
+
+## 2026-04-14 추가 로그 (화면2 문구 위치 변경)
+
+### 결정사항
+
+- 화면2의 `이름은 최대 3자까지 가능합니다.` 문구를 상단 안내 텍스트에서 이름 입력칸 placeholder 위치로 이동
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 제목 아래 안내문(`이름은 최대 3자까지 가능합니다.`) 블록 제거
+  - 이름 입력 input의 placeholder를 `이름은 최대 3자까지 가능합니다.`로 변경
+- 결과: 요청대로 해당 문구가 `이름 입력 (미입력 시 김멋사)` 자리(입력칸 placeholder 위치)에 표시됨
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 필요 시 placeholder 폰트 크기/색 농도를 시안 기준으로 추가 조정 가능
+
+## 2026-04-14 추가 로그 (화면3 요소4 추가/문구 위치 이동/만들기 버튼 동일화/생성 예시 표시)
+
+### 결정사항
+
+- 화면3 우측 요소 입력칸을 `요소1~요소3`에서 `요소1~요소4`로 확장
+- 요구사항 예시 문구(`ex) ...`)를 텍스트 라인에서 textarea placeholder 위치로 이동
+- `만들기` 버튼은 화면2 확인 버튼과 동일 디자인으로 통일
+- 생성 완료 시 화면3에서 생성 이미지 예시를 즉시 표시
+
+### 구현/수정 내용
+
+- [src/lib/game-data.ts](/Users/jeongin/ssu-simulation/src/lib/game-data.ts)
+  - `ProfessorFormState`에 `feature4` 추가
+  - `professorFeatureSuggestions`에 `feature4` 옵션 추가
+  - `resolveProfessorForGeneration`에 `feature4` fallback 처리 추가
+  - `buildProfessorSummary`/`buildIllustrationPrompt`에 `feature4` 반영
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - `initialProfessorState`에 `feature4` 필드 추가
+  - 화면3 우측 입력칸 `요소4` + datalist(`feature4-options`) 추가
+  - `ex) ...` 안내 문구 라인 제거
+  - textarea placeholder를 `ex) ...` 문구로 변경
+  - `만들기` 버튼을 `screen2-confirm-btn` 구조(광택/라인/하트/라벨)로 교체
+  - `generatedImageUrl` 존재 시 `생성 예시 이미지` 프리뷰 카드 추가
+
+### 영향 파일
+
+- [src/lib/game-data.ts](/Users/jeongin/ssu-simulation/src/lib/game-data.ts)
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 시안과 1:1 매칭을 위해 화면3 `만들기` 버튼 크기(가로폭/폰트)만 개별 오버라이드로 미세조정 가능
+
+## 2026-04-14 추가 로그 (화면3 만들기 버튼 크기 분리 적용)
+
+### 결정사항
+
+- 화면3 `만들기` 버튼은 화면2 디자인(장식/레이어)만 공유하고, 크기는 기존 화면3 버튼 크기로 유지
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - `만들기` 버튼 클래스에 `screen3-create-btn` 추가
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - `.screen3-create-btn` 신규 추가
+  - `min-width/min-height` 해제
+  - `padding: 0.75rem 4rem` (기존 `py-3 px-16` 크기감)
+  - `font-size: clamp(44px, 5vw, 72px)` (기존 만들기 버튼 폰트 크기감)
+- 결과: 화면2 스타일은 유지하면서 화면3 `만들기` 버튼 크기만 기존 기준으로 분리됨
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 실제 시안 기준으로 필요 시 `screen3-create-btn` 너비/폰트 상한만 추가 미세조정
+
+## 2026-04-14 추가 로그 (화면3 요소1~4 라벨 줄바꿈 방지)
+
+### 결정사항
+
+- 화면3 우측 `요소1~요소4` 라벨은 항상 한 줄로 표시
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 요소 라벨 그리드 폭을 `96px -> 132px`로 확대
+  - 라벨에 `whitespace-nowrap` 추가
+- 결과: `요소1~4`가 2줄로 꺾이지 않고 한 줄 유지
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 필요 시 화면3 전체 비율에 맞춰 라벨 폰트 크기(현재 44px)도 추가 미세조정 가능
+
+## 2026-04-14 추가 로그 (화면3 만들기 버튼 라벨 잘림 수정)
+
+### 결정사항
+
+- 화면3 `만들기` 버튼은 flex 레이아웃에서 축소되지 않도록 고정
+
+### 구현/수정 내용
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - `.screen3-create-btn`에 `flex-shrink: 0` 추가
+  - 최소 너비/높이 지정(`min-width`, `min-height`)으로 버튼 형태 유지
+  - `white-space: nowrap` 추가로 라벨 줄바꿈/잘림 방지
+- 결과: `만들기` 텍스트가 가운데에서 잘려 보이던 문제 완화
+
+### 영향 파일
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 필요 시 시안 대비 화면3 만들기 버튼 폭/글자크기 상한 추가 미세조정
