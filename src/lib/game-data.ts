@@ -46,6 +46,7 @@ export type ProfessorFormState = {
   feature1: string;
   feature2: string;
   feature3: string;
+  feature4: string;
   customPrompt: string;
 };
 
@@ -156,7 +157,7 @@ const illustrationStyleProfiles: Record<
 };
 
 export const professorFeatureSuggestions: Record<
-  "feature1" | "feature2" | "feature3",
+  "feature1" | "feature2" | "feature3" | "feature4",
   string[]
 > = {
   feature1: [
@@ -179,6 +180,13 @@ export const professorFeatureSuggestions: Record<
     "선명한 턱선",
     "갸름한 얼굴형",
     "단정한 분위기의 얼굴 비율",
+  ],
+  feature4: [
+    "옅은 미소의 입꼬리",
+    "단정한 입술 라인",
+    "또렷한 피부톤",
+    "부드러운 광대 윤곽",
+    "도회적인 전체 분위기",
   ],
 };
 
@@ -728,7 +736,7 @@ function normalizeWithFallback(value: string, fallback: string) {
 }
 
 export function resolveProfessorForGeneration(form: ProfessorFormState): ProfessorFormState {
-  const pickFeature = (slot: "feature1" | "feature2" | "feature3") =>
+  const pickFeature = (slot: "feature1" | "feature2" | "feature3" | "feature4") =>
     pickOne(professorFeatureSuggestions[slot]);
 
   return {
@@ -743,6 +751,7 @@ export function resolveProfessorForGeneration(form: ProfessorFormState): Profess
     feature1: normalizeWithFallback(form.feature1, pickFeature("feature1")),
     feature2: normalizeWithFallback(form.feature2, pickFeature("feature2")),
     feature3: normalizeWithFallback(form.feature3, pickFeature("feature3")),
+    feature4: normalizeWithFallback(form.feature4, pickFeature("feature4")),
     customPrompt: normalizeWithFallback(
       form.customPrompt,
       "무심해 보이지만 학생의 성장을 끝까지 챙기는 타입",
@@ -757,7 +766,7 @@ export function buildProfessorSummary(form: ProfessorFormState) {
   const selectedStyle =
     illustrationStyleProfiles[form.illustrationStyle] ??
     illustrationStyleProfiles.DESIGN_3_CAMPUS_VISUAL_NOVEL;
-  const featureList = [form.feature1, form.feature2, form.feature3]
+  const featureList = [form.feature1, form.feature2, form.feature3, form.feature4]
     .map((feature) => feature.trim())
     .filter((feature) => feature.length > 0)
     .join(", ");
@@ -774,7 +783,7 @@ export function buildIllustrationPrompt(form: ProfessorFormState) {
   const selectedStyle =
     illustrationStyleProfiles[form.illustrationStyle] ??
     illustrationStyleProfiles.DESIGN_3_CAMPUS_VISUAL_NOVEL;
-  const features = [form.feature1, form.feature2, form.feature3]
+  const features = [form.feature1, form.feature2, form.feature3, form.feature4]
     .map((feature) => feature.trim())
     .filter((feature) => feature.length > 0);
 

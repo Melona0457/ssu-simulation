@@ -7,12 +7,11 @@
 - 교수님 외형 파츠 선택
 - LLM용 자유 커스터마이징 문구 입력
 - OpenAI 기반 학습 노트/PDF 텍스트 요약
-- 5챕터 분기형 시뮬레이션
+- 10~15개 챕터 풀 중 6개 선별형 분기 시뮬레이션
 - 점수 기반 엔딩
 - Supabase 플레이 기록 저장
 - Gemini 기반 교수 스프라이트 생성
-- Gemini 기반 챕터 대사/엔딩 생성
-- Gemini 기반 TTS 생성
+- Gemini 기반 A1 세션팩 생성(세션 시작 시 1회 호출로 6챕터+엔딩 보정)
 - OpenAI 요약 결과를 기반으로 Gemini가 챕터 중 깜짝 퀴즈를 생성
 
 ## 로컬 실행
@@ -42,7 +41,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 OPENAI_API_KEY=your_openai_api_key
 GEMINI_API_KEY=your_gemini_api_key
-GEMINI_TEXT_MODEL=gemini-2.5-flash
+GEMINI_TEXT_MODEL=gemini-2.5-flash-lite
 GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 GEMINI_TTS_MODEL=gemini-2.5-flash-preview-tts
 OPENAI_SUMMARY_MODEL=gpt-4.1-mini
@@ -63,7 +62,7 @@ Vercel에 배포할 때도 같은 환경 변수를 프로젝트 설정에 넣으
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENAI_API_KEY` (학습 노트/PDF 텍스트 요약)
-- `GEMINI_API_KEY` (이미지/스토리/TTS)
+- `GEMINI_API_KEY` (이미지/스토리)
 
 선택:
 
