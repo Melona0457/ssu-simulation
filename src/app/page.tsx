@@ -45,10 +45,34 @@ type EndingState = {
   score100: number;
 };
 
+type SessionExpressionDefinition = {
+  key: string;
+  label: string;
+  direction: string;
+  reason: string;
+};
+
+type ChapterSpriteCue = {
+  dialogueExpressionKey: string;
+  choiceReactionExpressionKeys: [string, string, string];
+};
+
 type SessionPackResponse = {
   chapters?: Partial<Record<ChapterId, ChapterDialogue>>;
   endingPolish?: Partial<Record<EndingRank, { title?: string; description?: string }>>;
+  expressionSet?: SessionExpressionDefinition[];
+  spriteCues?: Partial<Record<ChapterId, ChapterSpriteCue>>;
   fallback?: boolean;
+  message?: string;
+};
+
+type ProfessorExpressionMap = Record<string, string>;
+
+type GenerateProfessorImageResponse = {
+  imageDataUrl?: string;
+  expressionSet?: SessionExpressionDefinition[];
+  expressionImageDataUrls?: ProfessorExpressionMap;
+  promptUsed?: string;
   message?: string;
 };
 
@@ -127,6 +151,75 @@ function getAffinityMood(percent: number) {
   }
 
   return "어색한 시작";
+}
+
+function normalizeExpressionSet(
+  raw: SessionExpressionDefinition[] | undefined,
+): SessionExpressionDefinition[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const normalized: SessionExpressionDefinition[] = [];
+
+  raw.forEach((item) => {
+    const key = typeof item?.key === "string" ? item.key.trim() : "";
+    if (!key || seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    normalized.push({
+      key,
+      label: typeof item?.label === "string" && item.label.trim().length > 0 ? item.label.trim() : key,
+      direction: typeof item?.direction === "string" ? item.direction.trim() : "",
+      reason: typeof item?.reason === "string" ? item.reason.trim() : "",
+    });
+  });
+
+  return normalized;
+}
+
+function normalizeSpriteCueMap(
+  raw: Partial<Record<ChapterId, ChapterSpriteCue>> | undefined,
+): Partial<Record<ChapterId, ChapterSpriteCue>> {
+  if (!raw) {
+    return {};
+  }
+
+  return (Object.keys(raw) as ChapterId[]).reduce(
+    (acc, chapterId) => {
+      const source = raw[chapterId];
+      const dialogueExpressionKey =
+        typeof source?.dialogueExpressionKey === "string"
+          ? source.dialogueExpressionKey.trim()
+          : "";
+      const sourceChoices = Array.isArray(source?.choiceReactionExpressionKeys)
+        ? source.choiceReactionExpressionKeys
+        : [];
+
+      const choiceReactionExpressionKeys = [0, 1, 2].map((index) => {
+        const candidate = sourceChoices[index];
+        if (typeof candidate === "string" && candidate.trim().length > 0) {
+          return candidate.trim();
+        }
+
+        return dialogueExpressionKey;
+      }) as [string, string, string];
+
+      if (!dialogueExpressionKey || choiceReactionExpressionKeys.some((key) => !key)) {
+        return acc;
+      }
+
+      acc[chapterId] = {
+        dialogueExpressionKey,
+        choiceReactionExpressionKeys,
+      };
+      return acc;
+    },
+    {} as Partial<Record<ChapterId, ChapterSpriteCue>>,
+  );
 }
 
 const HANGUL_BASE = 0xac00;
@@ -223,6 +316,8 @@ export default function Home() {
   };
 
   const [generatedImageUrl, setGeneratedImageUrl] = useState("");
+  const [generatedExpressionImageUrls, setGeneratedExpressionImageUrls] =
+    useState<ProfessorExpressionMap>({});
   const [imageMessage, setImageMessage] = useState("");
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
@@ -238,6 +333,12 @@ export default function Home() {
   const [sessionPackMessage, setSessionPackMessage] = useState("");
   const [sessionDialogues, setSessionDialogues] = useState<
     Partial<Record<ChapterId, ChapterDialogue>>
+  >({});
+  const [sessionExpressionSet, setSessionExpressionSet] = useState<
+    SessionExpressionDefinition[]
+  >([]);
+  const [sessionSpriteCues, setSessionSpriteCues] = useState<
+    Partial<Record<ChapterId, ChapterSpriteCue>>
   >({});
   const [sessionEndingPolish, setSessionEndingPolish] = useState<
     Partial<Record<EndingRank, { title: string; description: string }>>
@@ -273,6 +374,64 @@ export default function Home() {
     activeProfessorLine.length > 0 &&
     typedProfessorLine !== activeProfessorLine;
   const shouldShowChoiceOverlay = selectedChoiceIndex === null && !isProfessorLineTyping;
+  const activeProfessorImageUrl = useMemo(() => {
+    if (!generatedImageUrl) {
+      return "";
+    }
+
+    const chapterCue = currentChapterId ? sessionSpriteCues[currentChapterId] : undefined;
+    const selectedExpressionKey =
+      selectedChoiceIndex === null
+        ? chapterCue?.dialogueExpressionKey
+        : chapterCue?.choiceReactionExpressionKeys?.[selectedChoiceIndex];
+
+    if (
+      selectedExpressionKey &&
+      typeof generatedExpressionImageUrls[selectedExpressionKey] === "string"
+    ) {
+      return generatedExpressionImageUrls[selectedExpressionKey];
+    }
+
+    return generatedImageUrl;
+  }, [
+    currentChapterId,
+    generatedExpressionImageUrls,
+    generatedImageUrl,
+    selectedChoiceIndex,
+    sessionSpriteCues,
+  ]);
+  const expressionPreviewEntries = useMemo(() => {
+    const ordered = sessionExpressionSet
+      .map((expression) => ({
+        key: expression.key,
+        label: expression.label,
+        src: generatedExpressionImageUrls[expression.key],
+      }))
+      .filter(
+        (
+          entry,
+        ): entry is {
+          key: string;
+          label: string;
+          src: string;
+        } => typeof entry.src === "string" && entry.src.length > 0,
+      );
+
+    if (ordered.length > 0) {
+      return ordered;
+    }
+
+    return Object.entries(generatedExpressionImageUrls)
+      .filter(
+        (entry): entry is [string, string] =>
+          typeof entry[1] === "string" && entry[1].length > 0,
+      )
+      .map(([key, src]) => ({
+        key,
+        label: key,
+        src,
+      }));
+  }, [generatedExpressionImageUrls, sessionExpressionSet]);
 
   const affinityPercent =
     selectedChapterIds.length > 0
@@ -358,12 +517,17 @@ export default function Home() {
     setPhase("screen3_professor");
   }
 
-  async function generateProfessorImage() {
-    const resolvedProfessor = resolveProfessorForGeneration(professor);
+  async function generateProfessorImage(options?: {
+    resolvedProfessor?: ProfessorFormState;
+    expressionSet?: SessionExpressionDefinition[];
+  }) {
+    const resolvedProfessor = options?.resolvedProfessor ?? resolveProfessorForGeneration(professor);
     const resolvedProfessorName = toDisplayProfessorName(resolvedProfessor.name);
+    const normalizedExpressionSet = normalizeExpressionSet(options?.expressionSet);
 
     setProfessor(resolvedProfessor);
     setImageMessage("");
+    setGeneratedExpressionImageUrls({});
     setIsGeneratingImage(true);
 
     try {
@@ -376,23 +540,34 @@ export default function Home() {
           professorName: resolvedProfessorName,
           professorSummary: buildProfessorSummary(resolvedProfessor),
           illustrationPrompt: buildIllustrationPrompt(resolvedProfessor),
+          expressionSet: normalizedExpressionSet.length > 0 ? normalizedExpressionSet : undefined,
         }),
       });
 
-      const data = (await response.json()) as {
-        imageDataUrl?: string;
-        promptUsed?: string;
-        message?: string;
-      };
+      const data = (await response.json()) as GenerateProfessorImageResponse;
 
       if (!response.ok || !data.imageDataUrl) {
         throw new Error(data.message || "교수 이미지 생성 실패");
       }
 
       setGeneratedImageUrl(data.imageDataUrl);
-      setImageMessage("교수님 생성이 완료되었습니다.");
+      setGeneratedExpressionImageUrls(data.expressionImageDataUrls ?? {});
+      const returnedExpressionSet = normalizeExpressionSet(data.expressionSet);
+      if (returnedExpressionSet.length > 0) {
+        setSessionExpressionSet(returnedExpressionSet);
+      } else if (normalizedExpressionSet.length > 0) {
+        setSessionExpressionSet(normalizedExpressionSet);
+      }
+      const expressionCount = Object.values(data.expressionImageDataUrls ?? {}).filter(
+        (value) => typeof value === "string" && value.length > 0,
+      ).length;
+      setImageMessage(
+        data.message ||
+          `교수님 생성이 완료되었습니다. (${expressionCount > 0 ? `표정 ${expressionCount}종 포함` : "기본 이미지"})`,
+      );
     } catch (error) {
       setGeneratedImageUrl("");
+      setGeneratedExpressionImageUrls({});
       setImageMessage(
         error instanceof Error
           ? `이미지 생성 실패: ${error.message}`
@@ -403,15 +578,13 @@ export default function Home() {
     }
   }
 
-  async function startStory() {
-    if (isPreparingSession) {
-      return;
-    }
-
-    const resolvedProfessor = resolveProfessorForGeneration(professor);
-    const runChapters = pickSixChaptersForRun();
+  async function prepareSessionPack(
+    resolvedProfessor: ProfessorFormState,
+    runChapters: ChapterId[],
+  ) {
     const professorNameForPrompt = toDisplayProfessorName(resolvedProfessor.name);
     const professorSummaryForPrompt = buildProfessorSummary(resolvedProfessor);
+    let normalizedExpressionSet: SessionExpressionDefinition[] = [];
 
     setIsPreparingSession(true);
     setSessionPackMessage("세션 스토리를 준비 중입니다...");
@@ -422,6 +595,8 @@ export default function Home() {
     setRawScore(0);
     setEnding(null);
     setSessionDialogues({});
+    setSessionExpressionSet([]);
+    setSessionSpriteCues({});
     setSessionEndingPolish({});
     setStoryLog([
       `${playerName}(${player.gender})의 시험기간 시뮬레이션 시작`,
@@ -451,6 +626,10 @@ export default function Home() {
       if (data.chapters) {
         setSessionDialogues(data.chapters);
       }
+
+      normalizedExpressionSet = normalizeExpressionSet(data.expressionSet);
+      setSessionExpressionSet(normalizedExpressionSet);
+      setSessionSpriteCues(normalizeSpriteCueMap(data.spriteCues));
 
       if (data.endingPolish) {
         const normalizedEndingPolish: Partial<
@@ -486,10 +665,25 @@ export default function Home() {
           ? `세션 생성 실패: ${error.message}. 기본 데이터로 시작합니다.`
           : "세션 생성 실패로 기본 데이터로 시작합니다.",
       );
+      setSessionExpressionSet([]);
+      setSessionSpriteCues({});
     } finally {
       setIsPreparingSession(false);
-      setPhase("screen4_8_chapter");
     }
+
+    return normalizedExpressionSet;
+  }
+
+  async function startStory() {
+    if (isPreparingSession) {
+      return;
+    }
+
+    const resolvedProfessor = resolveProfessorForGeneration(professor);
+    const runChapters = pickSixChaptersForRun();
+
+    await prepareSessionPack(resolvedProfessor, runChapters);
+    setPhase("screen4_8_chapter");
   }
 
   async function makeProfessorAndStartStory() {
@@ -497,8 +691,15 @@ export default function Home() {
       return;
     }
 
-    await generateProfessorImage();
-    await startStory();
+    const resolvedProfessor = resolveProfessorForGeneration(professor);
+    const runChapters = pickSixChaptersForRun();
+
+    const expressionSetFromSession = await prepareSessionPack(resolvedProfessor, runChapters);
+    await generateProfessorImage({
+      resolvedProfessor,
+      expressionSet: expressionSetFromSession,
+    });
+    setPhase("screen4_8_chapter");
   }
 
   function chooseOption(choiceIndex: number) {
@@ -584,6 +785,7 @@ export default function Home() {
     setPlayer(initialPlayerState);
     setProfessor(initialProfessorState);
     setGeneratedImageUrl("");
+    setGeneratedExpressionImageUrls({});
     setImageMessage("");
     setSelectedChapterIds([]);
     setChapterIndex(0);
@@ -595,6 +797,8 @@ export default function Home() {
     setIsPreparingSession(false);
     setSessionPackMessage("");
     setSessionDialogues({});
+    setSessionExpressionSet([]);
+    setSessionSpriteCues({});
     setSessionEndingPolish({});
   }
 
@@ -936,10 +1140,10 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={startStory}
-                  disabled={isPreparingSession}
+                  disabled={isPreparingSession || isGeneratingImage}
                   className="rounded-full border-2 border-[#b87995] bg-white/80 px-7 py-2 text-xl font-semibold text-[#5c223e] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {isPreparingSession ? "준비 중..." : "스토리만 바로 시작"}
+                  {isPreparingSession || isGeneratingImage ? "준비 중..." : "스토리만 바로 시작"}
                 </button>
               </div>
 
@@ -952,6 +1156,26 @@ export default function Home() {
                     alt="생성된 교수 이미지 예시"
                     className="mt-2 h-auto w-full rounded-xl border-2 border-[#c78ea8] object-cover shadow-[0_8px_18px_rgba(71,22,43,0.2)]"
                   />
+                  {expressionPreviewEntries.length > 0 && (
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      {expressionPreviewEntries.map((entry) => (
+                        <div
+                          key={entry.key}
+                          className="rounded-lg border border-[#c78ea8] bg-white/70 p-1"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={entry.src}
+                            alt={`${entry.label} 표정`}
+                            className="h-24 w-full rounded-md object-cover"
+                          />
+                          <p className="mt-1 text-center text-sm font-semibold text-[#5e2240]">
+                            {entry.label}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -997,10 +1221,10 @@ export default function Home() {
             </div>
 
             <div className="relative mt-4 flex flex-1 items-end justify-center pb-[260px] md:pb-[300px]">
-              {generatedImageUrl ? (
+              {activeProfessorImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={generatedImageUrl}
+                  src={activeProfessorImageUrl}
                   alt={`${professorName} 교수 스프라이트`}
                   className="max-h-[72vh] w-auto object-contain drop-shadow-[0_20px_36px_rgba(0,0,0,0.45)]"
                 />

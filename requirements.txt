@@ -1,0 +1,9 @@
+# 배경 제거 API 서버 (FastAPI + rembg)
+# Python 3.10~3.12 권장
+
+fastapi>=0.115.0,<1.0.0
+uvicorn[standard]>=0.34.0,<1.0.0
+python-multipart>=0.0.9,<1.0.0
+pillow>=10.4.0,<12.0.0
+rembg>=2.0.60,<3.0.0
+onnxruntime-gpu>=1.20.0,<2.0.0

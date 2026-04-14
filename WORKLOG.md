@@ -1154,3 +1154,82 @@
 ### 구현/수정 내용
 - `bg-white` 및 `bg-[#ffb8d5]`를 사용하여 선명한 버튼 디자인 적용
 - 버튼 크기 및 아이콘 굵기를 상향 조정하여 시인성 확보
+
+## 2026-04-15 추가 로그 (누끼 API 연동 + 교수 표정 3종 생성 파이프라인)
+
+### 결정사항
+
+- 기존 `Gemini 생성 + route 내부 sharp 누끼` 구조를 `Gemini 생성 + 외부 BG API(rembg)` 구조로 전환
+- 보안/운영 안정성을 위해 브라우저가 BG API를 직접 호출하지 않고, Next.js 서버 라우트가 프록시/중계
+- 교수 이미지 생성 플로우를 `기본 이미지 1장 + 표정 3장(미소/단호/당황)`으로 확장
+- 표정 3장은 배치 누끼(`/remove-batch`)를 우선 사용해 호출 수를 최소화
+
+### 구현/수정 내용
+
+- [src/lib/bg-remove/server.ts](/Users/jeongin/ssu-simulation/src/lib/bg-remove/server.ts)
+  - 신규 추가: BG API 전용 서버 유틸
+  - 단일 누끼 함수 `removeBackgroundSingle` 구현 (`/remove`)
+  - 배치 누끼 함수 `removeBackgroundBatch` 구현 (`/remove-batch?response_type=json`)
+  - `BG_API_URL` 환경변수 강제 사용, 타임아웃/네트워크/비정상 응답 에러 처리 추가
+- [src/app/api/generate-professor-image/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-professor-image/route.ts)
+  - 내부 sharp 누끼 로직 제거 후 BG API 유틸 기반으로 교체
+  - 기본 교수 이미지 생성 -> 단일 누끼 적용
+  - 누끼된 기본 이미지를 레퍼런스로 표정 3종 재생성
+  - 표정 3종에 배치 누끼 적용 후 `expressionImageDataUrls` 반환
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 표정 이미지 상태(`generatedExpressionImageUrls`) 추가
+  - 이미지 생성 응답에서 표정 data URL 수신/저장
+  - 선택지 반응 `emotion` 값에 따라 교수 스프라이트 자동 교체(미소/단호/당황 매핑)
+  - 교수 생성 화면에 표정 3종 썸네일 미리보기 추가
+- [README.md](/Users/jeongin/ssu-simulation/README.md)
+  - `BG_API_URL`, `BG_API_TIMEOUT_MS` 환경변수 안내 추가
+
+### 영향 파일
+
+- [src/lib/bg-remove/server.ts](/Users/jeongin/ssu-simulation/src/lib/bg-remove/server.ts)
+- [src/app/api/generate-professor-image/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-professor-image/route.ts)
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [README.md](/Users/jeongin/ssu-simulation/README.md)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 검증
+
+- `npm run lint` 통과
+
+### 남은 TODO
+
+- `BG_API_URL`이 Quick Tunnel 주소일 경우 재시작 시 주소 변경 대응(고정 도메인/Named Tunnel 전환)
+- 표정 매핑 규칙을 챕터/분기 기반으로 세분화할지 기획 확정
+- 표정 생성 실패 시 기본 이미지만으로 플레이하는 UX 문구/상태 정리
+
+## 2026-04-15 추가 로그 (스토리 기반 표정 큐 적용 + 세션 선생성 플로우 전환)
+
+### 결정사항
+
+- 기존 `emotion -> 고정 표정(미소/단호/당황)` 매핑을 제거하고, 세션 생성 시점에 `expressionSet(3종)` + `spriteCues`를 함께 생성해 실제 챕터 구간에 맞춰 표정을 교체하도록 전환
+- `만들기` 버튼 플로우를 `세션팩 생성 -> 해당 세션의 표정셋으로 교수 이미지/누끼 생성 -> 게임 진입` 순서로 변경
+- 표정 이미지가 일부 실패해도 `spriteCues` 키에 대응되는 이미지가 없으면 기본 이미지로 자동 fallback
+
+### 구현/수정 내용
+
+- [src/app/api/generate-session-pack/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-session-pack/route.ts)
+  - `expressionSet`(EXP_1~3)과 `spriteCues`(chapter별 대사/선택지 반응 키) 반환 구조 확장
+  - 응답 누락/이상 시 fallback `expressionSet`/`spriteCues` 자동 생성 로직 추가
+  - 프롬프트에 “표정 3개 선정 근거 + 챕터별 cue 작성” 제약을 명시
+- [src/app/api/generate-professor-image/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-professor-image/route.ts)
+  - 요청 payload로 `expressionSet` 수신 가능하도록 확장
+  - 세션에서 전달된 표정 정의를 기준으로 표정 3종 생성 + 배치 누끼 후 `expressionImageDataUrls` 반환
+  - 생성 결과에 `expressionSet`, `expressionPromptUsed` 포함
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - `sessionExpressionSet`, `sessionSpriteCues` 상태 추가
+  - 교수 스프라이트 선택 로직을 감정 기반에서 `spriteCues` 기반으로 교체
+    - 선택 전: `dialogueExpressionKey`
+    - 선택 후 반응: `choiceReactionExpressionKeys[index]`
+  - `makeProfessorAndStartStory`를 세션 선생성 방식으로 재구성해 세션 표정셋을 이미지 생성에 전달
+  - 표정 썸네일 미리보기를 고정 키가 아닌 동적 `expressionSet` 기반으로 렌더링
+- [src/lib/bg-remove/server.ts](/Users/jeongin/ssu-simulation/src/lib/bg-remove/server.ts)
+  - `BG_API_TIMEOUT_MS` 환경변수를 기본 타임아웃으로 반영하도록 보강
+
+### 검증
+
+- `npm run lint` 통과
