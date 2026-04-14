@@ -156,6 +156,18 @@ const illustrationStyleProfiles: Record<
   },
 };
 
+const fusedIllustrationReferenceProfile = {
+  name: "fused style from illustration design 1+2+3",
+  keywords: [
+    ...illustrationStyleProfiles.DESIGN_1_ROMANCE_FANTASY.keywords,
+    ...illustrationStyleProfiles.DESIGN_2_CLEAN_CHARACTER_CARD.keywords,
+    ...illustrationStyleProfiles.DESIGN_3_CAMPUS_VISUAL_NOVEL.keywords,
+    "romantic key visual energy with polished glow accents",
+    "clean character readability suitable for choice-driven dialogue scenes",
+    "balanced campus visual novel rendering with stable silhouette clarity",
+  ],
+};
+
 export const professorFeatureSuggestions: Record<
   "feature1" | "feature2" | "feature3" | "feature4",
   string[]
@@ -647,8 +659,17 @@ export const professorSpriteStylePreset = [
   "high-detail glossy hair strands and highlights",
   "expressive eyes with elegant facial rendering",
   "polished commercial game illustration finish",
-  "vivid but balanced magenta-cyan accent lighting",
+  "romantic color accents with controlled bloom",
+  "clean character-card readability with tidy line confidence",
+  "visual-novel sprite clarity for dialogue-first gameplay",
 ];
+
+export const professorReferenceFusionGuide = [
+  "merge all three attached illustration references together",
+  "reference 1 tone: romantic poster-like glow and dramatic polish",
+  "reference 2 tone: clean youthful linework and bright character readability",
+  "reference 3 tone: campus visual-novel sprite stability and dialogue-scene fit",
+].join(", ");
 
 function pickOne<T>(items: T[]) {
   const index = Math.floor(Math.random() * items.length);
@@ -688,9 +709,6 @@ export function buildProfessorSummary(form: ProfessorFormState) {
   const professorName = normalizeWithFallback(form.name, "이름 미정 교수");
   const ageText = normalizeWithFallback(form.age, "30");
   const styleText = normalizeWithFallback(form.speakingStyle, "차분한 말투");
-  const selectedStyle =
-    illustrationStyleProfiles[form.illustrationStyle] ??
-    illustrationStyleProfiles.DESIGN_3_CAMPUS_VISUAL_NOVEL;
   const featureList = [form.feature1, form.feature2, form.feature3, form.feature4]
     .map((feature) => feature.trim())
     .filter((feature) => feature.length > 0)
@@ -700,14 +718,11 @@ export function buildProfessorSummary(form: ProfessorFormState) {
     "무심해 보이지만 학생의 성장을 챙긴다",
   );
 
-  return `${professorName}은(는) ${ageText}대 ${form.gender} 교수다. 말투는 ${styleText}이고, 외형/분위기 키워드는 ${featureList || "미정"}이다. 일러스트 무드는 ${selectedStyle.name} 기준이다. 성격 메모: ${customPrompt}.`;
+  return `${professorName}은(는) ${ageText}대 ${form.gender} 교수다. 말투는 ${styleText}이고, 외형/분위기 키워드는 ${featureList || "미정"}이다. 일러스트 무드는 ${fusedIllustrationReferenceProfile.name} 기준으로 고정한다. 성격 메모: ${customPrompt}.`;
 }
 
 export function buildIllustrationPrompt(form: ProfessorFormState) {
   const professorName = normalizeWithFallback(form.name, "이름 미정 교수");
-  const selectedStyle =
-    illustrationStyleProfiles[form.illustrationStyle] ??
-    illustrationStyleProfiles.DESIGN_3_CAMPUS_VISUAL_NOVEL;
   const features = [form.feature1, form.feature2, form.feature3, form.feature4]
     .map((feature) => feature.trim())
     .filter((feature) => feature.length > 0);
@@ -716,8 +731,9 @@ export function buildIllustrationPrompt(form: ProfessorFormState) {
     "full-body 2D Korean campus visual novel professor sprite",
     "standing pose",
     `style lock: ${professorSpriteStylePreset.join(", ")}`,
-    `style profile name: ${selectedStyle.name}`,
-    `style profile keywords: ${selectedStyle.keywords.join(", ")}`,
+    `reference fusion lock: ${professorReferenceFusionGuide}`,
+    `style profile name: ${fusedIllustrationReferenceProfile.name}`,
+    `style profile keywords: ${fusedIllustrationReferenceProfile.keywords.join(", ")}`,
     `character: ${professorName}`,
     `gender presentation: ${form.gender}`,
     `age decade: ${normalizeWithFallback(form.age, "30")}s`,
