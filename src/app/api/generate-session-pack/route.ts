@@ -98,6 +98,13 @@ const sessionPackResponseJsonSchema = {
   additionalProperties: true,
 } as const;
 
+const SESSION_GENERATION_CONFIG = {
+  temperature: 0.35,
+  responseMimeType: "application/json",
+  responseJsonSchema: sessionPackResponseJsonSchema,
+  maxOutputTokens: 4300,
+} as const;
+
 const DEFAULT_EXPRESSION_SET: Record<ExpressionKey, Omit<SessionExpressionDefinition, "key">> = {
   EXP_1: {
     label: "차분한 기본",
@@ -355,17 +362,31 @@ function stripJsonCodeFence(raw: string) {
     .trim();
 }
 
+function normalizePotentialJson(raw: string) {
+  return raw
+    .replace(/\uFEFF/g, "")
+    .replace(/\u00A0/g, " ")
+    .replace(/[“”]/g, "\"")
+    .replace(/[‘’]/g, "'")
+    .replace(/,\s*([}\]])/g, "$1")
+    .trim();
+}
+
 function parseSessionPackJson(raw: string) {
   const direct = raw.trim();
   const withoutFence = stripJsonCodeFence(direct);
+  const normalized = normalizePotentialJson(withoutFence);
   const firstBrace = withoutFence.indexOf("{");
   const lastBrace = withoutFence.lastIndexOf("}");
   const extracted =
     firstBrace >= 0 && lastBrace > firstBrace
       ? withoutFence.slice(firstBrace, lastBrace + 1)
       : withoutFence;
+  const normalizedExtracted = normalizePotentialJson(extracted);
 
-  const candidates = Array.from(new Set([direct, withoutFence, extracted]));
+  const candidates = Array.from(
+    new Set([direct, withoutFence, normalized, extracted, normalizedExtracted]),
+  );
   let lastError: unknown;
 
   for (const candidate of candidates) {
@@ -377,6 +398,53 @@ function parseSessionPackJson(raw: string) {
   }
 
   throw lastError instanceof Error ? lastError : new Error("세션 JSON 파싱에 실패했습니다.");
+}
+
+async function requestSessionPackFromGemini(
+  gemini: NonNullable<ReturnType<typeof createGeminiClient>>,
+  prompt: string,
+) {
+  return gemini.models.generateContent({
+    model: getGeminiTextModel(),
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: prompt }],
+      },
+    ],
+    config: SESSION_GENERATION_CONFIG,
+  });
+}
+
+async function repairMalformedSessionPackJson(
+  gemini: NonNullable<ReturnType<typeof createGeminiClient>>,
+  malformed: string,
+  parseErrorMessage: string,
+) {
+  const repairPrompt = [
+    "아래 텍스트는 JSON 문법이 깨진 세션 데이터다.",
+    "의미를 바꾸지 말고 JSON 문법만 고쳐라.",
+    "반드시 application/json 형식의 JSON만 출력하고 코드블록/설명문 금지.",
+    `파싱 에러: ${parseErrorMessage}`,
+    "원본 텍스트:",
+    malformed,
+  ].join("\n");
+
+  const response = await gemini.models.generateContent({
+    model: getGeminiTextModel(),
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: repairPrompt }],
+      },
+    ],
+    config: {
+      ...SESSION_GENERATION_CONFIG,
+      temperature: 0,
+    },
+  });
+
+  return extractTextFromGeminiResponse(response);
 }
 
 export async function POST(request: Request) {
@@ -500,21 +568,7 @@ export async function POST(request: Request) {
   ].join("\n");
 
   try {
-    const response = await gemini.models.generateContent({
-      model: getGeminiTextModel(),
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }],
-        },
-      ],
-      config: {
-        temperature: 0.4,
-        responseMimeType: "application/json",
-        responseJsonSchema: sessionPackResponseJsonSchema,
-        maxOutputTokens: 4300,
-      },
-    });
+    const response = await requestSessionPackFromGemini(gemini, prompt);
 
     const raw = extractTextFromGeminiResponse(response);
 
@@ -529,7 +583,20 @@ export async function POST(request: Request) {
       });
     }
 
-    const parsed = parseSessionPackJson(raw);
+    let parsed: RawSessionPackResponse;
+    try {
+      parsed = parseSessionPackJson(raw);
+    } catch (parseError) {
+      const parseErrorMessage =
+        parseError instanceof Error ? parseError.message : "Unknown parse error";
+      const repairedRaw = await repairMalformedSessionPackJson(gemini, raw, parseErrorMessage);
+
+      if (!repairedRaw) {
+        throw parseError;
+      }
+
+      parsed = parseSessionPackJson(repairedRaw);
+    }
 
     const normalizedChapters = chapterIds.reduce(
       (acc, chapterId) => {
@@ -567,17 +634,14 @@ export async function POST(request: Request) {
       spriteCues: normalizedSpriteCues,
       fallback: false,
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json({
       chapters: fallbackChapters,
       endingPolish: fallbackEndingPolish,
       expressionSet: fallbackExpressionSet,
       spriteCues: fallbackSpriteCues,
       fallback: true,
-      message:
-        error instanceof Error
-          ? `세션 생성 실패로 기본 데이터로 진행합니다: ${error.message}`
-          : "세션 생성 실패로 기본 데이터로 진행합니다.",
+      message: "세션 생성 실패로 기본 데이터로 진행합니다. 잠시 후 다시 시도해 주세요.",
     });
   }
 }

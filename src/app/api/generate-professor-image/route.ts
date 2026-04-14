@@ -229,11 +229,22 @@ async function generateImageWithRetry({
 
 export async function POST(request: Request) {
   const gemini = createGeminiClient();
+  const bgApiUrl = process.env.BG_API_URL?.trim();
 
   if (!gemini) {
     return NextResponse.json(
       {
         message: "GEMINI_API_KEY가 설정되지 않았습니다.",
+      },
+      { status: 500 },
+    );
+  }
+
+  if (!bgApiUrl) {
+    return NextResponse.json(
+      {
+        message:
+          "BG_API_URL이 설정되지 않았습니다. 로컬 누끼 API 주소(Cloudflare Tunnel)를 .env.local에 추가해주세요.",
       },
       { status: 500 },
     );
