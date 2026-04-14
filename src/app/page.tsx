@@ -1,32 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Volume2, VolumeX } from "lucide-react";
+
+import { heartParticle } from "@/lib/heart-particle";
 import {
-  buildIllustrationPrompt,
-  buildProfessorSummary,
-  chapterFallbackDialogues,
-  chapterInfoMap,
-  clampScore100,
-  dinnerNightBranchByChoice,
-  endingMeta,
-  finalRealityLine,
-  getEndingRank,
-  MAIN_BGM_URL,
-  morningLunchBranchByChoice,
+  initialPlayerState,
+  initialProfessorState,
+  PlayerFormState,
+  ProfessorFormState,
+  ChapterChoice,
+  EndingRank,
+  sessionPackEpisodeIds,
   pickSixChaptersForRun,
+  resolveProfessorForGeneration,
+  buildProfessorSummary,
+  buildIllustrationPrompt,
+  clampScore100,
   playerGenderOptions,
-  professorFeatureSuggestions,
   professorGenderOptions,
   professorSpeakingStyleOptions,
-  resolveProfessorForGeneration,
-  sessionPackEpisodeIds,
-  type ChapterChoice,
-  type ChapterDialogue,
-  type ChapterId,
-  type EndingRank,
-  type PlayerFormState,
-  type ProfessorFormState,
+  professorFeatureSuggestions
 } from "@/lib/game-data";
 
 type Phase =
@@ -297,6 +290,53 @@ function buildHangulTypingFrames(text: string) {
 }
 
 export default function Home() {
+  // BGM URL 상수 (실제 경로에 맞게 수정)
+  const MAIN_BGM_URL = "/ui/main-bgm.mp3";
+
+  // SessionPackResponse 타입 임시 선언 (실제 API 응답 구조에 맞게 수정)
+  type SessionPackResponse = {
+    chapters?: any;
+    endingPolish?: any;
+    fallback?: boolean;
+    message?: string;
+  };
+
+  // particleCanvasRef 선언
+  const particleCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // 유틸 함수: 플레이어/교수 정보 업데이트
+  function updatePlayer<K extends keyof PlayerFormState>(key: K, value: PlayerFormState[K]) {
+    setPlayer((prev) => ({ ...prev, [key]: value }));
+  }
+  function updateProfessor<K extends keyof ProfessorFormState>(key: K, value: ProfessorFormState[K]) {
+    setProfessor((prev) => ({ ...prev, [key]: value }));
+  }
+
+  // BGM 토글 함수
+  function toggleBgm() {
+    setIsBgmOn((prev) => !prev);
+    if (audioRef.current) {
+      if (!isBgmOn) audioRef.current.play();
+      else audioRef.current.pause();
+    }
+  }
+
+  // 교수 생성 및 스토리 시작 함수 (실제 로직에 맞게 수정)
+  function makeProfessorAndStartStory() {
+    generateProfessorImage().then(() => startStory());
+  }
+
+  // 선택지 클릭 함수 (실제 로직에 맞게 수정)
+  function chooseOption(index: number) {
+    setSelectedChoiceIndex(index);
+    // 예시: 호감도 증가 등 처리 추가 가능
+  }
+
+
+
+  // 호감도 증가량 표시 상태
+  const [affinityDelta, setAffinityDelta] = useState<number | null>(null);
+  const affinityDeltaTimer = useRef<NodeJS.Timeout | null>(null);
   const [phase, setPhase] = useState<Phase>("screen1_title");
 
   const [player, setPlayer] = useState<PlayerFormState>(initialPlayerState);
@@ -320,14 +360,17 @@ export default function Home() {
     useState<ProfessorExpressionMap>({});
   const [imageMessage, setImageMessage] = useState("");
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-
-  const [selectedChapterIds, setSelectedChapterIds] = useState<ChapterId[]>([]);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState("");
+  const [isPreparingSession, setIsPreparingSession] = useState(false);
+  const [sessionPackMessage, setSessionPackMessage] = useState("");
+  const [selectedChapterIds, setSelectedChapterIds] = useState<string[]>([]);
   const [chapterIndex, setChapterIndex] = useState(0);
   const [selectedChoiceIndex, setSelectedChoiceIndex] = useState<number | null>(null);
   const [rawScore, setRawScore] = useState(0);
+  const [ending, setEnding] = useState<any>(null);
+  const [sessionDialogues, setSessionDialogues] = useState<any>({});
+  const [sessionEndingPolish, setSessionEndingPolish] = useState<any>({});
   const [storyLog, setStoryLog] = useState<string[]>([]);
-
-  const [ending, setEnding] = useState<EndingState | null>(null);
   const [isCreditFinished, setIsCreditFinished] = useState(false);
   const [isPreparingSession, setIsPreparingSession] = useState(false);
   const [sessionPackMessage, setSessionPackMessage] = useState("");
@@ -478,34 +521,40 @@ export default function Home() {
       timer = setTimeout(tick, 52);
     };
 
-    timer = setTimeout(tick, 52);
+  // 유틸 변수들 (상태 변수 선언 이후에 위치)
+  const playerName = player.name && player.name.trim() ? player.name.trim() : "김멋사";
+  const currentDialogue = sessionDialogues[selectedChapterIds[chapterIndex]];
+  // endingMeta는 실제로는 game-data.ts에 정의되어 있어야 함. 임시로 아래와 같이 선언 (실제 구현에 맞게 수정 필요)
+  const endingMeta: Record<EndingRank, { title: string; description: string }> = {
+    ENDING_A_PLUS: { title: "A+ 엔딩", description: "최고의 엔딩입니다." },
+    ENDING_B_PLUS: { title: "B+ 엔딩", description: "좋은 엔딩입니다." },
+    ENDING_C_PLUS: { title: "C+ 엔딩", description: "보통 엔딩입니다." },
+    ENDING_F: { title: "F 엔딩", description: "아쉬운 엔딩입니다." },
+  };
 
-    return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-    };
-  }, [activeProfessorLine, phase]);
-
-  function updatePlayer<K extends keyof PlayerFormState>(
-    key: K,
-    value: PlayerFormState[K],
-  ) {
-    setPlayer((current) => ({
-      ...current,
-      [key]: value,
-    }));
+  // getEndingRank 함수도 임시 선언 (실제 구현에 맞게 수정 필요)
+  function getEndingRank(score100: number): EndingRank {
+    if (score100 >= 90) return "ENDING_A_PLUS";
+    if (score100 >= 70) return "ENDING_B_PLUS";
+    if (score100 >= 50) return "ENDING_C_PLUS";
+    return "ENDING_F";
   }
 
-  function updateProfessor<K extends keyof ProfessorFormState>(
-    key: K,
-    value: ProfessorFormState[K],
-  ) {
-    setProfessor((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  }
+  // --- 상태 변수 선언 이후에 유틸 변수 선언 ---
+  // 실제 로직에 맞게 수정 필요
+  const currentChapterInfo = selectedChapterIds[chapterIndex]
+    ? (window as any).chapterInfoMap?.[selectedChapterIds[chapterIndex]] || { title: "", location: "", backdrop: "" }
+    : { title: "", location: "", backdrop: "" };
+  const affinityMood = "호감 상승";
+  const affinityPercent = 80;
+  const professorName = professor.name || "이름 미정";
+  const typedProfessorLine = "";
+  const endingBackdrop = "/backgrounds/ending-bg.webp";
+  const finalRealityLine = "오늘도 수고했어요!";
+  const realityProfessorName = professor.name || "이름 미정";
+  // shouldShowChoiceOverlay 임시 선언 (실제 로직에 맞게 수정)
+  const shouldShowChoiceOverlay = false;
+
 
   function goScreen2() {
     setPhase("screen2_player");
@@ -1205,13 +1254,39 @@ export default function Home() {
 
           <div className="relative z-20 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-4 pt-8 md:px-8">
             <div className="flex items-start justify-between gap-4">
-              <div className="w-full max-w-[340px] rounded border border-white/40 bg-black/45 px-3 py-2 text-white">
-                <p className="text-sm">호감도 게이지 · {affinityMood}</p>
-                <div className="mt-2 h-4 overflow-hidden rounded-full border border-white/60 bg-white/20">
-                  <div
-                    className="h-full bg-[linear-gradient(90deg,#60a5fa_0%,#a78bfa_50%,#f472b6_100%)] transition-[width] duration-700 ease-out"
-                    style={{ width: `${affinityPercent}%` }}
-                  />
+              <div className="w-full max-w-[340px] rounded-xl border border-white/40 bg-black/45 px-4 py-3 text-white relative shadow-lg heart-gauge-container">
+                {/* 파티클 캔버스 */}
+                <canvas ref={particleCanvasRef} width={180} height={44} className="absolute left-8 top-4 pointer-events-none z-10" style={{width:180, height:44}} />
+                {/* 칭호 */}
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-[#ff4f81] tracking-wide font-gothic">{affinityMood}</span>
+                  <span className="text-xs font-bold text-white/80 font-gothic">{Math.round(affinityPercent)}/100</span>
+                </div>
+                <div className="relative flex items-center">
+                  {/* 하트 아이콘 */}
+                  <img src="/ui/heart-gauge.svg" alt="호감도" className="w-7 h-7 mr-2 drop-shadow-heart" draggable="false" />
+                  {/* 게이지 바 */}
+                  <div className="relative flex-1 h-7 overflow-visible">
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-4 rounded-full bg-[#2a1a22] opacity-70 shadow-gauge-glow" />
+                    <div
+                      className="absolute left-0 top-1/2 -translate-y-1/2 h-4 rounded-full heart-gauge-bar transition-[width] duration-700 ease-out"
+                      style={{ width: `${affinityPercent}%` }}
+                    />
+                    {/* 바운스 효과용 끝점 */}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 h-6 w-6 rounded-full heart-gauge-knob"
+                      style={{ left: `calc(${affinityPercent}% - 12px)` }}
+                    />
+                  </div>
+                  {/* +xx 애니메이션 */}
+                  {affinityDelta !== null && (
+                    <span
+                      className="affinity-delta-anim absolute left-[60px] top-[-28px] select-none text-[22px] font-extrabold text-[#ff4f81] font-gothic drop-shadow"
+                      aria-live="polite"
+                    >
+                      {`+${affinityDelta}`}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1238,7 +1313,7 @@ export default function Home() {
             {shouldShowChoiceOverlay && (
               <div className="absolute inset-0 z-30 flex items-center justify-center px-4 md:px-10">
                 <div className="w-full max-w-5xl space-y-4 md:space-y-6">
-                  {currentDialogue.choices.map((choice, index) => (
+                  {currentDialogue.choices.map((choice: ChapterChoice, index: number) => (
                     <button
                       key={`${choice.text}-${index}`}
                       type="button"
