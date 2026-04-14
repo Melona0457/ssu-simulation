@@ -593,6 +593,8 @@ export const chapterFallbackDialogues: Record<ChapterId, ChapterDialogue> = {
   },
 };
 
+export const MAIN_BGM_URL = "/sounds/main-bgm.mp3";
+
 export const chapterSequence: ChapterId[] = pickSixChaptersForRun();
 
 export const endingMeta: Record<EndingRank, { key: string; title: string; description: string }> = {
