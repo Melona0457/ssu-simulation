@@ -49,7 +49,12 @@ type RawSessionPackResponse = {
   endingPolish?: Partial<Record<EndingRank, RawEndingPolish>>;
 };
 
-const ENDING_RANKS: EndingRank[] = ["ENDING_1", "ENDING_2", "ENDING_3", "ENDING_4", "ENDING_5"];
+const ENDING_RANKS: EndingRank[] = [
+  "ENDING_A_PLUS",
+  "ENDING_B_PLUS",
+  "ENDING_C_PLUS",
+  "ENDING_F",
+];
 
 function isChapterId(value: string): value is ChapterId {
   return value in chapterInfoMap;
@@ -156,7 +161,7 @@ function toUniqueChapterIds(chapterIds: string[] | undefined) {
     seen.add(id);
     picked.push(id);
 
-    if (picked.length >= 6) {
+    if (picked.length >= 24) {
       break;
     }
   }
@@ -224,36 +229,37 @@ export async function POST(request: Request) {
 
   const prompt = [
     "너는 한국어 캠퍼스 비주얼노벨 시나리오 작가다.",
-    "게임 목적: 선택지 3개 분기 + 시험기간 감정선 + 교수와의 긴장감을 유지.",
+    "게임 목적: 시험기간 하루 6개 에피소드의 감정선 유지 + 교수와의 긴장감/코미디 밸런스.",
     "반드시 JSON만 출력하고, 코드블록/설명문 금지.",
     `플레이어 이름: ${playerName}`,
     `교수 이름: ${professorName}`,
     `교수 페르소나 요약: ${professorSummary}`,
-    "선택된 챕터 6개(순서 고정):",
+    "중요: 아래 에피소드 전체 문체를 교수 페르소나 말투로 통일해라.",
+    "중요: 교수 대사와 반응은 한 캐릭터가 이어서 말하는 것처럼 일관되게 유지해라.",
+    "생성 대상 에피소드 목록:",
     chapterBrief,
     "JSON 스키마:",
     "{",
     '  "chapters": [',
     "    {",
-    '      "chapterId": "챕터 ID",',
-    '      "dialogue": "교수 대사 1~2문장",',
+    '      "chapterId": "에피소드 ID",',
+    '      "dialogue": "교수 대사 중심 1~3문장",',
     '      "choices": [',
     "        {",
     '          "text": "선택지",',
-    '          "preview": "짧은 보조 설명",',
-    '          "reaction": "선택 후 교수 반응 1문장",',
-    '          "emotion": "neutral | stern | teasing | awkward | warm | panic",',
-    '          "effects": { "affinity": 0, "intellect": 0 }',
+      '          "preview": "짧은 보조 설명",',
+      '          "reaction": "선택 후 교수 반응 1문장",',
+      '          "emotion": "neutral | stern | teasing | awkward | warm | panic",',
+      '          "effects": { "affinity": 0, "intellect": 0 }',
     "        }",
     "      ]",
     "    }",
     "  ],",
     '  "endingPolish": {',
-    '    "ENDING_1": { "title": "제목", "description": "2~3문장" },',
-    '    "ENDING_2": { "title": "제목", "description": "2~3문장" },',
-    '    "ENDING_3": { "title": "제목", "description": "2~3문장" },',
-    '    "ENDING_4": { "title": "제목", "description": "2~3문장" },',
-    '    "ENDING_5": { "title": "제목", "description": "2~3문장" }',
+    '    "ENDING_A_PLUS": { "title": "제목", "description": "2~3문장" },',
+    '    "ENDING_B_PLUS": { "title": "제목", "description": "2~3문장" },',
+    '    "ENDING_C_PLUS": { "title": "제목", "description": "2~3문장" },',
+    '    "ENDING_F": { "title": "제목", "description": "2~3문장" }',
     "  }",
     "}",
     "제약:",
@@ -265,8 +271,9 @@ export async function POST(request: Request) {
     "- 배점은 문장 톤과 연동되어야 하며, 교수 페르소나와 어긋나면 감점한다.",
     "- effects.affinity, effects.intellect는 각각 -4~12 정수.",
     "- reaction에서 '교수: 교수:'처럼 중복 호칭 금지.",
-    "- 교수 말투/태도는 교수 페르소나 요약을 반영.",
-    "- endingPolish 5개는 점수대가 높을수록 더 성숙하고 안정된 톤으로 작성.",
+    "- 교수 말투/태도는 교수 페르소나 요약을 강하게 반영.",
+    "- 분기 에피소드(점심/밤)는 같은 하루 타임라인 안에서 자연스럽게 이어지도록 작성.",
+    "- endingPolish는 A+ > B+ > C+ > F 순으로 성숙하고 안정적인 톤이 되도록 작성.",
   ].join("\n");
 
   try {
@@ -281,7 +288,7 @@ export async function POST(request: Request) {
       config: {
         temperature: 0.8,
         responseMimeType: "application/json",
-        maxOutputTokens: 2600,
+        maxOutputTokens: 3800,
       },
     });
 

@@ -7,15 +7,18 @@ import {
   chapterFallbackDialogues,
   chapterInfoMap,
   clampScore100,
+  dinnerNightBranchByChoice,
   endingMeta,
   finalRealityLine,
   getEndingRank,
+  morningLunchBranchByChoice,
   pickSixChaptersForRun,
   playerGenderOptions,
   professorFeatureSuggestions,
   professorGenderOptions,
   professorSpeakingStyleOptions,
   resolveProfessorForGeneration,
+  sessionPackEpisodeIds,
   type ChapterChoice,
   type ChapterDialogue,
   type ChapterId,
@@ -242,17 +245,20 @@ export default function Home() {
     selectedChoiceIndex !== null && currentDialogue
       ? currentDialogue.choices[selectedChoiceIndex]
       : null;
+  const endingBackdrop = useMemo(() => {
+    const finalEpisodeId = selectedChapterIds[selectedChapterIds.length - 1] ?? "NIGHT_SELF_STUDY";
+    return chapterInfoMap[finalEpisodeId]?.backdrop ?? preGameBackgroundImageUrl;
+  }, [selectedChapterIds]);
   const activeProfessorLine = stripProfessorPrefix(
     selectedChoiceIndex === null ? currentDialogue?.dialogue ?? "" : currentSelectedChoice?.reaction ?? "",
   );
+  const isProfessorLineTyping =
+    phase === "screen4_8_chapter" &&
+    selectedChoiceIndex === null &&
+    activeProfessorLine.length > 0 &&
+    typedProfessorLine !== activeProfessorLine;
+  const shouldShowChoiceOverlay = selectedChoiceIndex === null && !isProfessorLineTyping;
 
-  const progressPercent =
-    selectedChapterIds.length > 0
-      ? Math.min(
-          100,
-          Math.round(((chapterIndex + (selectedChoiceIndex !== null ? 1 : 0)) / selectedChapterIds.length) * 100),
-        )
-      : 0;
   const affinityPercent =
     selectedChapterIds.length > 0
       ? Math.min(
@@ -414,7 +420,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          chapterIds: runChapters,
+          chapterIds: sessionPackEpisodeIds,
           playerName,
           professorName: professorNameForPrompt,
           professorSummary: professorSummaryForPrompt,
@@ -489,9 +495,35 @@ export default function Home() {
 
     setSelectedChoiceIndex(choiceIndex);
     setRawScore((current) => current + choiceScore(choice));
+    if (currentChapterId === "MORNING_CLASSROOM") {
+      const lunchEpisode = morningLunchBranchByChoice[choiceIndex as 0 | 1 | 2];
+      setSelectedChapterIds((current) => {
+        if (current.length < 3) {
+          return current;
+        }
+
+        const next = [...current];
+        next[2] = lunchEpisode;
+        return next;
+      });
+    }
+
+    if (currentChapterId === "LIGHT_DINNER") {
+      const nightEpisode = dinnerNightBranchByChoice[choiceIndex as 0 | 1 | 2];
+      setSelectedChapterIds((current) => {
+        if (current.length < 6) {
+          return current;
+        }
+
+        const next = [...current];
+        next[5] = nightEpisode;
+        return next;
+      });
+    }
+
     setStoryLog((current) => [
       ...current,
-      `[${chapterIndex + 1}챕터] ${choice.text}`,
+      `[${chapterIndex + 1}에피소드] ${choice.text}`,
       choice.reaction,
     ]);
   }
@@ -906,10 +938,14 @@ export default function Home() {
             className="absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: `url(${currentChapterInfo.backdrop})` }}
           />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,20,35,0.22),rgba(10,20,35,0.66))]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(44,14,33,0.22),rgba(34,10,27,0.58))]" />
+          <div className="episode-soft-pink-tint absolute inset-0" />
+          {shouldShowChoiceOverlay && (
+            <div className="episode-choice-dim absolute inset-0 z-10" aria-hidden />
+          )}
 
-          <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-4 pt-8 md:px-8">
-            <div className="flex items-end justify-between gap-4">
+          <div className="relative z-20 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-4 pt-8 md:px-8">
+            <div className="flex items-start justify-between gap-4">
               <div className="w-full max-w-[340px] rounded border border-white/40 bg-black/45 px-3 py-2 text-white">
                 <p className="text-sm">호감도 게이지 · {affinityMood}</p>
                 <div className="mt-2 h-4 overflow-hidden rounded-full border border-white/60 bg-white/20">
@@ -919,14 +955,10 @@ export default function Home() {
                   />
                 </div>
               </div>
-
-              <div className="h-8 w-[320px] border border-black bg-white/60 p-1">
-                <div className="h-full bg-[#3b82f6]" style={{ width: `${progressPercent}%` }} />
-              </div>
             </div>
 
             <div className="mt-3 rounded bg-black/45 px-4 py-2 text-sm text-white">
-              CHAPTER {chapterIndex + 1} / 6 · {currentChapterInfo.title} · {currentChapterInfo.location}
+              EPISODE {chapterIndex + 1} / 6 · {currentChapterInfo.title} · {currentChapterInfo.location}
             </div>
 
             <div className="relative mt-4 flex flex-1 items-end justify-center pb-[260px] md:pb-[300px]">
@@ -944,30 +976,38 @@ export default function Home() {
               )}
             </div>
 
-            <div className="absolute inset-x-3 bottom-3 z-20 rounded border border-[#8b8b8b] bg-[rgba(30,30,30,0.62)] p-3 text-white md:inset-x-6 md:bottom-6 md:p-4">
-              <p className="text-2xl font-semibold">교수: {typedProfessorLine}</p>
-
-              <div className="mt-3 grid gap-2">
-                {currentDialogue.choices.map((choice, index) => (
-                  <button
-                    key={`${choice.text}-${index}`}
-                    type="button"
-                    onClick={() => chooseOption(index)}
-                    disabled={selectedChoiceIndex !== null}
-                    className="border border-[#767676] bg-[#ededed] px-3 py-2 text-left text-2xl text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {choice.text}
-                  </button>
-                ))}
+            {shouldShowChoiceOverlay && (
+              <div className="episode-choice-layer absolute inset-0 z-30 flex items-center justify-center px-4 md:px-10">
+                <div className="w-full max-w-5xl space-y-4 md:space-y-6">
+                  {currentDialogue.choices.map((choice, index) => (
+                    <button
+                      key={`${choice.text}-${index}`}
+                      type="button"
+                      onClick={() => chooseOption(index)}
+                      className="episode-choice-btn"
+                    >
+                      {choice.text}
+                    </button>
+                  ))}
+                </div>
               </div>
+            )}
 
+            <div className="episode-dialog-box absolute inset-x-3 bottom-3 z-40 md:inset-x-6 md:bottom-6">
+              <div className="episode-dialog-perforation" aria-hidden />
+              <div className="episode-dialog-content">
+                <p className="episode-dialog-line">
+                  <span className="episode-dialog-speaker">교수</span>
+                  <span>{typedProfessorLine}</span>
+                </p>
+              </div>
               {selectedChoiceIndex !== null && (
-                <div className="mt-3 flex items-center justify-between gap-4">
-                  <p className="text-sm text-white/90">선택 완료. 다음 챕터로 이동하세요.</p>
+                <div className="episode-dialog-action">
+                  <p className="text-base text-[#2d2d2d]">선택 완료. 다음 에피소드로 이동하세요.</p>
                   <button
                     type="button"
                     onClick={moveNextChapter}
-                    className="border border-white bg-white px-5 py-2 text-lg font-semibold text-black hover:bg-neutral-100"
+                    className="rounded-md border border-[#484848] bg-white px-5 py-2 text-lg font-semibold text-black transition hover:bg-[#f6f6f6]"
                   >
                     다음
                   </button>
@@ -982,7 +1022,7 @@ export default function Home() {
         <section className="relative min-h-screen overflow-hidden">
           <div
             className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${chapterInfoMap.EXAM_HALL.backdrop})` }}
+            style={{ backgroundImage: `url(${endingBackdrop})` }}
           />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,12,20,0.35),rgba(8,12,20,0.75))]" />
 
