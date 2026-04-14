@@ -941,7 +941,10 @@ export default function Home() {
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(44,14,33,0.22),rgba(34,10,27,0.58))]" />
           <div className="episode-soft-pink-tint absolute inset-0" />
           {shouldShowChoiceOverlay && (
-            <div className="episode-choice-dim absolute inset-0 z-10" aria-hidden />
+            <div
+              className="absolute inset-0 z-10 bg-[rgba(32,8,21,0.36)] backdrop-blur-[2.4px]"
+              aria-hidden
+            />
           )}
 
           <div className="relative z-20 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-4 pt-8 md:px-8">
@@ -977,14 +980,14 @@ export default function Home() {
             </div>
 
             {shouldShowChoiceOverlay && (
-              <div className="episode-choice-layer absolute inset-0 z-30 flex items-center justify-center px-4 md:px-10">
+              <div className="absolute inset-0 z-30 flex items-center justify-center px-4 md:px-10">
                 <div className="w-full max-w-5xl space-y-4 md:space-y-6">
                   {currentDialogue.choices.map((choice, index) => (
                     <button
                       key={`${choice.text}-${index}`}
                       type="button"
                       onClick={() => chooseOption(index)}
-                      className="episode-choice-btn"
+                      className="block w-full rounded-[12px] border border-[#b7b7b7] bg-[rgba(255,255,255,0.94)] px-6 py-4 text-center text-[clamp(22px,2.4vw,52px)] font-medium leading-[1.2] text-[#2f2f2f] shadow-[0_10px_28px_rgba(0,0,0,0.18)] transition duration-150 hover:translate-y-[-1px] hover:brightness-[1.01] active:translate-y-0"
                     >
                       {choice.text}
                     </button>
@@ -993,26 +996,38 @@ export default function Home() {
               </div>
             )}
 
-            <div className="episode-dialog-box absolute inset-x-3 bottom-3 z-40 md:inset-x-6 md:bottom-6">
-              <div className="episode-dialog-perforation" aria-hidden />
-              <div className="episode-dialog-content">
-                <p className="episode-dialog-line">
-                  <span className="episode-dialog-speaker">교수</span>
-                  <span>{typedProfessorLine}</span>
-                </p>
-              </div>
-              {selectedChoiceIndex !== null && (
-                <div className="episode-dialog-action">
-                  <p className="text-base text-[#2d2d2d]">선택 완료. 다음 에피소드로 이동하세요.</p>
-                  <button
-                    type="button"
-                    onClick={moveNextChapter}
-                    className="rounded-md border border-[#484848] bg-white px-5 py-2 text-lg font-semibold text-black transition hover:bg-[#f6f6f6]"
-                  >
-                    다음
-                  </button>
+          </div>
+
+          <div className="pointer-events-none fixed inset-x-3 bottom-3 z-[70] md:inset-x-6 md:bottom-6">
+            <div className="mx-auto w-full max-w-6xl pointer-events-auto">
+              <div className="overflow-hidden rounded-[8px] shadow-[0_18px_34px_rgba(0,0,0,0.28)]">
+                <div
+                  className="h-7 rounded-t-[8px] border-2 border-b-[#323232] border-[#a8a8a8]"
+                  style={{
+                    background:
+                      "repeating-linear-gradient(90deg,#ffffff 0 14px,#ffffff 14px 21px,#2f2f2f 21px 25px,#ffffff 25px 35px)",
+                  }}
+                  aria-hidden
+                />
+                <div className="border-x-2 border-b-2 border-[#a8a8a8] bg-[#f4f4f4] px-[clamp(16px,1.8vw,28px)] py-[clamp(16px,1.8vw,28px)]">
+                  <p className="m-0 flex items-start gap-[clamp(18px,2vw,36px)] text-[clamp(24px,2.5vw,50px)] font-medium leading-[1.24] text-[#242424]">
+                    <span className="min-w-[clamp(60px,5vw,120px)] font-black">교수</span>
+                    <span>{typedProfessorLine || "\u00A0"}</span>
+                  </p>
                 </div>
-              )}
+                {selectedChoiceIndex !== null && (
+                  <div className="mt-[-1px] flex items-center justify-between gap-4 border-x-2 border-b-2 border-[#a8a8a8] bg-[#f4f4f4] px-[clamp(16px,1.8vw,28px)] pb-[clamp(14px,1.5vw,22px)]">
+                    <p className="text-base text-[#2d2d2d]">선택 완료. 다음 에피소드로 이동하세요.</p>
+                    <button
+                      type="button"
+                      onClick={moveNextChapter}
+                      className="rounded-md border border-[#484848] bg-white px-5 py-2 text-lg font-semibold text-black transition hover:bg-[#f6f6f6]"
+                    >
+                      다음
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </section>
