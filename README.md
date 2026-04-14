@@ -45,6 +45,8 @@ GEMINI_TEXT_MODEL=gemini-2.5-flash-lite
 GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 GEMINI_TTS_MODEL=gemini-2.5-flash-preview-tts
 OPENAI_SUMMARY_MODEL=gpt-4.1-mini
+BG_API_URL=https://your-bg-remove-api.example.com
+BG_API_TIMEOUT_MS=45000
 ```
 
 주의:
@@ -63,6 +65,7 @@ Vercel에 배포할 때도 같은 환경 변수를 프로젝트 설정에 넣으
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENAI_API_KEY` (학습 노트/PDF 텍스트 요약)
 - `GEMINI_API_KEY` (이미지/스토리)
+- `BG_API_URL` (외부 누끼 API 서버 주소, 예: Cloudflare Tunnel URL)
 
 선택:
 
@@ -71,6 +74,7 @@ Vercel에 배포할 때도 같은 환경 변수를 프로젝트 설정에 넣으
 - `GEMINI_IMAGE_MODEL`
 - `GEMINI_TTS_MODEL`
 - `OPENAI_SUMMARY_MODEL`
+- `BG_API_TIMEOUT_MS`
 
 ## 검증 명령어
 
