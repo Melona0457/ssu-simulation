@@ -1233,3 +1233,23 @@
 ### 검증
 
 - `npm run lint` 통과
+
+## 2026-04-15 추가 로그 (세션 JSON 파싱 실패 안정화)
+
+### 이슈
+
+- 교수 생성 버튼 클릭 시 간헐적으로 `세션 생성 실패로 기본 데이터로 진행합니다: Unterminated string in JSON ...` 메시지 발생
+- 원인: `generate-session-pack`에서 Gemini 응답 JSON이 일부 케이스에서 완전한 JSON 형식을 지키지 못해 `JSON.parse` 실패
+
+### 조치
+
+- [src/app/api/generate-session-pack/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-session-pack/route.ts)
+  - `responseJsonSchema`를 추가해 응답 형식 준수 강제
+  - `temperature`를 `0.8 -> 0.4`로 낮춰 형식 불안정성 완화
+  - `parseSessionPackJson` 추가:
+    - 원문 파싱 실패 시 code fence 제거/JSON 블록 추출 후 재시도
+
+### 검증
+
+- `npm run lint` 통과
+- `npm run build` 통과
