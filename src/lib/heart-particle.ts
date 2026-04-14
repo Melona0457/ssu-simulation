@@ -1,0 +1,2 @@
+// 하트 파티클 SVG (24x24, 투명 배경)
+export const heartParticle = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 21s-5.5-4.5-7.5-7.5C2.5 10.5 4 7 7 7c1.7 0 2.9 1.2 3.5 2C11.1 8.2 12.3 7 14 7c3 0 4.5 3.5 2.5 6.5C17.5 16.5 12 21 12 21z" fill="url(#g)"/><defs><linearGradient id="g" x1="12" y1="7" x2="12" y2="21" gradientUnits="userSpaceOnUse"><stop stop-color="#ffb6c1"/><stop offset="0.5" stop-color="#ff4f81"/><stop offset="1" stop-color="#c80032"/></linearGradient></defs></svg>`;

@@ -1,3 +1,20 @@
+export const initialPlayerState: PlayerFormState = {
+  name: "",
+  gender: "남자",
+};
+
+export const initialProfessorState: ProfessorFormState = {
+  name: "",
+  gender: "남자",
+  age: "",
+  speakingStyle: "차분하고 이성적인 말투",
+  illustrationStyle: "DESIGN_1_ROMANCE_FANTASY",
+  feature1: "",
+  feature2: "",
+  feature3: "",
+  feature4: "",
+  customPrompt: "",
+};
 export type GameScoreKey = "affinity" | "intellect";
 
 export type DialogueEmotion =
