@@ -1056,3 +1056,52 @@
 ### 검증
 
 - `npm run lint` 통과
+
+## 2026-04-14 추가 로그 (선택지 오버레이 UI 강제 복구)
+
+### 이슈
+
+- 선택지 버튼이 중앙 오버레이 형태가 아닌 일반 텍스트처럼 보이는 렌더 깨짐 발생
+
+### 조치
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 선택지 딤 레이어(`bg + backdrop-blur`)를 JSX에서 직접 지정
+  - 선택지 버튼 스타일(배경/보더/그림자/폰트/hover)을 JSX 클래스에서 직접 지정
+  - 커스텀 CSS 클래스 의존도를 줄여 환경별 렌더 편차를 제거
+
+### 검증
+
+- `npm run lint` 통과
+
+## 2026-04-14 추가 로그 (노트형 대화창 강제 복구 2차)
+
+### 이슈
+
+- 하단 노트형 대화창이 일부 실행 환경에서 계속 보이지 않음
+
+### 조치
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 노트형 대화창 스타일을 커스텀 CSS 클래스 의존에서 벗어나 JSX(Tailwind + inline style)로 직접 명시
+  - 하단 고정 레이어(`fixed`, `z-[70]`)는 유지하고, 노트 헤더/본문/액션 영역의 배경/보더를 모두 명시적으로 지정
+
+### 검증
+
+- `npm run lint` 통과
+
+## 2026-04-14 추가 로그 (에피소드 노트형 대사창 고정 복구)
+
+### 이슈
+
+- 특정 화면 높이/배경 조건에서 하단 노트형 대사창이 화면 아래로 밀려 보이지 않는 현상 발생
+
+### 조치
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 대사창 컨테이너를 내부 `absolute` 배치에서 `viewport fixed` 배치로 전환
+  - `pointer-events`를 분리해 하단 대사창은 항상 보이면서 버튼 클릭은 정상 동작하도록 조정
+
+### 검증
+
+- `npm run lint` 통과
