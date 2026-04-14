@@ -60,6 +60,7 @@ type ChapterSpriteCue = {
 
 type SessionPackResponse = {
   chapters?: Partial<Record<ChapterId, ChapterDialogue>>;
+  stepDialogues?: Partial<Record<ChapterId, ChapterDialogue[]>>;
   endingPolish?: Partial<Record<EndingRank, { title?: string; description?: string }>>;
   expressionSet?: SessionExpressionDefinition[];
   spriteCues?: Partial<Record<ChapterId, ChapterSpriteCue>>;
@@ -82,32 +83,47 @@ type ChapterStep = {
   choices: ChapterChoice[];
 };
 
+type DialogueSpeakerLabel = "나레이션" | "교수" | "나";
+
+type SessionPackStepPayload = {
+  chapterId: ChapterId;
+  stepIndex: number;
+  dialogue: string;
+  choices: Array<{
+    text: string;
+    preview: string;
+    reaction: string;
+    emotion: ChapterChoice["emotion"];
+    effects: ChapterChoice["effects"];
+  }>;
+};
+
 const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   COMMUTE_CAMPUS: [
     {
       dialogue:
-        "아침 등굣길, 익숙한 뒷모습이 눈에 들어온다. 같은 방향으로 걷는 건 이번 학기 담당 교수님. 낯익으면서도 낯선 기분을 뒤로하고 강의실로 향한다.",
+        "아침 등굣길, 별 생각 없이 걷고 있는데 저 앞에 익숙한 뒷모습이 보인다. 어느 순간부터 나와 같은 방향으로 걷고 있는 사람. 어? 저분 혹시. 맞다, 이번 학기 담당 교수님이다. 이렇게 마주치니까 묘하게 낯이 익으면서도 낯설다. 어디선가 본 것 같은 느낌이랄까, 내가 막연하게 상상해왔던 그 이미지가 딱 저런 모습이었던 것 같기도 하고. 꿈에서 봤던가? 뭐, 아무튼 강의실로 가야 한다.",
       choices: [],
     },
   ],
   MORNING_CLASSROOM: [
     {
       dialogue:
-        "강의실 문을 열자 교수님의 시선이 꽂힌다. \"민상군, 15분 늦었군. 어서 앉게.\" 차가운 공기 속 첫 반응을 고른다.",
+        "(장소: 강의실, 마지막 총정리 수업. 반쯤 열린 창문으로 바람이 들어오고 교수님이 서류를 정리하며 이쪽을 쳐다본다.) 터벅터벅 강의실 문을 열자마자 차가운 에어컨 바람과 함께 교수님의 시선이 내리꽂힌다. 시험 전날의 공기는 평소보다 두 배는 무겁다. 교수님은 (시계를 보지도 않고) 말한다. \"민상군, 15분 늦었군. 자네의 성실함이 시험 점수와 반비례하지 않길 빌어야겠어. 어서 앉게, 벌써 중요한 대목을 지나치고 있으니까.\"",
       choices: [
         {
-          text: "교수님 수업은 1분 1초가 꿀잼이라 앞부분 놓친 게 손실입니다.",
+          text: "\"교수님 수업은 1분 1초가 꿀잼이라, 앞부분 놓친 게 제 인생의 최대 손실입니다.\"",
           preview: "MZ식 넉살",
           reaction:
-            "그 말재주로 논술을 치면 좋겠군. 안타깝게도 내 시험은 객관식이라네. 자, 7페이지 보게.",
+            "(입가에 아주 미세한 경련, 비웃음인지 미소인지 모를 표정이 스친다.) \"자네는 그 말재주로 논술 시험을 치면 참 좋을 텐데 말이야. 안타깝게도 내 시험은 객관식이라네. 자, 7페이지 보게.\" 교수님이 굳이 내 자리까지 걸어와 책 페이지를 넘겨준다. 손끝이 살짝 스친 것 같은데... 기분 탓인가?",
           emotion: "teasing",
           effects: { affinity: 10, intellect: 7 },
         },
         {
-          text: "죄송합니다. 밤새 복습하다가 깜빡 잠이 들었습니다.",
+          text: "\"죄송합니다. 밤새 복습하다가 깜빡 잠이 들었습니다.\"",
           preview: "정중한 사과",
           reaction:
-            "노력은 가상하지만 효율 없는 노력은 인정받지 못하네. 그래도 얼굴을 보니 거짓말 같진 않군.",
+            "\"밤샘이라... 노력은 가상하다만, 효율 없는 노력은 학계에서 인정하지 않네. 그래도 얼굴을 보니 거짓말 같진 않군. 여기, 정신 차리고 이거 마시면서 듣게.\" 교수님이 교단 위에 있던 새 캔커피를 툭 던져준다. 차가운 캔에 닿은 손바닥이 갑자기 뜨거워지는 기분이다.",
           emotion: "warm",
           effects: { affinity: 9, intellect: 9 },
         },
@@ -115,7 +131,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
           text: "(아무 말 없이 구석 자리로 가서 책을 편다.)",
           preview: "조용한 회피",
           reaction:
-            "구석으로 숨는다고 못 볼 것 같나? 사각지대 기념으로 질문 하나 하지.",
+            "\"민상군, 구석으로 숨는다고 내가 못 볼 거라 생각하나? 자네가 거기 앉으면 내 시야의 사각지대가 사라져서 더 잘 보인다네. 자, 그럼 '사각지대'에 앉은 기념으로 질문 하나 하지.\" 교수님의 강렬한 눈빛이 정면으로 향한다. 긴장감 때문에 심장이 필요 이상으로 뛴다.",
           emotion: "stern",
           effects: { affinity: 6, intellect: 8 },
         },
@@ -123,19 +139,21 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
     },
     {
       dialogue:
-        "수업 종료 직전 교수님이 칠판을 지우며 말한다. \"누군가는 웃고 나가고, 누군가는 내년에 다시 보겠지.\" 마지막 농담 한 마디를 던져본다.",
+        "(중간 연출: 수업 종료 직전, 교수님이 칠판 글씨를 지우며 말한다.) \"오늘 수업은 여기까지. 내일 시험지는 이미 인쇄실로 넘어갔네. 자네들 중 누군가는 웃으며 나가겠지만, 누군가는 내년에 이 자리에서 나를 다시 보게 되겠지. 난 개인적으로... 후자는 별로 달갑지 않군.\"",
       choices: [
         {
-          text: "교수님, 그럼 내년엔 강의실 말고 밖에서 뵙는 건가요?",
+          text: "\"교수님, 그럼 저희 내년엔 강의실 말고 밖에서 뵙는 건가요?\"",
           preview: "가벼운 도발",
-          reaction: "허, 입은 여전히 빠르군. 내일은 답안지도 그 속도로 써 보게.",
+          reaction:
+            "(짐을 챙기다 잠깐 멈춘다.) \"허, 입은 여전히 빠르군. 내일은 답안지도 그 속도로 써 보게.\"",
           emotion: "teasing",
           effects: { affinity: 9, intellect: 6 },
         },
         {
-          text: "꼭 웃으면서 나가겠습니다. 교수님도 웃으며 성적 입력해 주세요.",
+          text: "\"꼭 웃으면서 나가겠습니다. 교수님도 웃으면서 성적 입력해 주세요.\"",
           preview: "안전한 다짐",
-          reaction: "좋아. 웃게 만들고 싶다면 점수로 설득하게.",
+          reaction:
+            "(고개를 가볍게 끄덕인다.) \"좋아. 웃게 만들고 싶다면 점수로 설득하게.\"",
           emotion: "warm",
           effects: { affinity: 8, intellect: 9 },
         },
@@ -143,26 +161,26 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
     },
     {
       dialogue:
-        "교수님이 펜을 건네며 말한다. \"내일 시험 끝나고 연구실로 직접 반납하러 오게.\" 머리가 복잡해진 채 점심 장소를 고른다.",
+        "(에피소드 종료 직전) 교수님이 짐을 챙기다 멈칫하며 펜을 내민다. \"아, 민상군. 나가기 전에 이것 좀 받아가게. 아까 보니까 볼펜 잉크가 다 됐더군. 시험 보다가 멈추면 곤란할 테니, 내 걸로 빌려주지. 내일 시험 끝나고 연구실로 직접 반납하러 오게.\" 건네받은 펜엔 아직 온기가 남아 있는 것 같다. 단순한 친절일까, 아니면...? 머릿속이 복잡해진 채 점심 장소를 고른다.",
       choices: [
         {
-          text: "학생 식당으로 간다.",
+          text: "학생 식당으로 향한다.",
           preview: "점심 분기",
-          reaction: "좋아. 빠르게 먹고 오후를 버텨보게.",
+          reaction: "\"좋아. 빠르게 먹고 오후를 버텨보게.\"",
           emotion: "neutral",
           effects: { affinity: 7, intellect: 10 },
         },
         {
-          text: "학교 앞 맛집으로 간다.",
+          text: "학교 앞 맛집으로 향한다.",
           preview: "점심 분기",
-          reaction: "기분 전환도 필요하지. 대신 시간 관리는 철저히.",
+          reaction: "\"기분 전환도 필요하지. 대신 시간 관리는 철저히.\"",
           emotion: "teasing",
           effects: { affinity: 9, intellect: 7 },
         },
         {
-          text: "화장실 변기 칸으로 간다.",
+          text: "학생회관 화장실 변기 칸으로 향한다.",
           preview: "점심 분기",
-          reaction: "극한의 생존 모드군. 오늘은 꽤 파란만장하겠어.",
+          reaction: "\"극한의 생존 모드군. 오늘은 꽤 파란만장하겠어.\"",
           emotion: "awkward",
           effects: { affinity: 6, intellect: 5 },
         },
@@ -172,26 +190,29 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   LUNCH_STUDENT_CAFETERIA: [
     {
       dialogue:
-        "북적이는 학생 식당. 교수님이 식판을 내려놓고 맞은편에 앉는다. 갑작스러운 합석에 첫 반응을 선택한다.",
+        "(장소: 학생 식당, 북적거리는 소음. 식판 앞 1인칭 시점.) 역시 시험 전날 점심은 혼밥이지. 대충 한 끼 때우고 도서관 가려는데 내 앞자리에 낯익은 정장 소매가 보인다. 설마. 교수님이 식판을 내려놓으며 자연스럽게 묻는다. \"여긴 늘 붐비는군. 민상군, 앞자리 비어있나? 자네 식사 속도를 보니 시험 공부하러 마음이 급한 모양이야.\"",
       choices: [
         {
-          text: "커흑! 교수님? 여기서 식사를 하신다고요?",
+          text: "\"커흑! 교, 교수님? 여기서 식사를 하신다고요?\"",
           preview: "사레들림",
-          reaction: "천천히 먹게. 여기서 숨 넘어가면 곤란하지 않겠나.",
+          reaction:
+            "(무심하게 종이컵에 물을 떠서 건넨다.) \"천천히 먹게. 물 마시고. 시험지도 안 넘겼는데 여기서 숨 넘어가면 곤란하지 않겠나.\" 컵에 닿는 손가락의 미지근한 온도가 묘하게 신경 쓰인다.",
           emotion: "warm",
           effects: { affinity: 10, intellect: 6 },
         },
         {
-          text: "아, 네! 앉으세요. 교수님도 학식 드시는 줄은 몰랐습니다.",
+          text: "\"아, 네! 앉으세요. 교수님도 학식 드시는 줄은 몰랐습니다.\"",
           preview: "체면 유지",
-          reaction: "나도 사람인데 밥은 먹어야지. 많이 먹고 오후 버티게.",
+          reaction:
+            "\"나도 사람인데 밥은 먹어야지. 자네가 먹는 그 돈가스, 오늘따라 바삭해 보이는군. 공부하려면 단백질이 필요할 테니 많이 먹어두게.\" 식판을 보며 스치는 희미한 미소가 오래 남는다.",
           emotion: "neutral",
           effects: { affinity: 8, intellect: 9 },
         },
         {
           text: "(동작 정지 상태로 교수님 식판 메뉴를 스캔한다.)",
           preview: "얼어붙음",
-          reaction: "분석은 내 식판 말고 전공 책에 하게. 요구르트나 챙기고.",
+          reaction:
+            "(피식 웃으며 요구르트를 밀어준다.) \"분석은 내 식판 말고 자네 전공 책에나 하게나. 식기 전에 얼른 먹어, 머리 쓰려면 혈당 떨어지면 안 되니까.\"",
           emotion: "teasing",
           effects: { affinity: 9, intellect: 7 },
         },
@@ -199,19 +220,21 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
     },
     {
       dialogue:
-        "긴장한 탓에 숟가락을 떨어뜨린다. 교수님이 먼저 새 수저를 올려두며 묻는다. \"내가 그렇게 불편한가?\"",
+        "(중간 연출) 긴장한 탓에 젓가락질을 서두르다 툭, 숟가락을 바닥에 떨어뜨린다. 허리를 숙이려는 찰나 교수님이 더 빠르게 움직여 새 수저를 식판 위에 놓는다. \"손이 떨리는 건가, 아니면 내가 그렇게 불편한 건가? 시험 전엔 멘탈 관리가 제일 중요하다네. 수저 정도야 다시 들면 그만이지.\"",
       choices: [
         {
-          text: "감사합니다... 방금 머릿속에 슬로우 모션이 걸린 것 같아요.",
+          text: "\"감사합니다... 근데 교수님, 방금 좀 머릿속에 슬로우 모션 걸린 것 같아요.\"",
           preview: "솔직한 당황",
-          reaction: "긴장은 줄이고 리듬을 되찾게. 시험 전엔 멘탈 관리가 우선이야.",
+          reaction:
+            "(먼저 자리에서 일어나며) \"먼저 일어나지. 아, 민상군. 입가에 소스 묻었네. 칠칠치 못하게... 내일 시험지에 답안도 그렇게 묻히고 나오지 말게나.\" 손수건을 꺼내려다 멈추고 휴지 한 장을 툭 두고 식당을 나간다.",
           emotion: "warm",
           effects: { affinity: 9, intellect: 8 },
         },
         {
-          text: "떨어진 건 수저인데, 왜 제 심장이 바닥에 있는 것 같죠?",
+          text: "\"떨어진 건 수저인데, 왜 제 심장이 바닥에 있는 것 같죠?\"",
           preview: "넉살",
-          reaction: "말은 잘하네. 그 기세를 내일 답안지에도 써먹어 보게.",
+          reaction:
+            "(짧게 웃고 자리에서 일어난다.) \"말은 잘하네. 그 기세를 내일 답안지에도 써먹어 보게. 아, 입가 소스부터 닦고.\" 남겨진 휴지를 보니 왠지 밥맛이 더 좋아진다.",
           emotion: "teasing",
           effects: { affinity: 11, intellect: 6 },
         },
@@ -221,26 +244,29 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   LUNCH_OFFCAMPUS_RESTAURANT: [
     {
       dialogue:
-        "학교 앞 작은 한식당. 교수님이 맞은편 의자를 당겨 앉는다. 메뉴판을 든 채 어색한 첫 반응을 고른다.",
+        "(장소: 학교 앞 작은 한식당. 창가 2인 테이블 1인칭 시점.) 학식 줄이 길어 조용히 밥 먹으러 왔는데, 문종이 딸랑 울리고 입구에서 교수님과 눈이 정확히 마주친다. 교수님이 별일 아니라는 듯 다가와 맞은편 의자를 당긴다. \"학생이군. 학식 줄이 길었나? 나도 오늘은 그쪽이 내키지 않아서. 1인 테이블이 없는데, 합석해도 되겠나.\"",
       choices: [
         {
-          text: "아, 네! 앉으세요. 메뉴는... 다 괜찮아요!",
+          text: "\"아, 네! 그, 그럼요. 앉으세요. 메뉴는... 메뉴 다 괜찮아요!\"",
           preview: "당황",
-          reaction: "아직 못 정했군. 여기 된장찌개가 무난하네.",
+          reaction:
+            "(자리에 앉아 메뉴판을 집어 든다.) \"메뉴가 다 괜찮다는 건 아무거나 먹어도 된다는 말인가, 아직 못 정했다는 말인가.\" (잠깐의 침묵) \"여기 된장찌개가 무난하네. 나는 늘 그걸로 하는 편이야.\"",
           emotion: "warm",
           effects: { affinity: 8, intellect: 8 },
         },
         {
-          text: "물론이죠. 교수님도 여기 오세요? 저는 처음이라서요.",
+          text: "\"물론이죠. 교수님도 여기 오세요? 저는 처음이라서요.\"",
           preview: "침착한 대화",
-          reaction: "가끔 오지. 번잡한 날엔 이런 곳이 생각보다 낫거든.",
+          reaction:
+            "(메뉴판을 펼친 채) \"가끔 오지. 학식이 번잡스러울 때. 단골이라고 할 만큼은 아니지만... 사장님이 얼굴은 기억하시더군.\" 별 뜻 없는 말인데 이상하게 그 '가끔'이 자꾸 궁금해진다.",
           emotion: "neutral",
           effects: { affinity: 9, intellect: 9 },
         },
         {
           text: "(메뉴판 뒤에서 눈동자만 굴린다.)",
           preview: "표정 관리 실패",
-          reaction: "같은 페이지만 보고 있더군. 천천히 골라도 되네.",
+          reaction:
+            "(피식 웃으며 메뉴판 하나를 내 앞으로 밀어준다.) \"그 메뉴판, 아까부터 같은 페이지 펴고 있더군. 결정 장애인가, 내가 갑자기 나타나서 그런 건가. 천천히 골라도 되네.\"",
           emotion: "awkward",
           effects: { affinity: 7, intellect: 7 },
         },
@@ -250,27 +276,29 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   LUNCH_RESTROOM_STALL: [
     {
       dialogue:
-        "학생회관 화장실 맨 끝 칸. 변기칸 혼밥 중 옆 칸의 교수님에게 휴지를 넘겨준 뒤, 참기름 냄새와 기침 소리로 정체가 들킨다.",
+        "(장소: 학생회관 3층 화장실 맨 끝 변기칸. 화면 양옆 비네팅, 물방울 소리 '똑... 똑...') 고학번의 삶이란 철저한 고독과의 싸움이다. 결국 오늘 나는 괴담 속 '변기칸 혼밥'의 주인공이 되고 말았다. 독백: '에어컨도 나오고 조용하고... 나름 VIP 프라이빗 룸이잖아?' 그때 달칵 소리와 함께 누군가 바로 옆 칸으로 들어온다. (가쁜 숨을 내쉬며) \"후우... 하마터면 교수 품위 유지에 금이 갈 뻔했군.\" 이 목소리, 오전 강의의 그 교수님이다. 숨소리조차 내면 안 된다.",
       choices: [
         {
           text: "...네, 교수님. 접니다. 참치마요 먹고 있었습니다.",
           preview: "자포자기 인정",
           reaction:
-            "세상에, 진짜 자네였어?! 오늘만큼은 따라오게. 이건 교육적으로 방치할 수 없네.",
+            "(옆칸에서 경악한 목소리) \"세상에, 진짜 자네였어?! 휴지 틈새로 넘어오는 이 고소한 냄새가 설마 내 제자의 서글픈 점심 식사였단 말인가!\" 자포자기한 심정으로 이마를 짚는다. 지금 변기 물을 내리고 같이 떠내려가고 싶은 심정이다.",
           emotion: "teasing",
           effects: { affinity: 11, intellect: 4 },
         },
         {
           text: "아, 아뇨? 저는 지나가는 나그네입니다만!",
           preview: "어설픈 타인 행세",
-          reaction: "그 목소리를 내가 모를 줄 아나. 남은 김밥 들고 나오게.",
+          reaction:
+            "\"허! 자네가 한 학기 내내 지각할 때마다 내던 그 핑계 대는 목소리를 내가 모를 줄 아나? 나그네는 무슨, 당장 남은 김밥 들고나오게!\" 어설픈 연기력은 역시 F 학점 감이었다.",
           emotion: "stern",
           effects: { affinity: 6, intellect: 6 },
         },
         {
           text: "(아무 대답 없이 숨을 꾹 참고 없는 척한다.)",
           preview: "숨참고 변기 다이브",
-          reaction: "숨 참아도 소용없네. 확인하기 전에 스스로 나오게.",
+          reaction:
+            "\"숨 참아도 소용없네! 자네가 숨을 멈출수록 이 좁은 칸 안에 참기름과 참치 김밥 냄새가 더 진하게 퍼지고 있으니까. 어서 나오게. 내가 문 위로 고개를 내밀어 확인하기 전에.\" 압박 수사 앞에서 결국 백기를 들 수밖에 없다.",
           emotion: "panic",
           effects: { affinity: 7, intellect: 4 },
         },
@@ -278,27 +306,29 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
     },
     {
       dialogue:
-        "세면대 앞. 교수님은 변기칸 혼밥 괴담의 실체를 본 듯 한숨 쉬며 스테이크를 제안한다. 마지막 대응을 고른다.",
+        "(중간 연출: 화장실 세면대 앞) 교수님이 손을 씻고 수건으로 닦으며 한숨을 내쉰다. \"인터넷에 떠도는 변기통 혼밥이 괴담인 줄 알았는데... 그걸 내 제자가 몸소 실천하고 있을 줄이야. 당장 그 차갑고 눅눅한 김밥은 버리게. 따라와. 정문 앞 Delicious Lion Steak House로 가지. 교육자의 도리야.\"",
       choices: [
         {
-          text: "기꺼이 받들겠습니다. 사실 스테이크 먹기 위해 위장을 비워뒀습니다.",
+          text: "\"교수님의 참된 가르침(물리)을 기꺼이 받들겠습니다. 사실 스테이크를 먹기 위해 위장을 비워두는 중이었습니다.\"",
           preview: "뻔뻔 회복",
-          reaction: "회복력이 기가 막히군. 좋아, 오늘은 한우로 기름칠해주지.",
+          reaction:
+            "(어이없다는 듯 헛웃음을 터뜨린다.) \"허! 방금 전까지 변기통을 붙잡고 있던 녀석 치고는 회복력이 아주 기가 막히군. 좋아, 오늘 자네 위장에 한우로 기름칠을 해주지.\" 내 손의 김밥은 가차 없이 쓰레기통으로 직행한다.",
           emotion: "teasing",
           effects: { affinity: 11, intellect: 5 },
         },
         {
-          text: "아닙니다, 교수님! 이건 현대인의 트렌드 '미라클 런치'입니다.",
+          text: "\"아닙니다, 교수님! 이건 고독을 즐기는 현대인의 트렌드, 미라클 런치입니다. 전 정말 괜찮습니다!\"",
           preview: "현실 부정",
           reaction:
-            "장염 지름길이겠지. 자존심은 내려두고 따라오게. 밥 한 끼도 사회생활 연습이야.",
+            "\"미라클 런치는 무슨. 장염 걸리는 지름길이겠지. 자네의 얄팍한 자존심은 변기 물과 함께 내려보내게. 선생이 사주는 밥 한 끼 얻어먹는 것도 사회생활 연습이야.\" (어깨를 꽉 쥐고 거의 연행하듯 화장실 밖으로 끌고 나간다.)",
           emotion: "stern",
           effects: { affinity: 8, intellect: 6 },
         },
         {
-          text: "교수님... 이건 김밥이 아니라 제 서글픈 눈물입니다...",
+          text: "\"교수님... 이건 김밥이 아니라 제 서글픈 눈물입니다... 못 본 척해 주십시오...\"",
           preview: "불쌍함 어필",
-          reaction: "그 눈물, 오늘만은 한우 육즙으로 씻어내게나.",
+          reaction:
+            "(갑자기 숙연해진 표정으로 어깨를 토닥인다.) \"그래... 눈물 젖은 김밥을 먹어보지 않은 자와는 인생을 논하지 말라고 했지. 자네의 고독은 존중해주겠네. 하지만 오늘만큼은 그 눈물을 한우 육즙으로 씻어내게나.\"",
           emotion: "warm",
           effects: { affinity: 10, intellect: 4 },
         },
@@ -308,26 +338,29 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   AFTERNOON_LIBRARY: [
     {
       dialogue:
-        "오후 도서관. 교재는 눈에 안 들어오고 교수님이 건넨 펜만 자꾸 시야에 걸린다. 서가에서 마주친 교수님 앞에서 첫 반응을 고른다.",
+        "(장소: 도서관 열람실, 창가 자리) 밥도 먹었겠다 이제 집중할 시간인데, 교재가 눈에 안 들어온다. 아까 받은 펜이 자꾸 시야에 걸린다. 형광펜 줄도 삐뚤고, 마음은 더 삐뚤다. 결국 서가로 걸어가 참고 도서를 찾다가 코너에서 익숙한 뒷모습과 마주친다. 교수님이 고개를 돌린다. \"...학생이군. 여기도 오나?\"",
       choices: [
         {
           text: "아— 네, 참고 도서 좀 찾으러요. (책을 떨어뜨린다.)",
           preview: "당황",
-          reaction: "참고 도서치곤 전공과 거리가 있군. 그래도 기분 전환도 공부의 일부지.",
+          reaction:
+            "(떨어진 책을 먼저 집어 표지를 본다.) \"참고 도서치고는 전공이랑 좀 거리가 있는데. 시험 전날 현실도피인가?\" (책을 내밀며) \"뭐, 기분 전환도 공부의 일부라고 우기면 할 말은 없지만.\"",
           emotion: "warm",
           effects: { affinity: 8, intellect: 9 },
         },
         {
           text: "네. 교수님은 논문 자료 찾으세요?",
           preview: "침착한 척",
-          reaction: "그렇네. 이 책, 자네 시험 범위와 겹치니 훑어보게.",
+          reaction:
+            "(서가로 시선을 돌린다.) \"그렇네. 학기 말마다 오는 코스야. 조용하고 자료도 있고.\" (책 하나를 꺼내 건네며) \"자네 전공이면 이거 도움 될 거야. 시험 범위랑 겹치는 부분 있으니까 훑어보게.\"",
           emotion: "neutral",
           effects: { affinity: 7, intellect: 11 },
         },
         {
           text: "(도망치려다 눈이 마주친다.)",
           preview: "도주 실패",
-          reaction: "도서관까지 피해 다닐 건 없네. 자네는 자네 책을 찾게.",
+          reaction:
+            "(피식 웃는다.) \"도망가려 했나? 나한테서.\" (다시 서가를 보며) \"도서관까지 피해 다닐 건 없어. 나도 볼일 있어서 온 거니까. 자네는 자네 책 찾게.\"",
           emotion: "awkward",
           effects: { affinity: 9, intellect: 7 },
         },
@@ -335,19 +368,21 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
     },
     {
       dialogue:
-        "서가 사이 어색한 정적. 교수님이 \"시험 전날만 되면 다들 후회하지\"라고 말한다. 마지막으로 한마디를 고른다.",
+        "(중간 연출: 서가 사이 어색한 정적) 교수님이 책 한 권을 빼며 독백하듯 말한다. \"학기 말 도서관은 항상 이 모양이군. 시험 전날만 되면 다들 여기 와서 후회하지.\"",
       choices: [
         {
           text: "저는 후회 안 하려고 지금 여기 있는 겁니다.",
           preview: "의지 선언",
-          reaction: "그 의지, 좋네. 그럼 지금부터 한 줄이라도 더 보게.",
+          reaction:
+            "(책에서 눈을 떼지 않고) \"후회 안 하려면 지금 여기서 나랑 얘기할 시간에 열람실 가서 한 줄 더 보는 게 맞지 않나.\" (한 박자 뒤) \"뭐, 그래도 왔으니까.\" 핀잔인데 이상하게 기분이 나쁘지 않다.",
           emotion: "stern",
           effects: { affinity: 8, intellect: 10 },
         },
         {
           text: "교수님은 학생 때 시험 전날 뭐 하셨어요?",
           preview: "개인 질문",
-          reaction: "나도 도서관에 왔지. 시험 전날 딴생각이 잘 되는 건 사람 다 똑같아.",
+          reaction:
+            "(잠깐 멈칫) \"나? ...도서관 왔었지. 자네랑 별 다를 것 없어.\" (짧은 침묵) \"그때도 시험 전날 딴생각이 더 잘 됐거든. 사람 다 똑같아.\"",
           emotion: "warm",
           effects: { affinity: 10, intellect: 8 },
         },
@@ -357,26 +392,26 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   LIGHT_DINNER: [
     {
       dialogue:
-        "복잡한 마음으로 편의점 저녁을 마친다. 내일 시험 전 마지막 밤, 어디로 갈지 고른다.",
+        "복잡한 마음을 뒤로하고 편의점에서 간단히 저녁을 먹었다. 내일이 시험이라니 여전히 심란하다. 저녁 식사를 마치고 어느 쪽으로 갈지 고민이 된다. 어떻게 할까.",
       choices: [
         {
           text: "집으로 간다.",
           preview: "밤 분기: 교수 연구실",
-          reaction: "귀가길이군. 하지만 오늘 밤은 예상처럼 끝나지 않을 수도 있지.",
+          reaction: "\"좋아, 집으로 향해보게. 다만 오늘 밤은 예상보다 길어질지도 모르지.\"",
           emotion: "neutral",
           effects: { affinity: 8, intellect: 8 },
         },
         {
           text: "강의실로 간다.",
           preview: "밤 분기: 강의실",
-          reaction: "끝까지 붙잡겠다는 거군. 좋아, 잠들지만 않게.",
+          reaction: "\"끝까지 붙잡겠다는 거군. 좋아, 잠들지만 않게.\"",
           emotion: "stern",
           effects: { affinity: 7, intellect: 11 },
         },
         {
           text: "학교 벤치로 간다.",
           preview: "밤 분기: 벤치",
-          reaction: "잠깐 숨을 고르는 것도 필요하지. 마음부터 정리해 보게.",
+          reaction: "\"잠깐 숨을 고르는 것도 필요하지. 마음부터 정리해 보게.\"",
           emotion: "warm",
           effects: { affinity: 9, intellect: 7 },
         },
@@ -386,12 +421,13 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   NIGHT_LAB_VISIT: [
     {
       dialogue:
-        "연구실 불빛 앞에서 선택한다. 감사 인사를 하러 갈지, 그냥 칼퇴를 시도할지. 하지만 어느 쪽이든 결국 연구실의 커피 향과 진심 어린 이름 부름으로 수렴한다.",
+        "(챕터: 저녁시간 - 연구실의 불빛) 어둑해진 캠퍼스, 다른 창문은 꺼졌지만 교수 연구실 창문만 유난히 따뜻한 노란 빛을 낸다. 집으로 향하던 발걸음이 멈춘다. 독백: '교수님... 아직 안 가셨네.' 선택은 두 가지다. 감사 인사를 하러 4층으로 올라갈지(정공법), 아니면 뒤도 돌아보지 않고 정문으로 달릴지(우회로). 하지만 우회로를 택해도 갑작스런 폭우와 함께 결국 교수님을 다시 만나 연구실로 향하게 된다.",
       choices: [
         {
           text: "오늘 신세를 졌으니 감사 인사를 드리고 간다. (정공법)",
           preview: "루트 A",
-          reaction: "들어오게. 물기부터 닦고, 커피 한 잔 하면서 정리하지.",
+          reaction:
+            "\"자, 앉게. 물기부터 좀 닦고. 커피라도 한잔할 텐가?\" 연구실 문이 열리자 은은한 주황빛 조명, 시더우드 향과 오래된 책 냄새, 에스프레소 향이 겹쳐진다. \"내일 시험공부는 다 했나?\"라는 질문과 농담 섞인 압박이 이어진다.",
           emotion: "warm",
           effects: { affinity: 10, intellect: 9 },
         },
@@ -399,7 +435,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
           text: "바로 집으로 간다. (칼퇴 시도)",
           preview: "루트 B",
           reaction:
-            "하늘이 칼퇴를 허락하지 않는군. 비가 이렇게 오니 우선 연구실로 올라가세.",
+            "(콰광, 천둥과 폭우) \"아니, 자네는 왜 아직도 학교에... 꼴을 보니 우산도 없는 모양이군. 이 장대비에 가긴 어디 가겠나. 일단 올라가세. 내 연구실에 여분의 우산이 있을 테니.\" 결국 운명의 데스티니에 이끌려 연구실로 향한다.",
           emotion: "teasing",
           effects: { affinity: 9, intellect: 8 },
         },
@@ -407,26 +443,29 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
     },
     {
       dialogue:
-        "빗속 정문 앞, 순백의 롤스로이스가 멈춘다. 교수님이 말한다. \"백마에 타는 영광을 주지.\" 마지막 선택을 고른다.",
+        "(공통 연구실 파트 이후) 커피와 대화를 마친 뒤 교수님은 진지하게 이름을 부른다. \"내일 시험, 자네가 노력한 만큼의 결과가 나오길 바라네. 너무 긴장하지 말고. 자, 우산 받아가게.\" 연구실을 나와 빗속을 걷는데 묵직한 엔진음과 함께 순백의 롤스로이스가 멈춘다. 창문이 내려가고 교수님이 선글라스를 내리며 말한다. \"거 우산 받아 가라는 게, 나 차 타고 가니까 자네는 걸어가라는 뜻이었는데. 이 비를 뚫고 걸어갈 자신은 있나 보군? 너만 괜찮다면, 이 백마에 타는 영광을 주지. 집까지 데려다주겠네.\"",
       choices: [
         {
           text: "마음만 감사히 받을게요. 우산 쓰고 천천히 가겠습니다.",
           preview: "엔딩 A",
-          reaction: "고집이 있군. 좋아, 그 독립심은 높이 사지. 내일 보세.",
+          reaction:
+            "(조금 의외라는 듯 눈을 둥그렇게 떴다가 빙그레 웃는다.) \"허! 자네, 의외로 고집이 있군. 좋아, 그 독립심은 높이 사지. 대신 감기 걸려서 내일 시험지에 콧물 흘리면 F니까 조심하게. 그럼, 내일 보세.\" 롤스로이스는 매끄럽게 사라지고, 손에 쥔 우산은 더 묵직해진다.",
           emotion: "warm",
           effects: { affinity: 9, intellect: 10 },
         },
         {
           text: "실례하겠습니다. 태워 주세요.",
           preview: "엔딩 B",
-          reaction: "하, 솔직하군. 타게. 오늘 자네 버킷리스트 하나는 이뤄주지.",
+          reaction:
+            "(헛웃음을 터뜨리며) \"하! 자네의 그 뻔뻔함과 솔직함은 정말 학계에서 연구 대상이야. 그래, 타게.\" 롤스로이스 안은 고급 가죽 향과 고요함으로 가득하고, 교수님은 운전 중 내일 시험 핵심 포인트를 은밀하게 흘려준다.",
           emotion: "teasing",
           effects: { affinity: 12, intellect: 7 },
         },
         {
           text: "오늘은 좀 부담스럽습니다. 거리를 두고 싶어요.",
           preview: "엔딩 C",
-          reaction: "그래, 선은 중요하지. 다만 시험에선 그 선과 별개로 최선을 다하게.",
+          reaction:
+            "(잠시 당황한 듯 선글라스를 고쳐 쓴다.) \"허... 자네, 아주 칼 같군. 오해는 말게. 단지 제자가 이 비에 젖어 고생하는 게 안타까워 교육자로서 배푼 호의였네. 거리라... 그래, 그 선을 넘지 않는 것도 중요하지.\" 차 문이 닫히고 롤스로이스는 빗속으로 사라진다.",
           emotion: "stern",
           effects: { affinity: 6, intellect: 9 },
         },
@@ -436,27 +475,29 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   NIGHT_CAMPUS_WALK: [
     {
       dialogue:
-        "노란 가로등 벤치 아래, 교수님이 묻는다. \"민상군, 얼굴에 고민이라고 쓰여 있는데.\" 먼저 어떤 고민을 꺼낼지 고른다.",
+        "(장소: 인문대 뒤편 벤치, 노란 가로등 불빛) 도서관에서 나와 머리를 식히려 걷는데 늘 그 자리에 교수님이 앉아 있다. 밤에 보는 교수님은 강의실에서보다 조금 더 사람 냄새가 난다. 교수님이 고개를 들며 묻는다. \"이 시간에 여기서 자네를 다 보군. 민상군, 공부하다 막히는 거라도 있나? 얼굴에 고민이라고 쓰여 있는데.\"",
       choices: [
         {
-          text: "제가 이 길이 맞는지 확신이 안 서요.",
+          text: "\"사실... 제가 이 길(전공)이 맞는지 갑자기 확신이 안 서서요.\"",
           preview: "진지한 상담",
           reaction:
-            "확신은 나도 매일 고민하네. 그래도 자네 소질은 내가 꽤 확신하고 있어.",
+            "\"확신이라... 그건 나도 아직 매일 고민하는 문제라네. 하지만 민상군, 자네가 지난 학기에 낸 레포트의 그 문장들... 난 자네가 이 길에 소질이 있다고 꽤 확신하고 있었어.\" 이름을 부르는 순간 가슴 한구석이 찌릿해진다.",
           emotion: "warm",
           effects: { affinity: 10, intellect: 8 },
         },
         {
-          text: "사실 저... 교수님 때문에 이 학과를 선택했어요.",
+          text: "\"교수님, 사실 저... 교수님 때문에 이 학과 선택한 거거든요.\"",
           preview: "깜짝 고백",
-          reaction: "무모한가 용감한가... 그래도 책임감은 더 생기는군.",
+          reaction:
+            "(잠시 멈칫했다가 낮게 웃는다.) \"나 때문에? 허... 자네 인생을 나 같은 사람한테 배팅하다니, 무모한 건가 아니면 용감한 건가. 그래도 기분은 나쁘지 않군. 책임감이 좀 더 생기는걸.\"",
           emotion: "teasing",
           effects: { affinity: 12, intellect: 6 },
         },
         {
-          text: "교수님이 너무 완벽해 보여서 자괴감이 들어요.",
+          text: "\"시험도 시험인데, 교수님이 너무 완벽하셔서 자괴감이 좀 드네요.\"",
           preview: "감성 폭발",
-          reaction: "완벽은 착시야. 그 감성은 자괴감 말고 답안지로 쓰게.",
+          reaction:
+            "(안경을 지그시 누르며) \"완벽이라... 자네 눈에는 내가 그렇게 보이나? 사실 나도 자네 학점 채점할 때마다 완벽하게 잠을 설친다네. 자괴감 가질 시간 있으면 그 감성을 답안지 서술형에나 쏟게나.\"",
           emotion: "neutral",
           effects: { affinity: 9, intellect: 9 },
         },
@@ -464,19 +505,21 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
     },
     {
       dialogue:
-        "말을 잇다 울컥한 순간, 교수님은 말없이 옆자리를 내어준다. 따뜻해진 공기 속 마지막 말을 고른다.",
+        "(중간 연출) 상담을 이어가다 목소리가 떨리고 눈시울이 붉어진다. \"그냥... 잘하고 싶은데 마음처럼 안 돼서 울컥하네요.\" 당황해 고개를 숙이자 교수님이 말없이 자리를 옮겨 옆에 앉는다. 일정한 거리를 유지한 채 곁을 내주며 말한다. \"울어도 되네. 여긴 강의실이 아니니까. 자네가 얼마나 애쓰고 있는지... 내가 다 보고 있었어. 민상군, 자네는 생각보다 훨씬 더 잘하고 있어. 내 이름 걸고 보증하지.\"",
       choices: [
         {
           text: "교수님이 보증하시면... 저 진짜 믿어도 되는 거죠?",
           preview: "신뢰 확인",
-          reaction: "내 이름 걸고 보증하지. 내일, 자네 열정을 보여주게.",
+          reaction:
+            "(천천히 일어나며 어깨를 아주 짧게 툭 친다.) \"밤 공기가 차군. 감기 걸리면 내일 시험에 지장 생기니 얼른 들어가게. 그리고... 아까 말한 거, 진심이야. 내일 시험지에서 자네의 열정을 보여주길 기대하겠네.\"",
           emotion: "warm",
           effects: { affinity: 11, intellect: 8 },
         },
         {
           text: "교수님 옆자리가 생각보다 따뜻하네요. 조금만 더 이러고 있어도 될까요?",
           preview: "여운 유지",
-          reaction: "잠깐은 괜찮지. 다만 밤공기 차니 너무 늦진 않게.",
+          reaction:
+            "\"잠깐은 괜찮지. 다만 밤공기가 차니 너무 늦진 않게.\" 교수님이 멀어지는 뒷모습을 보며 감상은 접고 마지막 결전지인 시험 강의실로 향할 준비를 한다.",
           emotion: "awkward",
           effects: { affinity: 10, intellect: 7 },
         },
@@ -486,13 +529,13 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   NIGHT_SELF_STUDY: [
     {
       dialogue:
-        "소등된 강의실, 비상등 아래에서 잠들었다 깬다. 문이 열리고 교수님 실루엣이 다가온다. \"...자고 있었군.\"",
+        "(장소: 소등된 강의실, 비상등만 켜진 늦은 밤) 희미한 빛 속에서 천천히 시야가 열린다. 책상 위에 엎드린 채 잠들었고 강의 노트가 뺨에 붙어 있다. 여긴 어디지? 천장을 보니 강의실이다. 문이 천천히 열리고 복도 불빛을 등진 실루엣이 멈춘다. 교수님이다. (낮고 선명한 목소리) \"...자고 있었군.\"",
       choices: [
         {
-          text: "......교수님? 지금 몇 시예요.",
+          text: "\"...교수님? 지금 몇 시예요.\"",
           preview: "멍한 확인",
           reaction:
-            "열한 시가 넘었네. 뻔뻔하군. 마음에 들어. 30분만 더 하고 들어가게.",
+            "(시계를 보며) \"열한 시 넘었네. 자다 깨서 첫 마디가 몇 시냐고. 시험이 내일인 건 알고 자는 건가?\" ... \"뻔뻔하군. 마음에 들어.\" (강의실 불을 켜주며) \"그럼 뻔뻔하게 30분만 더 하고 들어가게. 너무 늦게 들어가지 말고.\"",
           emotion: "teasing",
           effects: { affinity: 9, intellect: 10 },
         },
@@ -500,7 +543,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
           text: "아— 죄송합니다! 잠깐 눈 붙이려다가...",
           preview: "황급한 사과",
           reaction:
-            "앉아. 갑자기 일어나면 어지럽네. 여기, 당 떨어졌을 테니 이거 챙기게.",
+            "(한 손으로 제지하며) \"앉아. 갑자기 일어나면 어지러워.\" 잠깐 나갔다 돌아온 교수님이 편의점 봉투를 책상에 올려둔다. \"1층에 자판기밖에 없더군. 에너지 음료랑 초콜릿. 시험 전날 밤샘엔 당이 필요하니까. 영수증은 됐고, 내일 시험이나 잘 보게.\"",
           emotion: "warm",
           effects: { affinity: 10, intellect: 9 },
         },
@@ -508,7 +551,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
           text: "......교수님이 왜 여기 계세요. (아직 꿈인 줄 안다.)",
           preview: "멍한 질문",
           reaction:
-            "꿈 아니야. 서류 두고 온 거지. 낙서할 여유 있으면 3단원은 다시 보게.",
+            "(피식) \"꿈 아니야. 서류 두고 온 게 있어서.\" (가방을 집으며) \"자네, 노트 필기가 반은 낙서군. 자는 사람한테 말 걸기 뭐해서 그냥 뒀지. 그나저나 낙서할 여유가 있으면 3단원 다시 보게. 내일 후회하기 싫으면.\"",
           emotion: "neutral",
           effects: { affinity: 8, intellect: 9 },
         },
@@ -516,6 +559,76 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
     },
   ],
 };
+
+function buildSessionPackStepPayload(chapterIds: ChapterId[]): SessionPackStepPayload[] {
+  return chapterIds.flatMap((chapterId) => {
+    const baseSteps = (
+      chapterStepScripts[chapterId] ?? [chapterFallbackDialogues[chapterId]]
+    ).map(normalizeStepScriptSpeakers);
+    return baseSteps.map((step, stepIndex) => ({
+      chapterId,
+      stepIndex,
+      dialogue: step.dialogue,
+      choices: step.choices.map((choice) => ({
+        text: choice.text,
+        preview: choice.preview,
+        reaction: choice.reaction,
+        emotion: choice.emotion,
+        effects: choice.effects,
+      })),
+    }));
+  });
+}
+
+function mergeStyledChapterSteps(
+  baseSteps: ChapterStep[],
+  styledSteps: ChapterDialogue[] | undefined,
+): ChapterStep[] {
+  if (!styledSteps || styledSteps.length === 0) {
+    return baseSteps;
+  }
+
+  return baseSteps.map((baseStep, stepIndex) => {
+    const styledStep = styledSteps[stepIndex];
+    if (!styledStep) {
+      return baseStep;
+    }
+
+    const dialogue =
+      typeof styledStep.dialogue === "string" && styledStep.dialogue.trim().length > 0
+        ? styledStep.dialogue.trim()
+        : baseStep.dialogue;
+    const choices = baseStep.choices.map((baseChoice, choiceIndex) => {
+      const styledChoice = styledStep.choices?.[choiceIndex];
+      if (!styledChoice) {
+        return baseChoice;
+      }
+
+      return {
+        ...baseChoice,
+        text:
+          typeof styledChoice.text === "string" && styledChoice.text.trim().length > 0
+            ? styledChoice.text.trim()
+            : baseChoice.text,
+        preview:
+          typeof styledChoice.preview === "string" && styledChoice.preview.trim().length > 0
+            ? styledChoice.preview.trim()
+            : baseChoice.preview,
+        reaction:
+          typeof styledChoice.reaction === "string" && styledChoice.reaction.trim().length > 0
+            ? styledChoice.reaction.trim()
+            : baseChoice.reaction,
+      } satisfies ChapterChoice;
+    });
+
+    return {
+      dialogue,
+      choices,
+    };
+  });
+}
+
+const sessionPackStepPayload = buildSessionPackStepPayload(sessionPackEpisodeIds);
 
 const initialPlayerState: PlayerFormState = {
   name: "",
@@ -537,6 +650,14 @@ const initialProfessorState: ProfessorFormState = {
 
 const preGameBackgroundImageUrl = "/backgrounds/pre-game-bg.webp";
 const mainCoverImageUrl = "/backgrounds/screen1-cover.webp";
+const DEBUG_PASSWORD = "ssulikelion";
+const debugDefaultRunChapters = pickSixChaptersForRun();
+const debugEndingScoreMap: Record<EndingRank, number> = {
+  ENDING_A_PLUS: 95,
+  ENDING_B_PLUS: 78,
+  ENDING_C_PLUS: 58,
+  ENDING_F: 22,
+};
 
 function toDisplayPlayerName(name: string) {
   const trimmed = name.trim();
@@ -571,11 +692,72 @@ function choiceScore(choice: ChapterChoice) {
   return Math.max(0, Math.min(20, sum));
 }
 
-function stripProfessorPrefix(text: string) {
-  return text
-    .replace(/^\s*(교수님?|professor)\s*[:：]\s*/i, "")
-    .replace(/^\s*(교수님?|professor)\s*[:：]\s*/i, "")
-    .trim();
+function parseDialogueSpeakerAndText(
+  rawText: string,
+  fallbackSpeaker: DialogueSpeakerLabel,
+): { speaker: DialogueSpeakerLabel; text: string } {
+  const text = rawText.trim();
+
+  if (!text) {
+    return {
+      speaker: fallbackSpeaker,
+      text: "",
+    };
+  }
+
+  const speakerMatchers: Array<{
+    regex: RegExp;
+    speaker: DialogueSpeakerLabel;
+  }> = [
+    { regex: /^\s*(나레이션|narration)\s*[:：]\s*/i, speaker: "나레이션" },
+    { regex: /^\s*(교수님?|professor)\s*[:：]\s*/i, speaker: "교수" },
+    { regex: /^\s*(학생|플레이어|player|나)\s*[:：]\s*/i, speaker: "나" },
+  ];
+
+  for (const matcher of speakerMatchers) {
+    if (matcher.regex.test(text)) {
+      return {
+        speaker: matcher.speaker,
+        text: text.replace(matcher.regex, "").trim(),
+      };
+    }
+  }
+
+  return {
+    speaker: fallbackSpeaker,
+    text,
+  };
+}
+
+function ensureDialogueSpeakerPrefix(text: string, defaultSpeaker: DialogueSpeakerLabel) {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (/^\s*(나레이션|narration|교수님?|professor|학생|플레이어|player|나)\s*[:：]\s*/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (defaultSpeaker === "나레이션") {
+    return `나레이션: ${trimmed}`;
+  }
+
+  if (defaultSpeaker === "교수") {
+    return `교수: ${trimmed}`;
+  }
+
+  return `나: ${trimmed}`;
+}
+
+function normalizeStepScriptSpeakers(step: ChapterStep): ChapterStep {
+  return {
+    dialogue: ensureDialogueSpeakerPrefix(step.dialogue, "나레이션"),
+    choices: step.choices.map((choice) => ({
+      ...choice,
+      reaction: ensureDialogueSpeakerPrefix(choice.reaction, "교수"),
+    })),
+  };
 }
 
 function getAffinityMood(percent: number) {
@@ -781,6 +963,9 @@ export default function Home() {
   const [sessionDialogues, setSessionDialogues] = useState<
     Partial<Record<ChapterId, ChapterDialogue>>
   >({});
+  const [sessionStepDialogues, setSessionStepDialogues] = useState<
+    Partial<Record<ChapterId, ChapterDialogue[]>>
+  >({});
   const [sessionExpressionSet, setSessionExpressionSet] = useState<
     SessionExpressionDefinition[]
   >([]);
@@ -791,6 +976,24 @@ export default function Home() {
     Partial<Record<EndingRank, { title: string; description: string }>>
   >({});
   const [typedProfessorLine, setTypedProfessorLine] = useState("");
+  const [isDebugUnlocked, setIsDebugUnlocked] = useState(false);
+  const [isDebugPanelOpen, setIsDebugPanelOpen] = useState(false);
+  const [isDebugPasswordModalOpen, setIsDebugPasswordModalOpen] = useState(false);
+  const [debugPasswordInput, setDebugPasswordInput] = useState("");
+  const [debugAuthError, setDebugAuthError] = useState("");
+  const [debugAffinityInput, setDebugAffinityInput] = useState(0);
+  const [debugChapterSelect, setDebugChapterSelect] = useState<ChapterId>("COMMUTE_CAMPUS");
+  const [debugStepSelect, setDebugStepSelect] = useState(0);
+  const [debugEndingSelect, setDebugEndingSelect] = useState<EndingRank>("ENDING_A_PLUS");
+
+  const debugPhaseButtons: Array<{ phase: Phase; label: string }> = [
+    { phase: "screen1_title", label: "화면1 타이틀" },
+    { phase: "screen2_player", label: "화면2 플레이어" },
+    { phase: "screen3_professor", label: "화면3 교수 생성" },
+    { phase: "screen4_8_chapter", label: "화면4~8 플레이" },
+    { phase: "screen10_reality", label: "화면10 현실" },
+    { phase: "screen11_credit", label: "화면11 크레딧" },
+  ];
 
   const playerName = useMemo(() => toDisplayPlayerName(player.name), [player.name]);
   const professorName = useMemo(() => toDisplayProfessorName(professor.name), [professor.name]);
@@ -804,10 +1007,13 @@ export default function Home() {
   const fallbackChapterDialogue = currentChapterId
     ? sessionDialogues[currentChapterId] ?? chapterFallbackDialogues[currentChapterId]
     : null;
-  const fallbackChapterSteps = fallbackChapterDialogue ? [fallbackChapterDialogue] : [];
-  const currentChapterSteps = currentChapterId
-    ? chapterStepScripts[currentChapterId] ?? fallbackChapterSteps
+  const baseChapterSteps = currentChapterId
+    ? (
+        chapterStepScripts[currentChapterId] ?? (fallbackChapterDialogue ? [fallbackChapterDialogue] : [])
+      ).map(normalizeStepScriptSpeakers)
     : [];
+  const styledChapterSteps = currentChapterId ? sessionStepDialogues[currentChapterId] : undefined;
+  const currentChapterSteps = mergeStyledChapterSteps(baseChapterSteps, styledChapterSteps);
   const currentDialogue = currentChapterSteps[chapterStepIndex] ?? null;
   const currentChoiceList = currentDialogue?.choices ?? [];
   const hasCurrentChoices = currentChoiceList.length > 0;
@@ -819,18 +1025,25 @@ export default function Home() {
     const finalEpisodeId = selectedChapterIds[selectedChapterIds.length - 1] ?? "NIGHT_SELF_STUDY";
     return chapterInfoMap[finalEpisodeId]?.backdrop ?? preGameBackgroundImageUrl;
   }, [selectedChapterIds]);
-  const activeProfessorLine = stripProfessorPrefix(
-    selectedChoiceIndex === null ? currentDialogue?.dialogue ?? "" : currentSelectedChoice?.reaction ?? "",
+  const activeDialogueRaw =
+    selectedChoiceIndex === null ? currentDialogue?.dialogue ?? "" : currentSelectedChoice?.reaction ?? "";
+  const activeDialogueFallbackSpeaker: DialogueSpeakerLabel =
+    selectedChoiceIndex === null ? "나레이션" : "교수";
+  const activeDialogueParsed = parseDialogueSpeakerAndText(
+    activeDialogueRaw,
+    activeDialogueFallbackSpeaker,
   );
-  const isProfessorLineTyping =
+  const activeSpeakerLabel = activeDialogueParsed.speaker;
+  const activeDialogueLine = activeDialogueParsed.text;
+  const isDialogueLineTyping =
     phase === "screen4_8_chapter" &&
     selectedChoiceIndex === null &&
-    activeProfessorLine.length > 0 &&
-    typedProfessorLine !== activeProfessorLine;
+    activeDialogueLine.length > 0 &&
+    typedProfessorLine !== activeDialogueLine;
   const shouldShowChoiceOverlay =
-    hasCurrentChoices && selectedChoiceIndex === null && !isProfessorLineTyping;
+    hasCurrentChoices && selectedChoiceIndex === null && !isDialogueLineTyping;
   const canAdvanceCurrentStep =
-    (!hasCurrentChoices || selectedChoiceIndex !== null) && !isProfessorLineTyping;
+    (!hasCurrentChoices || selectedChoiceIndex !== null) && !isDialogueLineTyping;
   const activeProfessorImageUrl = useMemo(() => {
     if (!generatedImageUrl) {
       return "";
@@ -1032,7 +1245,7 @@ export default function Home() {
       return;
     }
 
-    const line = activeProfessorLine.trim();
+    const line = activeDialogueLine.trim();
 
     if (!line) {
       setTypedProfessorLine("");
@@ -1067,7 +1280,16 @@ export default function Home() {
         clearTimeout(timer);
       }
     };
-  }, [activeProfessorLine, phase]);
+  }, [activeDialogueLine, phase]);
+
+  useEffect(() => {
+    setDebugAffinityInput(affinityPercent);
+  }, [affinityPercent]);
+
+  useEffect(() => {
+    const stepCount = Math.max(1, chapterStepScripts[debugChapterSelect]?.length ?? 1);
+    setDebugStepSelect((current) => Math.min(current, stepCount - 1));
+  }, [debugChapterSelect]);
 
   function updatePlayer<K extends keyof PlayerFormState>(
     key: K,
@@ -1087,6 +1309,91 @@ export default function Home() {
       ...current,
       [key]: value,
     }));
+  }
+
+  function openStoryDebugContext(targetChapter?: ChapterId, targetStep = 0) {
+    const baseRun =
+      selectedChapterIds.length > 0 ? [...selectedChapterIds] : [...debugDefaultRunChapters];
+    const chapterId = targetChapter ?? baseRun[0] ?? "COMMUTE_CAMPUS";
+    let chapterPosition = baseRun.indexOf(chapterId);
+    if (chapterPosition < 0) {
+      baseRun.push(chapterId);
+      chapterPosition = baseRun.length - 1;
+    }
+
+    const stepCount = Math.max(1, chapterStepScripts[chapterId]?.length ?? 1);
+    const nextStep = Math.max(0, Math.min(stepCount - 1, targetStep));
+
+    setSelectedChapterIds(baseRun);
+    setChapterIndex(chapterPosition);
+    setChapterStepIndex(nextStep);
+    setSelectedChoiceIndex(null);
+    setPhase("screen4_8_chapter");
+  }
+
+  function previewEndingByRank(rank: EndingRank) {
+    const polished = sessionEndingPolish[rank];
+    const title = polished?.title || endingMeta[rank].title;
+    const description = polished?.description || endingMeta[rank].description;
+    setEnding({
+      rank,
+      title,
+      description,
+      score100: debugEndingScoreMap[rank],
+    });
+    setPhase("screen9_ending");
+  }
+
+  function jumpToPhaseByDebug(targetPhase: Phase) {
+    if (targetPhase === "screen4_8_chapter") {
+      openStoryDebugContext(debugChapterSelect, debugStepSelect);
+      return;
+    }
+
+    if (targetPhase === "screen9_ending") {
+      previewEndingByRank(debugEndingSelect);
+      return;
+    }
+
+    if (targetPhase === "screen10_reality" && !ending) {
+      previewEndingByRank(debugEndingSelect);
+    }
+
+    if (targetPhase === "screen11_credit") {
+      setIsCreditFinished(false);
+    }
+
+    setPhase(targetPhase);
+  }
+
+  function applyDebugAffinity() {
+    const nextPercent = Math.max(0, Math.min(100, Math.round(debugAffinityInput)));
+    const chapterCount = Math.max(1, selectedChapterIds.length || debugDefaultRunChapters.length);
+    const nextRawScore = Math.round((nextPercent / 100) * chapterCount * 20);
+    setDebugAffinityInput(nextPercent);
+    setRawScore(nextRawScore);
+    setAffinityDelta(null);
+  }
+
+  function handleDebugButtonClick() {
+    if (!isDebugUnlocked) {
+      setDebugPasswordInput("");
+      setDebugAuthError("");
+      setIsDebugPasswordModalOpen(true);
+      return;
+    }
+    setIsDebugPanelOpen((current) => !current);
+  }
+
+  function submitDebugPassword() {
+    if (debugPasswordInput.trim() !== DEBUG_PASSWORD) {
+      setDebugAuthError("비밀번호가 틀렸습니다.");
+      return;
+    }
+    setIsDebugUnlocked(true);
+    setIsDebugPasswordModalOpen(false);
+    setDebugAuthError("");
+    setIsDebugPanelOpen(true);
   }
 
   function goScreen2() {
@@ -1183,6 +1490,7 @@ export default function Home() {
     }
     setEnding(null);
     setSessionDialogues({});
+    setSessionStepDialogues({});
     setSessionExpressionSet([]);
     setSessionSpriteCues({});
     setSessionEndingPolish({});
@@ -1199,6 +1507,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           chapterIds: sessionPackEpisodeIds,
+          chapterSteps: sessionPackStepPayload,
           playerName,
           professorName: professorNameForPrompt,
           professorSummary: professorSummaryForPrompt,
@@ -1213,6 +1522,9 @@ export default function Home() {
 
       if (data.chapters) {
         setSessionDialogues(data.chapters);
+      }
+      if (data.stepDialogues) {
+        setSessionStepDialogues(data.stepDialogues);
       }
 
       normalizedExpressionSet = normalizeExpressionSet(data.expressionSet);
@@ -1253,6 +1565,7 @@ export default function Home() {
           ? `세션 생성 실패: ${error.message}. 기본 데이터로 시작합니다.`
           : "세션 생성 실패로 기본 데이터로 시작합니다.",
       );
+      setSessionStepDialogues({});
       setSessionExpressionSet([]);
       setSessionSpriteCues({});
     } finally {
@@ -1416,6 +1729,7 @@ export default function Home() {
     setIsPreparingSession(false);
     setSessionPackMessage("");
     setSessionDialogues({});
+    setSessionStepDialogues({});
     setSessionExpressionSet([]);
     setSessionSpriteCues({});
     setSessionEndingPolish({});
@@ -1424,7 +1738,18 @@ export default function Home() {
   return (
     <main className="min-h-screen text-black">
       {/* BGM 컨트롤 버튼 (우측 상단 고정) */}
-      <div className="fixed top-6 right-6 z-[100] flex flex-col items-end gap-2">
+      <div className="fixed top-6 right-6 z-[100] flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleDebugButtonClick}
+          className={`h-14 rounded-full border-[3px] px-5 text-base font-black tracking-wide transition-all active:scale-95 ${
+            isDebugUnlocked
+              ? "border-[#6f3a58] bg-[#ffe6f1] text-[#6f3a58]"
+              : "border-[#5f5f5f] bg-white text-[#4a4a4a]"
+          }`}
+        >
+          DEBUG
+        </button>
         <button
           onClick={toggleBgm}
           className={`w-14 h-14 flex items-center justify-center rounded-full shadow-2xl transition-all active:scale-90 border-[3px] ${
@@ -1439,6 +1764,200 @@ export default function Home() {
         {/* 실제 오디오 태그 */}
         <audio ref={audioRef} src={MAIN_BGM_URL} loop />
       </div>
+
+      {isDebugPasswordModalOpen && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl border-2 border-[#d59ab5] bg-white p-5 shadow-2xl">
+            <p className="text-lg font-black text-[#5a2240]">디버그 잠금 해제</p>
+            <p className="mt-1 text-sm text-[#6a3951]">
+              비밀번호를 입력하면 디버그 패널을 사용할 수 있어요.
+            </p>
+            <input
+              type="password"
+              value={debugPasswordInput}
+              onChange={(event) => {
+                setDebugPasswordInput(event.target.value);
+                if (debugAuthError) {
+                  setDebugAuthError("");
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  submitDebugPassword();
+                }
+              }}
+              className="mt-3 h-11 w-full rounded-lg border border-[#c98aa8] px-3 text-base outline-none focus:ring-2 focus:ring-[#d778a1]/60"
+              placeholder="비밀번호 입력"
+            />
+            {debugAuthError && (
+              <p className="mt-2 text-sm font-semibold text-[#b11c5c]">{debugAuthError}</p>
+            )}
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDebugPasswordModalOpen(false);
+                  setDebugPasswordInput("");
+                  setDebugAuthError("");
+                }}
+                className="rounded-lg border border-[#b88ea2] bg-white px-4 py-2 text-sm font-semibold text-[#5d2b44]"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={submitDebugPassword}
+                className="rounded-lg border border-[#b45f84] bg-[#ffd7e9] px-4 py-2 text-sm font-black text-[#5d2140]"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isDebugPanelOpen && isDebugUnlocked && (
+        <aside className="fixed right-6 top-24 z-[120] w-[min(92vw,430px)] rounded-2xl border-2 border-[#b97d99] bg-[rgba(255,246,251,0.95)] p-4 text-[#2f2f2f] shadow-[0_18px_38px_rgba(55,20,37,0.3)] backdrop-blur-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-lg font-black text-[#5d2240]">디버그 패널</p>
+            <button
+              type="button"
+              onClick={() => setIsDebugPanelOpen(false)}
+              className="rounded-md border border-[#b1889d] bg-white px-2 py-1 text-xs font-semibold"
+            >
+              닫기
+            </button>
+          </div>
+
+          <div className="mt-3 rounded-lg border border-[#d9b2c4] bg-white/80 p-3">
+            <p className="text-xs font-semibold text-[#70435b]">현재 상태</p>
+            <p className="mt-1 text-sm">
+              화면: <span className="font-bold">{phase}</span>
+            </p>
+            <p className="text-sm">
+              호감도: <span className="font-bold">{affinityPercent}%</span> / Raw Score:{" "}
+              <span className="font-bold">{rawScore}</span>
+            </p>
+          </div>
+
+          <div className="mt-3">
+            <p className="mb-2 text-sm font-black text-[#5e2341]">화면 이동</p>
+            <div className="grid grid-cols-2 gap-2">
+              {debugPhaseButtons.map((item) => (
+                <button
+                  key={item.phase}
+                  type="button"
+                  onClick={() => jumpToPhaseByDebug(item.phase)}
+                  className="rounded-lg border border-[#cfa4b8] bg-white px-2 py-2 text-xs font-semibold hover:bg-[#fff4fa]"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <p className="mb-2 text-sm font-black text-[#5e2341]">엔딩 미리보기</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.keys(endingMeta) as EndingRank[]).map((rank) => (
+                <button
+                  key={rank}
+                  type="button"
+                  onClick={() => {
+                    setDebugEndingSelect(rank);
+                    previewEndingByRank(rank);
+                  }}
+                  className="rounded-lg border border-[#cfa4b8] bg-white px-2 py-2 text-xs font-semibold hover:bg-[#fff4fa]"
+                >
+                  {endingMeta[rank].title}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-lg border border-[#d9b2c4] bg-white/85 p-3">
+            <p className="mb-2 text-sm font-black text-[#5e2341]">호감도 임의 설정</p>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={debugAffinityInput}
+              onChange={(event) => setDebugAffinityInput(Number(event.target.value))}
+              className="w-full accent-[#d86e9a]"
+            />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={debugAffinityInput}
+                onChange={(event) => setDebugAffinityInput(Number(event.target.value))}
+                className="h-9 w-20 rounded-md border border-[#caa3b6] px-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={applyDebugAffinity}
+                className="rounded-md border border-[#b45f84] bg-[#ffd9ea] px-3 py-1.5 text-xs font-black text-[#5d2140]"
+              >
+                호감도 적용
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-lg border border-[#d9b2c4] bg-white/85 p-3">
+            <p className="mb-2 text-sm font-black text-[#5e2341]">챕터/스텝 점프</p>
+            <select
+              value={debugChapterSelect}
+              onChange={(event) => setDebugChapterSelect(event.target.value as ChapterId)}
+              className="h-9 w-full rounded-md border border-[#caa3b6] px-2 text-sm"
+            >
+              {(Object.keys(chapterInfoMap) as ChapterId[]).map((chapterId) => (
+                <option key={chapterId} value={chapterId}>
+                  {chapterInfoMap[chapterId].title}
+                </option>
+              ))}
+            </select>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={Math.max(0, (chapterStepScripts[debugChapterSelect]?.length ?? 1) - 1)}
+                value={debugStepSelect}
+                onChange={(event) => setDebugStepSelect(Number(event.target.value))}
+                className="h-9 w-20 rounded-md border border-[#caa3b6] px-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => openStoryDebugContext(debugChapterSelect, debugStepSelect)}
+                className="rounded-md border border-[#b45f84] bg-[#ffd9ea] px-3 py-1.5 text-xs font-black text-[#5d2140]"
+              >
+                이동
+              </button>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedChoiceIndex(null)}
+                className="rounded-md border border-[#c29aad] bg-white px-2 py-1 text-xs font-semibold"
+              >
+                선택 전 상태
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (currentChoiceList.length > 0) {
+                    setSelectedChoiceIndex(0);
+                    setPhase("screen4_8_chapter");
+                  }
+                }}
+                className="rounded-md border border-[#c29aad] bg-white px-2 py-1 text-xs font-semibold"
+              >
+                1번 반응 보기
+              </button>
+            </div>
+          </div>
+        </aside>
+      )}
 
       {phase === "screen1_title" && (
         <section
@@ -1929,7 +2448,7 @@ export default function Home() {
                 />
                 <div className="border-x-2 border-b-2 border-[#a8a8a8] bg-[#f4f4f4] px-[clamp(16px,1.8vw,28px)] py-[clamp(16px,1.8vw,28px)]">
                   <p className="m-0 flex items-start gap-[clamp(18px,2vw,36px)] text-[clamp(24px,2.5vw,50px)] font-medium leading-[1.24] text-[#242424]">
-                    <span className="min-w-[clamp(60px,5vw,120px)] font-black">교수</span>
+                    <span className="min-w-[clamp(60px,5vw,120px)] font-black">{activeSpeakerLabel}</span>
                     <span>{typedProfessorLine || "\u00A0"}</span>
                   </p>
                 </div>

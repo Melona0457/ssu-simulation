@@ -2,6 +2,13 @@
 @import url("https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap");
 @import "tailwindcss";
 
+/* Angel Wing Heart - https://www.cursors-4u.com/cursor/angel-wing-heart */
+* {
+  cursor: url("https://cdn.cursors-4u.net/previews/angel-wing-heart-800e0eca-32.webp") 32 32,
+    auto !important;
+}
+/* End www.Cursors-4U.com Code */
+
 @font-face {
   font-family: 'PretendardGothic';
   src: url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/woff2/Pretendard-Bold.woff2') format('woff2');
