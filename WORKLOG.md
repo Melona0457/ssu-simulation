@@ -916,3 +916,143 @@
 ### 남은 TODO
 
 - 필요 시 시안 대비 화면3 만들기 버튼 폭/글자크기 상한 추가 미세조정
+
+## 2026-04-14 추가 로그 (스토리 라인 v2 구조 변경: 6에피소드 고정 + 점심/밤 분기)
+
+### 결정사항
+
+- 챕터 랜덤 선별 구조를 중단하고, `시간 순서 6에피소드 고정` 구조로 전환
+- 에피소드 순서: `등교 -> 아침 강의실 -> 점심식사(분기) -> 오후 도서관 -> 간단한 저녁식사 -> 밤(분기)`
+- 엔딩 등급 체계를 `A+ / B+ / C+ / F` 4단계로 변경
+- 세부 서브엔딩은 추후 확장 가능하도록 메이저 등급 중심으로 우선 운영
+- 세션 시작 API 호출 시 `스토리 전체를 커스텀 교수 말투에 맞춰 통일`하도록 프롬프트 제약 강화
+
+### 구현/수정 내용
+
+- [src/lib/game-data.ts](/Users/jeongin/ssu-simulation/src/lib/game-data.ts)
+  - ChapterId를 시간대 기반 에피소드 + 분기 에피소드(점심 3종, 밤 3종)로 재구성
+  - 기본 6에피소드 루트(`pickSixChaptersForRun`)를 고정 시퀀스로 변경
+  - 분기 매핑 추가
+    - `morningLunchBranchByChoice` (아침 선택 -> 점심 경로)
+    - `dinnerNightBranchByChoice` (저녁 선택 -> 밤 경로)
+  - session-pack 생성용 전체 ID(`sessionPackEpisodeIds`) 추가
+  - 아침 강의실/점심식사(학생식당, 화장실 변기칸 포함) fallback 대사 반영
+  - 엔딩 메타/랭크를 5단계에서 4단계(A+/B+/C+/F)로 변경
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 스토리 시작 시 세션팩 요청 대상 ID를 `전체 분기 포함 목록`으로 변경
+  - 에피소드 선택 시 분기 라우트 동적 변경
+    - `MORNING_CLASSROOM` 선택 후 `selectedChapterIds[2]` 점심 경로 업데이트
+    - `LIGHT_DINNER` 선택 후 `selectedChapterIds[5]` 밤 경로 업데이트
+  - 챕터 표기를 `CHAPTER` -> `EPISODE`로 변경
+  - 엔딩 배경을 고정 ID 대신 `실제 마지막 에피소드 경로` 기반으로 표시
+- [src/app/api/generate-session-pack/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-session-pack/route.ts)
+  - endingPolish 키를 `ENDING_A_PLUS / ENDING_B_PLUS / ENDING_C_PLUS / ENDING_F`로 교체
+  - 프롬프트에 `전체 에피소드 말투 통일` 및 `분기 타임라인 자연스러운 연결` 제약 추가
+  - chapterIds 수집 상한을 6에서 24로 완화(분기 일괄 생성 대응)
+
+### 영향 파일
+
+- [src/lib/game-data.ts](/Users/jeongin/ssu-simulation/src/lib/game-data.ts)
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [src/app/api/generate-session-pack/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-session-pack/route.ts)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 점심식사 `학교 앞 맛집` 상세 시나리오 확정본 반영
+- 밤 분기 3개 상세 시나리오(대사/선지) 확정본 반영
+- A+/B+/C+/F 내부 서브엔딩(세부 분기 규칙) 확정 후 데이터 스키마 확장
+
+## 2026-04-14 추가 로그 (에피소드 화면 UI 개편: 진행도 제거 + 중앙 선택 오버레이)
+
+### 결정사항
+
+- 에피소드 화면 우측 상단 진행도 UI는 제거
+- 선택지 UI는 배경 위에 중앙 오버레이 버튼 형태로 변경
+- 선택지 노출 시 기존 배경은 약한 블러/딤 처리
+- 하단 대사창은 노트형(상단 톱니 패턴) 스타일로 개편
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 우측 상단 진행도 바 제거
+  - 선택지 노출 타이밍(`selectedChoiceIndex === null`)에 중앙 오버레이 버튼 3개 렌더링
+  - 선택지 오버레이와 대사창 레이어 분리 (`z-index` 정리)
+  - 하단 대사창 구조를 `perforation + content + action` 구조로 재구성
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - `.episode-choice-dim`, `.episode-choice-btn` 신규 추가
+  - `.episode-dialog-*` 스타일(노트형 대사창, 화자 라벨, 액션 영역) 신규 추가
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 시안 픽셀 기준으로 대사창 상단 톱니 패턴 간격/두께 미세조정
+- 선택지 버튼 높이/간격(모바일, 반화면) 최종 튜닝
+
+## 2026-04-14 추가 로그 (에피소드 배경 이미지 실파일 연결)
+
+### 결정사항
+
+- 업로드된 에피소드 배경 `.webp` 파일을 각 에피소드 ID에 1:1 매핑
+- 점심/밤 분기 배경도 각각 독립 이미지로 적용
+
+### 구현/수정 내용
+
+- [src/lib/game-data.ts](/Users/jeongin/ssu-simulation/src/lib/game-data.ts)
+  - `chapterInfoMap`의 `backdrop` 경로를 실제 파일로 교체
+  - 적용 경로
+    - `COMMUTE_CAMPUS` -> `/backgrounds/episodes/commute-campus.webp`
+    - `MORNING_CLASSROOM` -> `/backgrounds/episodes/morning-classroom.webp`
+    - `LUNCH_STUDENT_CAFETERIA` -> `/backgrounds/episodes/lunch-student-cafeteria.webp`
+    - `LUNCH_OFFCAMPUS_RESTAURANT` -> `/backgrounds/episodes/lunch-offcampus-restaurant.webp`
+    - `LUNCH_RESTROOM_STALL` -> `/backgrounds/episodes/lunch-restroom-stall.webp`
+    - `AFTERNOON_LIBRARY` -> `/backgrounds/episodes/afternoon-library.webp`
+    - `LIGHT_DINNER` -> `/backgrounds/episodes/light-dinner.webp`
+    - `NIGHT_SELF_STUDY` -> `/backgrounds/episodes/night-classroom.webp`
+    - `NIGHT_CAMPUS_WALK` -> `/backgrounds/episodes/night-bench.webp`
+    - `NIGHT_LAB_VISIT` -> `/backgrounds/episodes/night-lab.webp`
+  - 미사용 상수 `DEFAULT_BACKDROP` 제거
+
+### 영향 파일
+
+- [src/lib/game-data.ts](/Users/jeongin/ssu-simulation/src/lib/game-data.ts)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 남은 TODO
+
+- 실제 플레이에서 각 분기 진입 시 배경 전환 타이밍/위치(`background-position`) 미세조정
+
+## 2026-04-14 추가 로그 (대사 완료 후 선택지 노출 + 에피소드 연핑크 톤)
+
+### 결정사항
+
+- 선택지는 대사가 모두 출력된 뒤에만 노출
+- 선택지 노출 시에만 화면을 살짝 어둡게 처리
+- 화면1~3의 분위기와 자연스럽게 이어지도록 에피소드 화면에 아주 약한 연핑크 틴트 추가
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - `isProfessorLineTyping`, `shouldShowChoiceOverlay` 상태 파생값 추가
+  - 선택지 오버레이/딤 레이어 렌더 조건을 `selectedChoiceIndex === null`에서 `shouldShowChoiceOverlay`로 변경
+  - 에피소드 배경 오버레이 색조를 청색 계열에서 핑크 계열로 미세 조정
+  - 연핑크 분위기 유지용 `episode-soft-pink-tint` 레이어 추가
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+  - `.episode-soft-pink-tint` 신규 추가
+  - `.episode-choice-dim` 색상/블러값을 선택지 등장 연출에 맞게 조정
+  - `.episode-choice-layer` 및 `@keyframes episode-choice-fade-in` 추가
+
+### 영향 파일
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
+
+### 검증
+
+- `npm run lint` 통과
