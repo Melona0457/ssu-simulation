@@ -20,6 +20,7 @@ type SessionPackRequestPayload = {
   playerName?: string;
   professorName?: string;
   professorSummary?: string;
+  chapterSteps?: RawStepDialogue[];
 };
 
 type ExpressionKey = "EXP_1" | "EXP_2" | "EXP_3";
@@ -53,6 +54,13 @@ type RawChapter = {
   choices?: RawChoice[];
 };
 
+type RawStepDialogue = {
+  chapterId?: unknown;
+  stepIndex?: unknown;
+  dialogue?: unknown;
+  choices?: RawChoice[];
+};
+
 type RawEndingPolish = {
   title?: unknown;
   description?: unknown;
@@ -72,6 +80,7 @@ type RawSpriteCue = {
 
 type RawSessionPackResponse = {
   chapters?: RawChapter[];
+  stepDialogues?: RawStepDialogue[];
   endingPolish?: Partial<Record<EndingRank, RawEndingPolish>>;
   expressionSet?: RawExpressionDefinition[];
   spriteCues?: Record<string, RawSpriteCue | undefined>;
@@ -88,9 +97,10 @@ const EXPRESSION_KEYS: ExpressionKey[] = ["EXP_1", "EXP_2", "EXP_3"];
 
 const sessionPackResponseJsonSchema = {
   type: "object",
-  required: ["chapters", "endingPolish", "expressionSet", "spriteCues"],
+  required: ["stepDialogues", "endingPolish", "expressionSet", "spriteCues"],
   properties: {
     chapters: { type: "array" },
+    stepDialogues: { type: "array" },
     endingPolish: { type: "object" },
     expressionSet: { type: "array" },
     spriteCues: { type: "object" },
@@ -164,6 +174,28 @@ function toSafeText(value: unknown, fallback: string) {
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
+function normalizeStepIndex(value: unknown) {
+  const candidate = Number(value);
+  if (!Number.isInteger(candidate) || candidate < 0 || candidate > 24) {
+    return null;
+  }
+
+  return candidate;
+}
+
+function normalizeInputStepChoice(input: RawChoice | undefined, fallbackIndex: number): ChapterChoice {
+  return {
+    text: toSafeText(input?.text, `선택지 ${fallbackIndex + 1}`),
+    preview: toSafeText(input?.preview, "선택"),
+    reaction: toSafeText(input?.reaction, "교수님이 의미심장한 반응을 보인다."),
+    emotion: normalizeEmotion(input?.emotion, "neutral"),
+    effects: {
+      affinity: toSafeNumber(input?.effects?.affinity, 0),
+      intellect: toSafeNumber(input?.effects?.intellect, 0),
+    },
+  };
+}
+
 function normalizeChoice(input: RawChoice | undefined, fallback: ChapterChoice): ChapterChoice {
   return {
     text:
@@ -194,6 +226,121 @@ function normalizeDialogue(input: RawChapter | undefined, fallback: ChapterDialo
         : fallback.dialogue,
     choices: [0, 1, 2].map((index) => normalizeChoice(input?.choices?.[index], fallback.choices[index])),
   };
+}
+
+function buildFallbackStepDialogues(
+  chapterIds: ChapterId[],
+  rawSteps: RawStepDialogue[] | undefined,
+) {
+  const allowedChapterIds = new Set(chapterIds);
+  const byChapter = new Map<ChapterId, Array<{ stepIndex: number; dialogue: ChapterDialogue }>>();
+
+  for (const item of rawSteps ?? []) {
+    const chapterId = typeof item?.chapterId === "string" ? item.chapterId : null;
+    if (!chapterId || !isChapterId(chapterId) || !allowedChapterIds.has(chapterId)) {
+      continue;
+    }
+
+    const stepIndex = normalizeStepIndex(item.stepIndex);
+    if (stepIndex === null) {
+      continue;
+    }
+
+    const dialogueText = toSafeText(item.dialogue, "");
+    if (!dialogueText) {
+      continue;
+    }
+
+    const choiceInputs = Array.isArray(item.choices) ? item.choices : [];
+    const normalizedChoices = choiceInputs.map((choice, index) =>
+      normalizeInputStepChoice(choice, index),
+    );
+
+    const chapterEntries = byChapter.get(chapterId) ?? [];
+    chapterEntries.push({
+      stepIndex,
+      dialogue: {
+        dialogue: dialogueText,
+        choices: normalizedChoices,
+      },
+    });
+    byChapter.set(chapterId, chapterEntries);
+  }
+
+  return chapterIds.reduce(
+    (acc, chapterId) => {
+      const rawChapterEntries = byChapter.get(chapterId);
+      if (!rawChapterEntries || rawChapterEntries.length === 0) {
+        acc[chapterId] = [chapterFallbackDialogues[chapterId]];
+        return acc;
+      }
+
+      const stepMap = new Map<number, ChapterDialogue>();
+      rawChapterEntries.forEach((entry) => {
+        if (!stepMap.has(entry.stepIndex)) {
+          stepMap.set(entry.stepIndex, entry.dialogue);
+        }
+      });
+
+      const sorted = Array.from(stepMap.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([, dialogue]) => dialogue);
+
+      acc[chapterId] = sorted.length > 0 ? sorted : [chapterFallbackDialogues[chapterId]];
+      return acc;
+    },
+    {} as Partial<Record<ChapterId, ChapterDialogue[]>>,
+  );
+}
+
+function normalizeStepDialogues(
+  rawStepDialogues: RawStepDialogue[] | undefined,
+  chapterIds: ChapterId[],
+  fallbackStepDialogues: Partial<Record<ChapterId, ChapterDialogue[]>>,
+) {
+  return chapterIds.reduce(
+    (acc, chapterId) => {
+      const fallbackSteps = fallbackStepDialogues[chapterId] ?? [chapterFallbackDialogues[chapterId]];
+      const chapterRawSteps = Array.isArray(rawStepDialogues)
+        ? rawStepDialogues.filter((item) => item.chapterId === chapterId)
+        : [];
+
+      const rawByStepIndex = new Map<number, RawStepDialogue>();
+      chapterRawSteps.forEach((item) => {
+        const stepIndex = normalizeStepIndex(item.stepIndex);
+        if (stepIndex !== null && !rawByStepIndex.has(stepIndex)) {
+          rawByStepIndex.set(stepIndex, item);
+        }
+      });
+
+      acc[chapterId] = fallbackSteps.map((fallback, stepIndex) => {
+        const source = rawByStepIndex.get(stepIndex);
+        return {
+          dialogue: toSafeText(source?.dialogue, fallback.dialogue),
+          choices: fallback.choices.map((fallbackChoice, choiceIndex) =>
+            normalizeChoice(source?.choices?.[choiceIndex], fallbackChoice),
+          ),
+        } satisfies ChapterDialogue;
+      });
+
+      return acc;
+    },
+    {} as Partial<Record<ChapterId, ChapterDialogue[]>>,
+  );
+}
+
+function deriveChapterDialoguesFromStepDialogues(
+  chapterIds: ChapterId[],
+  stepDialogues: Partial<Record<ChapterId, ChapterDialogue[]>>,
+) {
+  return chapterIds.reduce(
+    (acc, chapterId) => {
+      const firstStep = stepDialogues[chapterId]?.[0];
+      acc[chapterId] = firstStep ?? chapterFallbackDialogues[chapterId];
+      return acc;
+    },
+    {} as Partial<Record<ChapterId, ChapterDialogue>>,
+  );
 }
 
 function buildFallbackEndingPolish() {
@@ -301,9 +448,10 @@ function buildFallbackSpriteCues(
       const dialogue = normalizedChapters[chapterId] ?? chapterFallbackDialogues[chapterId];
       acc[chapterId] = {
         dialogueExpressionKey: "EXP_1",
-        choiceReactionExpressionKeys: [0, 1, 2].map((index) =>
-          expressionKeyByEmotion(dialogue.choices[index].emotion),
-        ) as [ExpressionKey, ExpressionKey, ExpressionKey],
+        choiceReactionExpressionKeys: [0, 1, 2].map((index) => {
+          const emotion = dialogue.choices[index]?.emotion ?? "neutral";
+          return expressionKeyByEmotion(emotion);
+        }) as [ExpressionKey, ExpressionKey, ExpressionKey],
       };
       return acc;
     },
@@ -473,12 +621,10 @@ export async function POST(request: Request) {
       ? payload.professorSummary.trim()
       : "차분하지만 학생 성장을 챙기는 교수";
 
-  const fallbackChapters = chapterIds.reduce(
-    (acc, chapterId) => {
-      acc[chapterId] = chapterFallbackDialogues[chapterId];
-      return acc;
-    },
-    {} as Partial<Record<ChapterId, ChapterDialogue>>,
+  const fallbackStepDialogues = buildFallbackStepDialogues(chapterIds, payload.chapterSteps);
+  const fallbackChapters = deriveChapterDialoguesFromStepDialogues(
+    chapterIds,
+    fallbackStepDialogues,
   );
   const fallbackEndingPolish = buildFallbackEndingPolish();
   const fallbackExpressionSet = buildFallbackExpressionSet();
@@ -488,6 +634,7 @@ export async function POST(request: Request) {
   if (!gemini) {
     return NextResponse.json({
       chapters: fallbackChapters,
+      stepDialogues: fallbackStepDialogues,
       endingPolish: fallbackEndingPolish,
       expressionSet: fallbackExpressionSet,
       spriteCues: fallbackSpriteCues,
@@ -508,23 +655,44 @@ export async function POST(request: Request) {
       ].join("\n");
     })
     .join("\n");
+  const stepSourceBrief = chapterIds
+    .flatMap((chapterId) => {
+      const steps = fallbackStepDialogues[chapterId] ?? [chapterFallbackDialogues[chapterId]];
+      return steps.map((step, stepIndex) => {
+        const choices =
+          step.choices.length > 0
+            ? step.choices.map((choice, index) => `${index + 1}. ${choice.text}`).join(" | ")
+            : "없음";
+
+        return [
+          `- stepKey=${chapterId}#${stepIndex}`,
+          `  dialogue=${step.dialogue}`,
+          `  choiceCount=${step.choices.length}`,
+          `  choices=${choices}`,
+        ].join("\n");
+      });
+    })
+    .join("\n");
 
   const prompt = [
     "너는 한국어 캠퍼스 비주얼노벨 시나리오 작가다.",
-    "게임 목적: 시험기간 하루 6개 에피소드의 감정선 유지 + 교수와의 긴장감/코미디 밸런스.",
+    "게임 목적: 시험기간 하루 스토리의 감정선 유지 + 교수와의 긴장감/코미디 밸런스.",
     "반드시 JSON만 출력하고, 코드블록/설명문 금지.",
     `플레이어 이름: ${playerName}`,
     `교수 이름: ${professorName}`,
     `교수 페르소나 요약: ${professorSummary}`,
-    "중요: 아래 에피소드 전체 문체를 교수 페르소나 말투로 통일해라.",
+    "중요: 아래 step 대사의 사건/의미/선택 구조는 유지하고, 교수 말투만 페르소나에 맞게 변환해라.",
     "중요: 표정은 반드시 3개만 설계하고, 챕터/반응에서 실제 필요 구간에만 교체하도록 cue를 작성해라.",
     "생성 대상 에피소드 목록:",
     chapterBrief,
+    "말투 변환 대상 step 원문:",
+    stepSourceBrief,
     "JSON 스키마:",
     "{",
-    '  "chapters": [',
+    '  "stepDialogues": [',
     "    {",
     '      "chapterId": "에피소드 ID",',
+    '      "stepIndex": 0,',
     '      "dialogue": "교수 대사 중심 1~3문장",',
     '      "choices": [',
     "        {",
@@ -556,10 +724,11 @@ export async function POST(request: Request) {
     "  }",
     "}",
     "제약:",
-    "- chapters 배열은 입력받은 chapterId를 모두 포함하고 순서를 유지.",
-    "- 각 chapter의 choices는 정확히 3개.",
-    "- choice 중 최소 1개는 장난기/플러팅 톤.",
-    "- choices.text는 최대한 중립적으로 작성해 정답처럼 보이지 않게 한다.",
+    "- stepDialogues 배열은 입력으로 주어진 stepKey(chapterId#stepIndex)를 전부 1회씩 포함.",
+    "- stepDialogues 정렬은 chapterIds 순서 후 stepIndex 오름차순으로 유지.",
+    "- 각 step의 choices 길이는 입력 choiceCount와 정확히 동일하게 유지(0이면 빈 배열).",
+    "- 원문의 사건/상황/선택 의도는 유지하고 문체/어미/톤만 교수 페르소나에 맞게 변환.",
+    "- 선택지 text는 정답처럼 보이지 않게 중립적으로 유지.",
     "- effects.affinity, effects.intellect는 각각 -4~12 정수.",
     "- 교수 말투/태도는 교수 페르소나 요약을 강하게 반영.",
     "- expressionSet은 정확히 3개(EXP_1, EXP_2, EXP_3)만 작성.",
@@ -575,6 +744,7 @@ export async function POST(request: Request) {
     if (!raw) {
       return NextResponse.json({
         chapters: fallbackChapters,
+        stepDialogues: fallbackStepDialogues,
         endingPolish: fallbackEndingPolish,
         expressionSet: fallbackExpressionSet,
         spriteCues: fallbackSpriteCues,
@@ -598,13 +768,33 @@ export async function POST(request: Request) {
       parsed = parseSessionPackJson(repairedRaw);
     }
 
-    const normalizedChapters = chapterIds.reduce(
+    const normalizedLegacyChapters = chapterIds.reduce(
       (acc, chapterId) => {
         const fallback = chapterFallbackDialogues[chapterId];
         const matched = Array.isArray(parsed.chapters)
           ? parsed.chapters.find((chapter) => chapter.chapterId === chapterId)
           : undefined;
         acc[chapterId] = normalizeDialogue(matched, fallback);
+        return acc;
+      },
+      {} as Partial<Record<ChapterId, ChapterDialogue>>,
+    );
+
+    const normalizedStepDialogues = normalizeStepDialogues(
+      parsed.stepDialogues,
+      chapterIds,
+      fallbackStepDialogues,
+    );
+    const normalizedChaptersFromSteps = deriveChapterDialoguesFromStepDialogues(
+      chapterIds,
+      normalizedStepDialogues,
+    );
+    const normalizedChapters = chapterIds.reduce(
+      (acc, chapterId) => {
+        acc[chapterId] =
+          normalizedChaptersFromSteps[chapterId] ??
+          normalizedLegacyChapters[chapterId] ??
+          chapterFallbackDialogues[chapterId];
         return acc;
       },
       {} as Partial<Record<ChapterId, ChapterDialogue>>,
@@ -629,6 +819,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       chapters: normalizedChapters,
+      stepDialogues: normalizedStepDialogues,
       endingPolish: normalizedEndingPolish,
       expressionSet: normalizedExpressionSet,
       spriteCues: normalizedSpriteCues,
@@ -637,6 +828,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({
       chapters: fallbackChapters,
+      stepDialogues: fallbackStepDialogues,
       endingPolish: fallbackEndingPolish,
       expressionSet: fallbackExpressionSet,
       spriteCues: fallbackSpriteCues,

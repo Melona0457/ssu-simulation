@@ -1420,3 +1420,125 @@
 ### 후속 조치
 
 - Next.js 개발 서버 재시작 후 적용 확인 필요 (`.env.local`은 서버 시작 시 로드됨)
+
+## 2026-04-15 추가 로그 (교수 말투 커스터마이징 실적용: 스텝 단위 대사 생성)
+
+### 이슈
+
+- 사용자 설정 교수 성격/말투가 실제 플레이 대사에 거의 반영되지 않음
+- 원인: 화면 렌더링이 멀티스텝 고정 스크립트를 우선 사용하고, 세션 생성 결과(`chapters`)는 챕터 단위 1개 대사만 제공되어 스텝 대사와 결합되지 않음
+
+### 구현/수정 내용
+
+- [src/app/api/generate-session-pack/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-session-pack/route.ts)
+  - 요청 payload에 `chapterSteps`(chapterId/stepIndex/원문 대사/선택지) 입력 지원 추가
+  - 응답에 `stepDialogues`(챕터별 스텝 대사/선택지 말투 변환 결과) 추가
+  - 프롬프트를 `챕터 단위` 중심에서 `스텝 단위 말투 변환` 중심으로 재구성
+  - 제약 추가:
+    - 입력된 모든 stepKey(chapterId#stepIndex) 1회 포함
+    - step별 선택지 개수 유지(0개 포함)
+    - 사건/선택 구조는 유지하고 문체/어미/톤만 페르소나에 맞게 변경
+  - `stepDialogues` 기준 정규화/fallback 로직 추가
+  - 챕터 단위 `chapters`는 `stepDialogues`의 첫 스텝을 기준으로 파생 생성해 하위 호환 유지
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 세션 준비 요청 시 `chapterSteps`(현재 멀티스텝 원문)를 함께 전달하도록 변경
+  - 상태 추가: `sessionStepDialogues`
+  - 런타임 렌더링 로직 변경:
+    - 기본 멀티스텝 구조는 유지
+    - 세션에서 받은 `stepDialogues`가 있으면 스텝별 `dialogue/text/preview/reaction`만 덮어써서 말투 반영
+    - 분기/점수/선택 인덱스 구조는 그대로 유지
+
+### 검증
+
+- `npm run lint` 통과
+- `npm run build` 통과
+
+## 2026-04-15 추가 로그 (스토리 화자 라벨 전수 보정: 나레이션/나/교수)
+
+### 이슈
+
+- 대사창 좌측 화자 라벨이 `"교수"`로 고정되어, 나레이션 문장도 교수 발화처럼 표시됨
+- 특히 챕터 첫 진입/설명형 대사에서 몰입감 저하 발생
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 화자 파서(`parseDialogueSpeakerAndText`)를 실제 렌더링에 연결
+    - `나레이션/교수/나` 접두어(`나레이션:`, `교수:`, `학생:` 등) 인식
+  - 화자 접두어 자동 보정 함수 추가
+    - 스텝 `dialogue` 기본값: `나레이션`
+    - 선택 반응 `reaction` 기본값: `교수`
+  - 세션 패키지로 넘기는 원문 스텝(`chapterSteps`)에도 동일 보정 적용
+  - 대사창 화자 라벨을 하드코딩 `"교수"`에서 동적 `activeSpeakerLabel`로 변경
+  - 타이핑 기준 문자열도 파싱된 본문 기준으로 동기화
+
+### 검증
+
+- `npm run lint` 통과
+- `npm run build` 통과
+
+## 2026-04-15 추가 로그 (에피소드 전문 복원 및 지문/연출 문장 강화)
+
+### 이슈
+
+- 플레이 중 대사가 축약되어 원본 서사(지문/연출/호흡 표현)가 약해졌다는 피드백 확인
+- 예: `(가쁜 숨을 내쉬며)` 같은 톤 연출이 누락되어 장면 몰입감이 떨어짐
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - `chapterStepScripts` 전 구간 텍스트를 원문 중심으로 재작성
+  - 대상 챕터:
+    - `COMMUTE_CAMPUS`
+    - `MORNING_CLASSROOM` (3스텝)
+    - `LUNCH_STUDENT_CAFETERIA` (2스텝)
+    - `LUNCH_OFFCAMPUS_RESTAURANT`
+    - `LUNCH_RESTROOM_STALL` (2스텝)
+    - `AFTERNOON_LIBRARY` (2스텝)
+    - `LIGHT_DINNER`
+    - `NIGHT_LAB_VISIT` (2스텝)
+    - `NIGHT_CAMPUS_WALK` (2스텝)
+    - `NIGHT_SELF_STUDY`
+  - 지문/연출 표현 보존:
+    - 호흡/표정/행동 지시문(예: `(가쁜 숨을 내쉬며)`, `(피식 웃으며)`)을 대사에 반영
+    - 장소/화면 연출 설명 문장을 각 스텝 내에 포함
+  - 게임 로직 안정성 유지:
+    - 선택지 개수, 분기 지점, 점수 계산 구조는 기존과 동일하게 유지
+
+### 검증
+
+- `npm run lint` 통과
+- `npm run build` 통과
+
+## 2026-04-15 추가 로그 (디버그 모드 추가: 비밀번호 잠금 + 화면/엔딩/호감도 제어)
+
+### 요청 배경
+
+- QA/연출 확인을 빠르게 반복하기 위해 인게임에서 즉시 접근 가능한 디버그 도구 필요
+- 요구사항:
+  - 우측 상단 BGM 버튼 왼쪽에 디버그 버튼 배치
+  - 비밀번호 인증(`ssulikelion`) 통과 시 디버그 기능 활성화
+  - 모든 화면 이동, 엔딩 미리보기, 호감도 임의 설정 등 지원
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 상단 우측 UI에 `DEBUG` 버튼 추가 (BGM 버튼 좌측)
+  - 디버그 잠금 해제 모달 구현:
+    - 비밀번호 입력/검증
+    - 실패 시 에러 메시지 표시
+    - 성공 시 패널 오픈 및 세션 내 잠금 해제 유지
+  - 디버그 패널 구현:
+    - 화면 점프: 화면1/2/3/플레이/현실/크레딧
+    - 엔딩 미리보기: A+/B+/C+/F 즉시 진입
+    - 호감도 임의 설정:
+      - 슬라이더 + 숫자 입력
+      - 퍼센트 기준으로 `rawScore` 변환 적용
+    - 챕터/스텝 점프:
+      - 원하는 챕터와 스텝 인덱스로 플레이 화면 진입
+      - 선택 전 상태/1번 반응 상태 확인 버튼 추가
+
+### 검증
+
+- `npm run lint` 통과
+- `npm run build` 통과
