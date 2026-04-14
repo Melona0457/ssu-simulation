@@ -1057,6 +1057,27 @@
 
 - `npm run lint` 통과
 
+## 2026-04-15 추가 로그 (교수 이미지 스타일: 3개 레퍼런스 통합 고정)
+
+### 요청사항
+
+- 일러스트디자인1/2/3 중 선택 방식이 아니라, 3개 레퍼런스 특징을 모두 합친 스타일을 내부 보정에 고정 적용
+
+### 구현/수정 내용
+
+- [src/lib/game-data.ts](/Users/jeongin/ssu-simulation/src/lib/game-data.ts)
+  - `fusedIllustrationReferenceProfile` 추가: 기존 3개 스타일 키워드를 합성한 통합 프로필 정의
+  - `professorSpriteStylePreset`를 통합 스타일 방향으로 보강
+  - `professorReferenceFusionGuide` 추가: “3개 레퍼런스 통합” 지시문을 내부 공통 가이드로 정의
+  - `buildProfessorSummary`에서 스타일 설명을 선택값 기반에서 통합 고정 프로필 기반으로 변경
+  - `buildIllustrationPrompt`에서 스타일 선택 의존을 제거하고 통합 가이드/키워드를 항상 포함하도록 변경
+- [src/app/api/generate-professor-image/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-professor-image/route.ts)
+  - 이미지 생성 서버 프롬프트 `styleGuideLine`에 통합 가이드(`professorReferenceFusionGuide`)를 추가해 서버 단계에서도 고정 반영
+
+### 검증
+
+- `npm run lint` 통과
+
 ## 2026-04-14 추가 로그 (선택지 오버레이 UI 강제 복구)
 
 ### 이슈

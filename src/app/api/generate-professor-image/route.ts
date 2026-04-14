@@ -6,7 +6,7 @@ import {
   extractTextFromGeminiResponse,
   getGeminiImageModel,
 } from "@/lib/gemini/server";
-import { professorSpriteStylePreset } from "@/lib/game-data";
+import { professorReferenceFusionGuide, professorSpriteStylePreset } from "@/lib/game-data";
 
 type ImageRequestPayload = {
   professorName: string;
@@ -1276,7 +1276,7 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as ImageRequestPayload;
-  const styleGuideLine = `Style lock for every output: ${professorSpriteStylePreset.join(", ")}.`;
+  const styleGuideLine = `Style lock for every output: ${professorSpriteStylePreset.join(", ")}. Reference fusion lock: ${professorReferenceFusionGuide}.`;
 
   const detailedPrompt = [
     "Create a single full-body 2D game character sprite of a Korean university professor.",
