@@ -9,20 +9,19 @@ export type DialogueEmotion =
   | "panic";
 
 export type ChapterId =
-  | "ORIENTATION_GATE"
-  | "STONE_STAIRS"
-  | "CAMPUS_CAFE"
-  | "CLASSROOM"
-  | "TEAM_PROJECT"
-  | "LIBRARY"
-  | "LAB_CORRIDOR"
-  | "SUNSET_YARD"
-  | "CONVENIENCE_STORE"
-  | "NIGHT_BENCH"
-  | "DAWN_REVIEW"
-  | "EXAM_HALL";
+  | "COMMUTE_CAMPUS"
+  | "MORNING_CLASSROOM"
+  | "LUNCH_STUDENT_CAFETERIA"
+  | "LUNCH_OFFCAMPUS_RESTAURANT"
+  | "LUNCH_RESTROOM_STALL"
+  | "AFTERNOON_LIBRARY"
+  | "LIGHT_DINNER"
+  | "NIGHT_SELF_STUDY"
+  | "NIGHT_CAMPUS_WALK"
+  | "NIGHT_LAB_VISIT";
 
-export type EndingRank = "ENDING_1" | "ENDING_2" | "ENDING_3" | "ENDING_4" | "ENDING_5";
+export type EndingRank = "ENDING_A_PLUS" | "ENDING_B_PLUS" | "ENDING_C_PLUS" | "ENDING_F";
+
 export type IllustrationStyleKey =
   | "DESIGN_1_ROMANCE_FANTASY"
   | "DESIGN_2_CLEAN_CHARACTER_CARD"
@@ -35,6 +34,7 @@ export type ProfessorGender =
   | "여성"
   | "논바이너리"
   | "미정(중성 표현)";
+
 export type PlayerGender = "남자" | "여자";
 
 export type ProfessorFormState = {
@@ -190,534 +190,454 @@ export const professorFeatureSuggestions: Record<
   ],
 };
 
-const DEFAULT_BACKDROP =
-  "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1600&q=80";
-
 export const chapterInfoMap: Record<ChapterId, ChapterInfo> = {
-  ORIENTATION_GATE: {
-    id: "ORIENTATION_GATE",
-    title: "캠퍼스 입구",
-    location: "정문 앞",
-    scene: "시험기간의 시작",
-    backdrop: DEFAULT_BACKDROP,
+  COMMUTE_CAMPUS: {
+    id: "COMMUTE_CAMPUS",
+    title: "등교",
+    location: "캠퍼스 진입로",
+    scene: "시험 전날, 하루의 시작",
+    backdrop: "/backgrounds/episodes/commute-campus.webp",
     sequenceGroup: 1,
-    keywords: ["입장", "루틴", "시작"],
+    keywords: ["등교", "긴장", "시작"],
   },
-  STONE_STAIRS: {
-    id: "STONE_STAIRS",
-    title: "돌계단",
-    location: "중앙 돌계단",
-    scene: "첫 인상과 기류 파악",
-    backdrop: DEFAULT_BACKDROP,
-    sequenceGroup: 1,
-    keywords: ["첫만남", "길찾기", "긴장"],
-  },
-  CAMPUS_CAFE: {
-    id: "CAMPUS_CAFE",
-    title: "교내 카페",
-    location: "학생회관 카페",
-    scene: "짧은 휴식 속 질문",
-    backdrop: DEFAULT_BACKDROP,
+  MORNING_CLASSROOM: {
+    id: "MORNING_CLASSROOM",
+    title: "아침 강의실",
+    location: "마지막 총정리 강의실",
+    scene: "시험 전날 총정리 수업",
+    backdrop: "/backgrounds/episodes/morning-classroom.webp",
     sequenceGroup: 2,
-    keywords: ["카페인", "휴식", "집중"],
+    keywords: ["강의실", "지각", "총정리"],
   },
-  CLASSROOM: {
-    id: "CLASSROOM",
-    title: "강의실",
-    location: "전공 강의실",
-    scene: "수업 직후 1:1 대화",
-    backdrop: DEFAULT_BACKDROP,
-    sequenceGroup: 2,
-    keywords: ["질문", "피드백", "핵심개념"],
-  },
-  TEAM_PROJECT: {
-    id: "TEAM_PROJECT",
-    title: "팀플 존",
-    location: "스터디룸 앞",
-    scene: "조별과제와 시험 압박",
-    backdrop: DEFAULT_BACKDROP,
+  LUNCH_STUDENT_CAFETERIA: {
+    id: "LUNCH_STUDENT_CAFETERIA",
+    title: "점심식사(학생식당)",
+    location: "학생 식당",
+    scene: "북적이는 학식에서 교수와 합석",
+    backdrop: "/backgrounds/episodes/lunch-student-cafeteria.webp",
     sequenceGroup: 3,
-    keywords: ["팀플", "우선순위", "분업"],
+    keywords: ["학식", "혼밥", "합석"],
   },
-  LIBRARY: {
-    id: "LIBRARY",
-    title: "중앙도서관",
-    location: "자판기 앞",
-    scene: "집중력 한계 구간",
-    backdrop: DEFAULT_BACKDROP,
+  LUNCH_OFFCAMPUS_RESTAURANT: {
+    id: "LUNCH_OFFCAMPUS_RESTAURANT",
+    title: "점심식사(학교 앞 맛집)",
+    location: "정문 앞 맛집 거리",
+    scene: "뜻밖의 외식 동행",
+    backdrop: "/backgrounds/episodes/lunch-offcampus-restaurant.webp",
     sequenceGroup: 3,
-    keywords: ["새벽", "집중", "복습"],
+    keywords: ["맛집", "외식", "동행"],
   },
-  LAB_CORRIDOR: {
-    id: "LAB_CORRIDOR",
-    title: "연구실 복도",
-    location: "연구동 3층",
-    scene: "예상문제 힌트 탐색",
-    backdrop: DEFAULT_BACKDROP,
+  LUNCH_RESTROOM_STALL: {
+    id: "LUNCH_RESTROOM_STALL",
+    title: "점심식사(화장실 변기칸)",
+    location: "학생회관 3층 화장실",
+    scene: "극한의 고독 혼밥 사건",
+    backdrop: "/backgrounds/episodes/lunch-restroom-stall.webp",
+    sequenceGroup: 3,
+    keywords: ["변기칸", "혼밥", "코미디"],
+  },
+  AFTERNOON_LIBRARY: {
+    id: "AFTERNOON_LIBRARY",
+    title: "오후 도서관",
+    location: "중앙도서관",
+    scene: "집중력 회복 구간",
+    backdrop: "/backgrounds/episodes/afternoon-library.webp",
     sequenceGroup: 4,
-    keywords: ["힌트", "연구실", "예상문제"],
+    keywords: ["도서관", "복습", "집중"],
   },
-  SUNSET_YARD: {
-    id: "SUNSET_YARD",
-    title: "노을 마당",
-    location: "본관 앞 잔디",
-    scene: "감정선이 흔들리는 시점",
-    backdrop: DEFAULT_BACKDROP,
-    sequenceGroup: 4,
-    keywords: ["노을", "멘탈", "리듬"],
-  },
-  CONVENIENCE_STORE: {
-    id: "CONVENIENCE_STORE",
-    title: "편의점",
-    location: "기숙사 편의점",
-    scene: "전날 밤 최종 선택",
-    backdrop: DEFAULT_BACKDROP,
+  LIGHT_DINNER: {
+    id: "LIGHT_DINNER",
+    title: "간단한 저녁식사",
+    location: "학생회관/편의점 근처",
+    scene: "밤을 앞둔 마지막 에너지 보충",
+    backdrop: "/backgrounds/episodes/light-dinner.webp",
     sequenceGroup: 5,
-    keywords: ["전날밤", "수면", "최종정리"],
+    keywords: ["저녁", "회복", "야간 분기"],
   },
-  NIGHT_BENCH: {
-    id: "NIGHT_BENCH",
-    title: "야간 벤치",
-    location: "도서관 옆 벤치",
-    scene: "마지막 멘탈 점검",
-    backdrop: DEFAULT_BACKDROP,
-    sequenceGroup: 5,
-    keywords: ["불안", "멘탈", "핵심5개"],
-  },
-  DAWN_REVIEW: {
-    id: "DAWN_REVIEW",
-    title: "새벽 복습",
-    location: "강의동 복도",
-    scene: "시험 직전 암기",
-    backdrop: DEFAULT_BACKDROP,
+  NIGHT_SELF_STUDY: {
+    id: "NIGHT_SELF_STUDY",
+    title: "밤(자율 복습)",
+    location: "도서관 열람실",
+    scene: "조용한 자율 복습",
+    backdrop: "/backgrounds/episodes/night-classroom.webp",
     sequenceGroup: 6,
-    keywords: ["오답", "새벽", "최종점검"],
+    keywords: ["밤", "자율복습", "집중"],
   },
-  EXAM_HALL: {
-    id: "EXAM_HALL",
-    title: "시험장",
-    location: "결전의 강의실",
-    scene: "시험지 배부 직전",
-    backdrop: DEFAULT_BACKDROP,
+  NIGHT_CAMPUS_WALK: {
+    id: "NIGHT_CAMPUS_WALK",
+    title: "밤(캠퍼스 산책)",
+    location: "야간 캠퍼스 벤치",
+    scene: "긴장을 풀며 멘탈 재정렬",
+    backdrop: "/backgrounds/episodes/night-bench.webp",
     sequenceGroup: 6,
-    keywords: ["시험지", "근거", "실전운영"],
+    keywords: ["밤", "산책", "멘탈"],
+  },
+  NIGHT_LAB_VISIT: {
+    id: "NIGHT_LAB_VISIT",
+    title: "밤(연구실 방문)",
+    location: "교수 연구실 앞",
+    scene: "마지막 질의응답",
+    backdrop: "/backgrounds/episodes/night-lab.webp",
+    sequenceGroup: 6,
+    keywords: ["밤", "연구실", "질문"],
   },
 };
 
-export const chapterPool: ChapterId[] = [
-  "ORIENTATION_GATE",
-  "STONE_STAIRS",
-  "CAMPUS_CAFE",
-  "CLASSROOM",
-  "TEAM_PROJECT",
-  "LIBRARY",
-  "LAB_CORRIDOR",
-  "SUNSET_YARD",
-  "CONVENIENCE_STORE",
-  "NIGHT_BENCH",
-  "DAWN_REVIEW",
-  "EXAM_HALL",
+export const morningLunchBranchByChoice: Record<0 | 1 | 2, ChapterId> = {
+  0: "LUNCH_STUDENT_CAFETERIA",
+  1: "LUNCH_OFFCAMPUS_RESTAURANT",
+  2: "LUNCH_RESTROOM_STALL",
+};
+
+export const dinnerNightBranchByChoice: Record<0 | 1 | 2, ChapterId> = {
+  0: "NIGHT_SELF_STUDY",
+  1: "NIGHT_CAMPUS_WALK",
+  2: "NIGHT_LAB_VISIT",
+};
+
+export const sessionPackEpisodeIds: ChapterId[] = [
+  "COMMUTE_CAMPUS",
+  "MORNING_CLASSROOM",
+  "LUNCH_STUDENT_CAFETERIA",
+  "LUNCH_OFFCAMPUS_RESTAURANT",
+  "LUNCH_RESTROOM_STALL",
+  "AFTERNOON_LIBRARY",
+  "LIGHT_DINNER",
+  "NIGHT_SELF_STUDY",
+  "NIGHT_CAMPUS_WALK",
+  "NIGHT_LAB_VISIT",
 ];
 
+export function pickSixChaptersForRun() {
+  return [
+    "COMMUTE_CAMPUS",
+    "MORNING_CLASSROOM",
+    "LUNCH_STUDENT_CAFETERIA",
+    "AFTERNOON_LIBRARY",
+    "LIGHT_DINNER",
+    "NIGHT_SELF_STUDY",
+  ] satisfies ChapterId[];
+}
+
 export const chapterFallbackDialogues: Record<ChapterId, ChapterDialogue> = {
-  ORIENTATION_GATE: {
-    dialogue: "교수: 시험기간엔 첫 루틴이 성적을 좌우해요. 당신은 오늘 어떤 시작을 할 건가요?",
+  COMMUTE_CAMPUS: {
+    dialogue:
+      "시험 전날 아침, 캠퍼스 정문을 지나자 공기가 유난히 무겁다. 오늘 하루는 교수님과의 거리, 그리고 내 점수를 동시에 바꿀 수 있는 날이다.",
     choices: [
       {
-        text: "오늘 계획표부터 짜고 시작할게요.",
-        preview: "안정적인 출발",
-        reaction: "교수: 좋아요. 시작이 단단하면 끝도 덜 흔들리죠.",
-        emotion: "warm",
-        effects: { affinity: 7, intellect: 11 },
-      },
-      {
-        text: "일단 감으로 부딪쳐보고 정리할래요.",
-        preview: "즉흥형 접근",
-        reaction: "교수: 실행력은 좋지만, 근거 없는 자신감은 위험해요.",
-        emotion: "stern",
-        effects: { affinity: 5, intellect: 7 },
-      },
-      {
-        text: "교수님만 믿고 따라가면 안 될까요?",
-        preview: "감정선 우선",
-        reaction: "교수: 믿음은 고맙지만 답안지는 당신이 써야 해요.",
-        emotion: "awkward",
-        effects: { affinity: 9, intellect: 5 },
-      },
-    ],
-  },
-  STONE_STAIRS: {
-    dialogue: "교수: 강의실을 헤매는 학생이 있다니요? 이거 정말인가요?",
-    choices: [
-      {
-        text: "죄송합니다. 경상관 어떻게 가요?",
-        preview: "정중한 질문",
-        reaction: "교수: 길은 알려드릴게요. 대신 수업도 제대로 찾아와야죠.",
-        emotion: "neutral",
-        effects: { affinity: 8, intellect: 10 },
-      },
-      {
-        text: "그냥 수업째고 데이트나 하죠.",
-        preview: "장난기 있는 선택",
-        reaction: "교수: 농담은 재밌네요. 출석은 전혀 안 재밌지만요.",
-        emotion: "teasing",
-        effects: { affinity: 10, intellect: 4 },
-      },
-      {
-        text: "대기까페핑 중이요. 우물쭈물댄다.",
-        preview: "소극적 반응",
-        reaction: "교수: 우물쭈물할 시간에 한 줄이라도 더 보는 게 낫겠어요.",
-        emotion: "stern",
-        effects: { affinity: 5, intellect: 6 },
-      },
-    ],
-  },
-  CAMPUS_CAFE: {
-    dialogue: "교수: 카페인은 집중을 돕지만, 계획 없는 밤샘을 합리화하진 않아요.",
-    choices: [
-      {
-        text: "딱 두 시간만 정해서 집중할게요.",
-        preview: "시간 제한 전략",
-        reaction: "교수: 훌륭하네요. 시간 통제가 곧 시험 통제예요.",
-        emotion: "warm",
-        effects: { affinity: 6, intellect: 12 },
-      },
-      {
-        text: "오늘은 그냥 버티는 게 목표예요.",
-        preview: "생존 모드",
-        reaction: "교수: 생존도 전략이지만, 내일을 위한 여지는 남겨두세요.",
-        emotion: "neutral",
-        effects: { affinity: 6, intellect: 8 },
-      },
-      {
-        text: "교수님이 사주면 더 집중될 것 같아요.",
-        preview: "플러팅형 선택",
-        reaction: "교수: 집중이 커피값에 달려 있다면 큰일이네요.",
-        emotion: "teasing",
-        effects: { affinity: 9, intellect: 6 },
-      },
-    ],
-  },
-  CLASSROOM: {
-    dialogue: "교수: 질문은 환영입니다. 단, 질문의 질은 점수의 질과 비슷해요.",
-    choices: [
-      {
-        text: "핵심 개념 두 개만 다시 짚어주세요.",
-        preview: "핵심 타격",
-        reaction: "교수: 좋아요. 질문이 정확하면 답도 정확해집니다.",
-        emotion: "warm",
-        effects: { affinity: 6, intellect: 12 },
-      },
-      {
-        text: "시험 범위 줄여주시면 안 돼요?",
-        preview: "무리수 제안",
-        reaction: "교수: 범위는 공평해야 하니까요. 대신 힌트는 줄 수 있어요.",
-        emotion: "stern",
-        effects: { affinity: 7, intellect: 7 },
-      },
-      {
-        text: "교수님 스타일로 서술형 써보면 될까요?",
-        preview: "말투 분석형",
-        reaction: "교수: 제 말투보다 논리 구조를 가져가세요. 그게 정답에 가깝습니다.",
-        emotion: "neutral",
-        effects: { affinity: 8, intellect: 10 },
-      },
-    ],
-  },
-  TEAM_PROJECT: {
-    dialogue: "교수: 팀플과 시험이 겹치면 우선순위를 냉정하게 정해야 해요.",
-    choices: [
-      {
-        text: "팀플은 역할 나누고 시험에 집중할게요.",
-        preview: "분업형 전략",
-        reaction: "교수: 분리와 집중, 시험기간에 가장 강한 방식이죠.",
+        text: "계획표부터 다시 점검하고 강의실로 간다.",
+        preview: "안정적인 시작",
+        reaction: "좋아요. 시작을 정돈한 학생이 끝까지 흔들리지 않죠.",
         emotion: "warm",
         effects: { affinity: 6, intellect: 11 },
       },
       {
-        text: "다 제가 하고 마음 편히 시험 볼래요.",
-        preview: "과몰입형 선택",
-        reaction: "교수: 책임감은 좋지만, 과하면 둘 다 무너집니다.",
-        emotion: "stern",
-        effects: { affinity: 8, intellect: 6 },
-      },
-      {
-        text: "팀원들에게 기도하고 공부만 할게요.",
-        preview: "운에 맡기기",
-        reaction: "교수: 기도보다 체크리스트가 더 높은 확률입니다.",
-        emotion: "teasing",
-        effects: { affinity: 5, intellect: 7 },
-      },
-    ],
-  },
-  LIBRARY: {
-    dialogue: "교수: 새벽엔 집중력이 떨어진 만큼 선택이 더 중요해집니다.",
-    choices: [
-      {
-        text: "중요도 높은 문제만 골라 복습할게요.",
-        preview: "선택과 집중",
-        reaction: "교수: 잘 골랐어요. 버릴 줄 아는 것도 실력이에요.",
-        emotion: "warm",
-        effects: { affinity: 7, intellect: 12 },
-      },
-      {
-        text: "전 범위 끝까지 버티겠습니다.",
-        preview: "체력전",
-        reaction: "교수: 의지는 좋지만, 시험은 체력보다 판단력이 필요해요.",
-        emotion: "stern",
-        effects: { affinity: 6, intellect: 8 },
-      },
-      {
-        text: "교수님 옆자리에서 공부하면 더 잘될까요?",
-        preview: "몰입도 높은 장난",
-        reaction: "교수: 집중은 거리보다 태도에서 나옵니다.",
-        emotion: "awkward",
-        effects: { affinity: 10, intellect: 5 },
-      },
-    ],
-  },
-  LAB_CORRIDOR: {
-    dialogue: "교수: 복도에서 우연히 마주친 김에, 마지막 힌트를 주죠.",
-    choices: [
-      {
-        text: "힌트를 키워드로 바꿔서 정리할게요.",
-        preview: "구조화 선택",
-        reaction: "교수: 네, 그 방식이면 시험장에서 떠올리기 쉬워요.",
-        emotion: "warm",
-        effects: { affinity: 7, intellect: 11 },
-      },
-      {
-        text: "힌트 그대로 문장째 외울래요.",
-        preview: "암기형 선택",
-        reaction: "교수: 문장을 외우면 응용 문제에서 흔들릴 수 있어요.",
-        emotion: "stern",
-        effects: { affinity: 6, intellect: 7 },
-      },
-      {
-        text: "교수님 표정만 봐도 답이 보이는 것 같아요.",
-        preview: "감정선 강화",
-        reaction: "교수: 표정 해석보다 개념 해석이 더 안전합니다.",
-        emotion: "teasing",
-        effects: { affinity: 9, intellect: 6 },
-      },
-    ],
-  },
-  SUNSET_YARD: {
-    dialogue: "교수: 해 질 무렵엔 멘탈이 흔들리기 쉽죠. 지금 리듬을 정합시다.",
-    choices: [
-      {
-        text: "30분 공부, 10분 휴식으로 리듬 맞출게요.",
-        preview: "리듬 최적화",
-        reaction: "교수: 좋아요. 리듬을 지키면 불안이 줄어듭니다.",
-        emotion: "warm",
-        effects: { affinity: 7, intellect: 11 },
-      },
-      {
-        text: "휴식 없이 끝까지 달려볼게요.",
-        preview: "극한 집중",
-        reaction: "교수: 단기적으로는 가능하지만, 후반 흔들림을 감수해야 해요.",
-        emotion: "stern",
+        text: "일단 강의실부터 뛰어가서 분위기를 본다.",
+        preview: "속도 우선",
+        reaction: "실행력은 좋군요. 다만 급할수록 기준을 잊지 마세요.",
+        emotion: "neutral",
         effects: { affinity: 5, intellect: 8 },
       },
       {
-        text: "응원 한마디만 해주시면 버틸 수 있어요.",
-        preview: "정서 의존",
-        reaction: "교수: 잘하고 있어요. 다만 내일은 스스로 버티는 연습도 필요하죠.",
-        emotion: "warm",
-        effects: { affinity: 10, intellect: 6 },
+        text: "마음부터 진정하려고 잠깐 숨을 고른다.",
+        preview: "멘탈 정비",
+        reaction: "불안을 다루는 태도도 실력입니다. 늦지만 않으면 돼요.",
+        emotion: "awkward",
+        effects: { affinity: 8, intellect: 6 },
       },
     ],
   },
-  CONVENIENCE_STORE: {
-    dialogue: "교수: 시험 전날 밤, 마지막 선택은 언제나 단순해야 합니다.",
+  MORNING_CLASSROOM: {
+    dialogue:
+      "강의실 문을 열자 차가운 바람과 함께 교수님의 시선이 꽂힌다. 총정리 수업이 끝난 뒤 교수님은 펜을 건네며 말한다. ‘점심은 어디서 먹고 오후를 버틸 건가?’",
     choices: [
       {
-        text: "필기 하나만 보고 바로 잘게요.",
-        preview: "수면 우선",
-        reaction: "교수: 가장 실전적인 선택이네요. 내일의 집중력이 달라집니다.",
-        emotion: "warm",
-        effects: { affinity: 6, intellect: 12 },
+        text: "학생 식당으로 간다.",
+        preview: "가장 현실적인 선택",
+        reaction: "좋아요. 학식도 전략적으로 먹으면 훌륭한 연료가 되죠.",
+        emotion: "neutral",
+        effects: { affinity: 6, intellect: 10 },
       },
       {
-        text: "한 챕터만 더 보고 잘게요.",
-        preview: "적당한 욕심",
-        reaction: "교수: 욕심을 조절하면 좋은 결과로 이어질 수 있어요.",
+        text: "학교 앞 맛집으로 간다.",
+        preview: "기분 전환",
+        reaction: "컨디션을 끌어올리려는 판단이군요. 다만 시간 관리는 확실히 하세요.",
+        emotion: "teasing",
+        effects: { affinity: 8, intellect: 7 },
+      },
+      {
+        text: "화장실 변기 칸에서 조용히 때운다.",
+        preview: "극한의 은둔 혼밥",
+        reaction: "...자네의 생존 본능은 높이 사겠네. 하지만 그 선택, 오래 숨길 수 있을까?",
+        emotion: "stern",
+        effects: { affinity: 5, intellect: 5 },
+      },
+    ],
+  },
+  LUNCH_STUDENT_CAFETERIA: {
+    dialogue:
+      "시험 전날 학식은 유난히 시끄럽다. 빈 앞자리로 그림자가 드리우고, 교수님이 식판을 내려놓는다. ‘민상군, 앞자리 비어 있나?’",
+    choices: [
+      {
+        text: "커흑! 교수님? 여기서 식사를 하신다고요?",
+        preview: "사레들림 리액션",
+        reaction: "천천히 먹게. 시험도 안 봤는데 여기서 숨 넘어가면 곤란하지.",
+        emotion: "warm",
+        effects: { affinity: 9, intellect: 6 },
+      },
+      {
+        text: "아, 네! 앉으세요. 교수님도 학식 드시는 줄은 몰랐습니다.",
+        preview: "사회적 체면 유지",
+        reaction: "나도 밥은 먹어야지. 자네도 단백질 챙기고 오후 버티게.",
         emotion: "neutral",
         effects: { affinity: 7, intellect: 9 },
       },
       {
-        text: "밤새서 완벽하게 끝내겠습니다.",
-        preview: "하이리스크",
-        reaction: "교수: 완벽보다 안정이 시험엔 더 강합니다.",
-        emotion: "stern",
-        effects: { affinity: 5, intellect: 6 },
+        text: "(아무 말 없이 교수님 식판 메뉴를 스캔한다.)",
+        preview: "얼어붙은 관찰 모드",
+        reaction: "분석은 내 식판 말고 전공 책에 하게나. 이 요구르트나 마시고 집중해.",
+        emotion: "teasing",
+        effects: { affinity: 8, intellect: 7 },
       },
     ],
   },
-  NIGHT_BENCH: {
-    dialogue: "교수: 불안할수록 기준을 좁히세요. 지금 필요한 건 확신 한 줄입니다.",
+  LUNCH_OFFCAMPUS_RESTAURANT: {
+    dialogue:
+      "정문 앞 맛집 골목은 점심 인파로 붐빈다. 메뉴판 앞에서 망설이는 순간 교수님이 나타난다. ‘결정이 느리면 오후 집중력이 먼저 떨어지네.’",
     choices: [
       {
-        text: "핵심 개념 5개만 확실히 잡을래요.",
-        preview: "축약형 전략",
-        reaction: "교수: 네, 그 다섯 개가 내일의 중심축이 될 겁니다.",
+        text: "교수님 추천 메뉴로 바로 주문할게요.",
+        preview: "빠른 의사결정",
+        reaction: "좋아. 망설임을 줄이면 체력도, 시간도 아낄 수 있지.",
         emotion: "warm",
-        effects: { affinity: 7, intellect: 11 },
+        effects: { affinity: 8, intellect: 9 },
       },
       {
-        text: "모든 개념을 얕게라도 훑을래요.",
-        preview: "광범위 확인",
-        reaction: "교수: 넓게 보는 건 좋지만, 깊이가 빠지지 않게 조심하세요.",
+        text: "제가 사겠습니다. 오늘은 투자 개념으로요.",
+        preview: "과감한 플러팅",
+        reaction: "허세도 전략이 되려면 내일 답안에서 증명해야 하네.",
+        emotion: "teasing",
+        effects: { affinity: 10, intellect: 5 },
+      },
+      {
+        text: "테이크아웃해서 걸으면서 먹겠습니다.",
+        preview: "시간 효율 우선",
+        reaction: "효율은 좋지만 소화도 효율적으로 하게. 오후엔 도서관이야.",
+        emotion: "stern",
+        effects: { affinity: 6, intellect: 10 },
+      },
+    ],
+  },
+  LUNCH_RESTROOM_STALL: {
+    dialogue:
+      "학생회관 화장실 맨 끝 칸. 참치마요 김밥을 숨겨 먹는 순간 옆 칸에서 익숙한 목소리가 들린다. ‘혹시 옆 칸에 누구 있나? 휴지 좀 넘겨줄 수 있겠나?’",
+    choices: [
+      {
+        text: "...네, 교수님. 접니다. 참치마요 먹고 있었습니다.",
+        preview: "자포자기 인정",
+        reaction:
+          "세상에, 진짜 자네였어? 오늘만큼은 따라오게. 변기칸 혼밥은 교육적으로 방치할 수 없네.",
+        emotion: "teasing",
+        effects: { affinity: 10, intellect: 4 },
+      },
+      {
+        text: "아, 아뇨? 저는 지나가는 나그네입니다만!",
+        preview: "어설픈 타인 행세",
+        reaction: "한 학기 핑계 목소리를 내가 모를 줄 아나. 자네, 그대로 나오게.",
+        emotion: "stern",
+        effects: { affinity: 6, intellect: 6 },
+      },
+      {
+        text: "(숨을 꾹 참고 없는 척한다.)",
+        preview: "숨참고 변기 다이브",
+        reaction: "숨 참아도 소용없네. 어서 나오게, 내 청력이 자네 편은 아니라서.",
+        emotion: "panic",
+        effects: { affinity: 7, intellect: 5 },
+      },
+    ],
+  },
+  AFTERNOON_LIBRARY: {
+    dialogue:
+      "오후 도서관. 점심의 여운이 남아 집중이 흔들릴 때 교수님 메시지가 도착한다. ‘지금부터는 양보다 기준이다. 무엇을 버릴지 먼저 정해.’",
+    choices: [
+      {
+        text: "오답률 높은 유형만 집중 복습할게요.",
+        preview: "선택과 집중",
+        reaction: "정확해요. 불안할수록 범위를 줄여야 점수가 오릅니다.",
+        emotion: "warm",
+        effects: { affinity: 7, intellect: 12 },
+      },
+      {
+        text: "전 범위를 한 번 더 빠르게 훑을게요.",
+        preview: "전체 순환",
+        reaction: "좋은데, 멈춰야 할 지점은 반드시 멈추세요.",
         emotion: "neutral",
-        effects: { affinity: 6, intellect: 8 },
+        effects: { affinity: 6, intellect: 9 },
       },
       {
-        text: "교수님 생각하면서 멘탈부터 챙길래요.",
-        preview: "감정 안정형",
-        reaction: "교수: 멘탈 관리도 중요하죠. 다만 마지막은 반드시 개념으로 마무리해요.",
+        text: "교수님이 중요하다는 파트만 믿고 가겠습니다.",
+        preview: "의존형 선택",
+        reaction: "내 말은 힌트일 뿐이야. 답은 자네 손으로 구조화해야 하지.",
+        emotion: "stern",
+        effects: { affinity: 8, intellect: 7 },
+      },
+    ],
+  },
+  LIGHT_DINNER: {
+    dialogue:
+      "해가 지고 간단한 저녁을 앞둔 시각. 교수님이 묻는다. ‘밤은 세 가지뿐이네. 혼자 끝까지 밀어붙일지, 머리를 식힐지, 마지막 질문을 던질지.’",
+    choices: [
+      {
+        text: "간단히 먹고 바로 열람실 자율 복습으로 간다.",
+        preview: "밤 분기: 자율 복습",
+        reaction: "좋아. 오늘 밤은 조용한 반복이 자네를 살릴 거야.",
+        emotion: "warm",
+        effects: { affinity: 6, intellect: 12 },
+      },
+      {
+        text: "짧게 캠퍼스 산책하며 멘탈을 정리한다.",
+        preview: "밤 분기: 산책",
+        reaction: "과호흡은 줄이고, 걸음에 맞춰 생각을 정리해보게.",
+        emotion: "neutral",
+        effects: { affinity: 8, intellect: 8 },
+      },
+      {
+        text: "연구실 앞에서 마지막 질문을 던진다.",
+        preview: "밤 분기: 연구실",
+        reaction: "좋아. 단 하나만 묻게. 제대로 묻는 학생에게는 제대로 답하지.",
+        emotion: "stern",
+        effects: { affinity: 9, intellect: 9 },
+      },
+    ],
+  },
+  NIGHT_SELF_STUDY: {
+    dialogue:
+      "도서관 열람실의 밤. 페이지 넘기는 소리만 남은 시간, 교수님이 낮에 건넨 펜이 손끝에서 무게를 만든다.",
+    choices: [
+      {
+        text: "핵심 개념 5개를 다시 써보며 마무리한다.",
+        preview: "핵심 고정",
+        reaction: "완벽합니다. 그 다섯 줄이 내일의 중심축이 될 겁니다.",
+        emotion: "warm",
+        effects: { affinity: 7, intellect: 12 },
+      },
+      {
+        text: "자주 틀린 문제만 30분 더 본다.",
+        preview: "오답 정리",
+        reaction: "좋은 선택이에요. 실수를 줄이는 밤이 점수를 만듭니다.",
+        emotion: "neutral",
+        effects: { affinity: 6, intellect: 10 },
+      },
+      {
+        text: "교수님 생각하며 멘탈을 먼저 안정시킨다.",
+        preview: "감정 안정",
+        reaction: "마음 관리도 중요하죠. 다만 마지막은 개념으로 잠그고 자요.",
         emotion: "awkward",
         effects: { affinity: 10, intellect: 6 },
       },
     ],
   },
-  DAWN_REVIEW: {
-    dialogue: "교수: 새벽 복습은 답을 늘리기보다 실수를 줄이는 시간입니다.",
+  NIGHT_CAMPUS_WALK: {
+    dialogue:
+      "야간 캠퍼스 벤치. 찬 공기 속에서 발걸음을 맞추며 교수님이 낮게 말한다. ‘불안은 사라지지 않는다. 다만 다루는 법을 배우는 거지.’",
     choices: [
       {
-        text: "자주 틀린 유형만 다시 확인할게요.",
-        preview: "오답 집중",
-        reaction: "교수: 네, 그게 가장 높은 효율이에요.",
+        text: "교수님, 내일은 문제 읽고 근거부터 표시하겠습니다.",
+        preview: "실전 운영 선언",
+        reaction: "좋습니다. 오늘 밤 그 한 문장만 기억해도 절반은 이긴 거예요.",
         emotion: "warm",
-        effects: { affinity: 7, intellect: 12 },
+        effects: { affinity: 9, intellect: 9 },
       },
       {
-        text: "처음부터 끝까지 다시 빠르게 볼게요.",
-        preview: "전체 순환",
-        reaction: "교수: 빠르게 훑되, 중요한 포인트에서 멈출 줄 알아야 해요.",
-        emotion: "neutral",
-        effects: { affinity: 6, intellect: 9 },
-      },
-      {
-        text: "이제 운에 맡기고 산책할래요.",
-        preview: "기분 전환",
-        reaction: "교수: 산책은 좋아요. 다만 최소한의 확인은 하고 가요.",
-        emotion: "teasing",
-        effects: { affinity: 8, intellect: 6 },
-      },
-    ],
-  },
-  EXAM_HALL: {
-    dialogue: "교수: 시험지 배부 직전입니다. 마지막으로 스스로에게 어떤 말을 건넬 건가요?",
-    choices: [
-      {
-        text: "근거부터 쓰자, 천천히 가자.",
-        preview: "정석형 마인드셋",
-        reaction: "교수: 좋아요. 그 한 문장이 오늘 답안 전체를 지켜줄 겁니다.",
-        emotion: "warm",
-        effects: { affinity: 6, intellect: 12 },
-      },
-      {
-        text: "어려우면 과감히 넘기고 쉬운 것부터.",
-        preview: "실전 운영형",
-        reaction: "교수: 운영 감각이 있네요. 페이스만 잃지 마세요.",
+        text: "산책 끝나면 체크리스트를 만들게요.",
+        preview: "루틴 정리",
+        reaction: "좋아. 걷고 정리하는 루틴은 생각보다 강력하지.",
         emotion: "neutral",
         effects: { affinity: 7, intellect: 10 },
       },
       {
-        text: "교수님을 믿고 감으로 찍겠습니다.",
-        preview: "위험한 농담",
-        reaction: "교수: 믿음은 고맙지만, 점수는 근거에서 나옵니다.",
+        text: "차라리 도망가고 싶다고 말한다.",
+        preview: "불안 고백",
+        reaction: "도망가도 좋네. 다만 시험장 문 앞까진 같이 가보자고.",
+        emotion: "warm",
+        effects: { affinity: 10, intellect: 5 },
+      },
+    ],
+  },
+  NIGHT_LAB_VISIT: {
+    dialogue:
+      "연구실 문틈으로 새어 나오는 불빛. 노크 소리에 교수님이 고개를 들고 말한다. ‘질문은 하나만. 지금 가장 두려운 지점을 말해.’",
+    choices: [
+      {
+        text: "서술형 논리 전개가 약합니다. 구조를 점검 받고 싶어요.",
+        preview: "정면 돌파 질문",
+        reaction: "좋은 질문이네. 도입-근거-결론 세 줄로 뼈대를 고정하게.",
+        emotion: "warm",
+        effects: { affinity: 8, intellect: 12 },
+      },
+      {
+        text: "객관식 함정 보기를 구분하는 팁을 부탁드립니다.",
+        preview: "실전 팁 요청",
+        reaction: "문장에 없는 의미를 상상하지 말게. 문제는 늘 텍스트 안에 있어.",
         emotion: "stern",
-        effects: { affinity: 9, intellect: 5 },
+        effects: { affinity: 7, intellect: 11 },
+      },
+      {
+        text: "내일 잘 보면, 식사 한 번 같이 하실래요?",
+        preview: "과감한 플러팅",
+        reaction: "먼저 합격점을 가져오게. 그다음 일정은 내가 고민해보지.",
+        emotion: "teasing",
+        effects: { affinity: 11, intellect: 7 },
       },
     ],
   },
 };
 
-const chapterGroups: Record<1 | 2 | 3 | 4 | 5 | 6, ChapterId[]> = {
-  1: ["ORIENTATION_GATE", "STONE_STAIRS"],
-  2: ["CAMPUS_CAFE", "CLASSROOM"],
-  3: ["TEAM_PROJECT", "LIBRARY"],
-  4: ["LAB_CORRIDOR", "SUNSET_YARD"],
-  5: ["CONVENIENCE_STORE", "NIGHT_BENCH"],
-  6: ["DAWN_REVIEW", "EXAM_HALL"],
-};
-
-function pickOne<T>(items: T[]) {
-  const index = Math.floor(Math.random() * items.length);
-  return items[index];
-}
-
-export function pickSixChaptersForRun() {
-  const picked: ChapterId[] = [];
-  const groupOrder = [1, 2, 3, 4, 5, 6] as const;
-
-  groupOrder.forEach((groupKey) => {
-    picked.push(pickOne(chapterGroups[groupKey]));
-  });
-
-  return picked;
-}
-
 export const chapterSequence: ChapterId[] = pickSixChaptersForRun();
 
-export const endingMeta: Record<
-  EndingRank,
-  { key: string; title: string; description: string }
-> = {
-  ENDING_1: {
-    key: "ending-1",
-    title: "엔딩 1 (임시): 캠퍼스의 전설",
+export const endingMeta: Record<EndingRank, { key: string; title: string; description: string }> = {
+  ENDING_A_PLUS: {
+    key: "ending-a-plus",
+    title: "A+ 엔딩 (임시): 완성도 높은 하루",
     description:
-      "시험도, 감정도, 페이스도 모두 완성도 높게 마무리했습니다. 교수님은 마지막까지 냉정했지만, 그 눈빛엔 분명한 신뢰가 남았습니다.",
+      "감정선과 시험 운영을 모두 잡아낸 하루였습니다. 교수님은 짧은 칭찬을 남기고, 다음 학기의 당신을 더 기대하게 됩니다.",
   },
-  ENDING_2: {
-    key: "ending-2",
-    title: "엔딩 2 (임시): 안정적인 합격선",
+  ENDING_B_PLUS: {
+    key: "ending-b-plus",
+    title: "B+ 엔딩 (임시): 안정적인 합격권",
     description:
-      "완벽하진 않았지만 전략적으로 잘 버텨냈습니다. 교수님은 짧게 고개를 끄덕이며 다음 성장을 기대한다고 말합니다.",
+      "흔들리는 순간도 있었지만 기준을 잃지 않았습니다. 교수님은 고개를 끄덕이며 다음에는 더 높은 곳을 노려보자고 말합니다.",
   },
-  ENDING_3: {
-    key: "ending-3",
-    title: "엔딩 3 (임시): 간신히 생환",
+  ENDING_C_PLUS: {
+    key: "ending-c-plus",
+    title: "C+ 엔딩 (임시): 아슬아슬한 통과",
     description:
-      "아슬아슬한 선택들이 이어졌지만 끝내 시험장을 걸어나왔습니다. 결과보다도 끝까지 포기하지 않은 태도가 인상적으로 남았습니다.",
+      "몇 번의 실수는 있었지만 끝까지 포기하지 않았습니다. 교수님은 냉정한 피드백과 함께 회복 가능한 방향을 제시해줍니다.",
   },
-  ENDING_4: {
-    key: "ending-4",
-    title: "엔딩 4 (임시): 재정비 필요",
+  ENDING_F: {
+    key: "ending-f",
+    title: "F 엔딩 (임시): 리스타트 필요",
     description:
-      "흔들림이 많았고 준비가 다소 부족했습니다. 교수님은 냉정한 피드백과 함께 다음 시험을 위한 구체적인 보완 포인트를 남깁니다.",
-  },
-  ENDING_5: {
-    key: "ending-5",
-    title: "엔딩 5 (임시): 리스타트",
-    description:
-      "이번 시험은 분명 쉽지 않았고 결과도 아쉬웠습니다. 하지만 이 플레이는 실패가 아니라 다음 라운드를 위한 데이터가 됩니다.",
+      "이번 라운드는 버거웠지만 데이터는 충분히 쌓였습니다. 교수님은 다음 시험을 위한 재정비 계획부터 세우라고 단호히 조언합니다.",
   },
 };
 
-export const finalRealityLine =
-  "이제 현실세계로 돌아가 공부를 할 시간이야.";
+export const finalRealityLine = "이제 현실세계로 돌아가 공부를 할 시간이야.";
 
 export function getEndingRank(totalScore100: number): EndingRank {
-  if (totalScore100 >= 81) {
-    return "ENDING_1";
+  if (totalScore100 >= 85) {
+    return "ENDING_A_PLUS";
   }
 
-  if (totalScore100 >= 61) {
-    return "ENDING_2";
+  if (totalScore100 >= 70) {
+    return "ENDING_B_PLUS";
   }
 
-  if (totalScore100 >= 41) {
-    return "ENDING_3";
+  if (totalScore100 >= 50) {
+    return "ENDING_C_PLUS";
   }
 
-  if (totalScore100 >= 21) {
-    return "ENDING_4";
-  }
-
-  return "ENDING_5";
+  return "ENDING_F";
 }
 
 export const professorSpriteStylePreset = [
@@ -729,6 +649,11 @@ export const professorSpriteStylePreset = [
   "polished commercial game illustration finish",
   "vivid but balanced magenta-cyan accent lighting",
 ];
+
+function pickOne<T>(items: T[]) {
+  const index = Math.floor(Math.random() * items.length);
+  return items[index];
+}
 
 function normalizeWithFallback(value: string, fallback: string) {
   const trimmed = value.trim();
