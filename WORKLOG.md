@@ -1233,3 +1233,190 @@
 ### 검증
 
 - `npm run lint` 통과
+
+## 2026-04-15 추가 로그 (세션 JSON 파싱 실패 안정화)
+
+### 이슈
+
+- 교수 생성 버튼 클릭 시 간헐적으로 `세션 생성 실패로 기본 데이터로 진행합니다: Unterminated string in JSON ...` 메시지 발생
+- 원인: `generate-session-pack`에서 Gemini 응답 JSON이 일부 케이스에서 완전한 JSON 형식을 지키지 못해 `JSON.parse` 실패
+
+### 조치
+
+- [src/app/api/generate-session-pack/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-session-pack/route.ts)
+  - `responseJsonSchema`를 추가해 응답 형식 준수 강제
+  - `temperature`를 `0.8 -> 0.4`로 낮춰 형식 불안정성 완화
+  - `parseSessionPackJson` 추가:
+    - 원문 파싱 실패 시 code fence 제거/JSON 블록 추출 후 재시도
+
+### 검증
+
+- `npm run lint` 통과
+- `npm run build` 통과
+
+## 2026-04-15 추가 로그 (사용자 제공 전체 에피소드 스토리 반영)
+
+### 결정사항
+
+- 사용자 제공 시나리오 흐름(등교 -> 아침 강의실 -> 점심 3분기 -> 도서관 -> 저녁 3분기 -> 밤 3분기 -> 엔딩)을 기본 스토리 데이터에 반영
+- 저녁 선택지 순서를 원문에 맞춰 `집 / 강의실 / 학교 벤치`로 유지
+
+### 구현/수정 내용
+
+- [src/lib/game-data.ts](/Users/jeongin/ssu-simulation/src/lib/game-data.ts)
+  - `chapterInfoMap`의 밤 에피소드 메타 갱신
+    - `NIGHT_SELF_STUDY`를 도서관 기반에서 `소등된 강의실` 흐름으로 재정의
+    - `NIGHT_LAB_VISIT`를 연구실+빗속 클라이맥스 흐름으로 보강
+  - `dinnerNightBranchByChoice` 매핑 변경
+    - `0 -> NIGHT_LAB_VISIT` (집)
+    - `1 -> NIGHT_SELF_STUDY` (강의실)
+    - `2 -> NIGHT_CAMPUS_WALK` (학교 벤치)
+  - `chapterFallbackDialogues` 전체를 사용자 시나리오 기반으로 교체
+  - `endingMeta`를 A+/B+/C+/F 제공 엔딩 톤으로 교체
+  - `finalRealityLine`을 `"내일 시험, 꼭 잘 보자."`로 변경
+
+### 검증
+
+- `npm run lint` 통과
+- `npm run build` 통과
+
+## 2026-04-15 추가 로그 (챕터 내 다중 선택 스텝 구조 전환)
+
+### 결정사항
+
+- 기존 `챕터당 선택 1회` 진행 방식에서, 사용자 제공 시나리오 흐름에 맞춰 `챕터 내 다중 선택(step)` 방식으로 전환
+- 챕터 분기 로직은 동일하게 유지하되, 분기 트리거를 챕터의 특정 스텝 인덱스에서만 동작하도록 명확화
+  - 점심 분기: `MORNING_CLASSROOM` 3번째 스텝
+  - 밤 분기: `LIGHT_DINNER` 1번째 스텝
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - `ChapterStep` 기반 `chapterStepScripts`를 실제 런타임 진행 로직과 연결
+  - 상태 추가: `chapterStepIndex`
+  - 현재 진행 데이터 계산을 `chapter -> step -> choice` 구조로 변경
+    - `currentChapterSteps`
+    - `currentDialogue`
+    - `currentChoiceList`
+    - `hasCurrentChoices`
+    - `canAdvanceCurrentStep`
+  - `chooseOption` 수정
+    - 현재 스텝 선택지만 처리하도록 검증 강화
+    - 분기 처리 시 스텝 인덱스 조건 추가
+  - `moveNextChapter` 수정
+    - 선택 완료 후 바로 다음 챕터로 가지 않고, 같은 챕터의 다음 스텝으로 우선 이동
+    - 마지막 스텝 종료 시에만 다음 챕터로 이동
+  - UI 수정
+    - 헤더에 `STEP x / y` 표기 추가
+    - 선택 오버레이를 현재 스텝 선택지 기준으로 렌더링
+    - 선택지가 없는 스텝에서도 `다음` 버튼으로 진행 가능
+  - 초기화/시작 시 `chapterStepIndex` 리셋 처리 추가
+
+### 검증
+
+- `npm run lint` 통과
+- `npm run build` 통과
+
+## 2026-04-15 추가 로그 (하트 호감도 게이지 UI/UX 복구)
+
+### 결정사항
+
+- 충돌 과정에서 누락된 하트 스타일 호감도 게이지를 기존 의도대로 복구
+- 단순 막대 UI 대신 하트 아이콘/글로우 바/노브/+N 애니메이션/파티클 캔버스 효과를 다시 적용
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - `heartParticle` 임포트 및 파티클용 `canvas`/`image`/`requestAnimationFrame` 레퍼런스 추가
+  - `affinityDelta` 상태 및 타이머(`+N` 표시 후 자동 소멸) 추가
+  - 선택지 클릭 시 획득 점수만큼 `+N` 애니메이션과 하트 파티클 버스트 실행
+  - 상단 호감도 UI를 하트 스타일 컴포넌트로 교체
+    - 하트 아이콘 (`/ui/heart-gauge.svg`)
+    - 글로우 게이지 바
+    - 노브 이동
+    - 파티클 캔버스 오버레이
+  - 노브 위치가 0%/100%에서 튀지 않도록 범위 클램프 적용
+
+### 검증
+
+- `npm run lint` 통과
+- `npm run build` 통과
+
+## 2026-04-15 추가 로그 (세션 JSON 파싱 실패 자동 복구 강화)
+
+### 이슈
+
+- 로컬 실행 중 간헐적으로 `Expected ',' or ']' after array element in JSON ...` 오류가 발생하며 세션 생성이 fallback으로 전환됨
+- 원인: Gemini가 드물게 JSON 스키마를 요청해도 문법이 깨진 JSON을 반환
+
+### 구현/수정 내용
+
+- [src/app/api/generate-session-pack/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-session-pack/route.ts)
+  - 세션 생성 공통 설정 `SESSION_GENERATION_CONFIG`로 통합
+  - `parseSessionPackJson` 후보 문자열 전처리 강화
+    - code fence 제거 외에 smart quote/nbsp/trailing comma 보정 추가
+  - 최초 파싱 실패 시 자동 복구 단계 추가
+    - 깨진 원문 + 파싱 에러 메시지를 Gemini에 다시 보내 JSON 문법만 보정하도록 요청
+    - 보정본 재파싱 시도 후 정상 데이터 사용
+  - 최종 실패 시 사용자 메시지를 내부 파싱 상세 대신 친화적 문구로 정리
+
+### 검증
+
+- `npm run lint` 통과
+- `npm run build` 통과
+
+## 2026-04-15 추가 로그 (호감도 게이지 가시성 보정)
+
+### 이슈
+
+- 선택 시 `+xx` 애니메이션은 보이지만, 게이지 채움 바가 잘 보이지 않는 케이스 발생
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - `visibleAffinityPercent` 도입
+    - 점수 증가 후 초기 구간에서도 채움 바가 확실히 보이도록 최소 가시 폭(6%) 적용
+  - 채움 바에 인라인 그라디언트/글로우 스타일을 추가해 스타일 누락 상황에서도 시인성 유지
+  - 노브 위치를 `visibleAffinityPercent` 기준으로 동기화
+
+### 검증
+
+- `npm run lint` 통과
+- `npm run build` 통과
+
+## 2026-04-15 추가 로그 (교수 이미지 생성 500 원인 확인 및 사전 차단)
+
+### 이슈
+
+- 로컬에서 `POST /api/generate-professor-image 500` 발생
+- 원인 확인 결과, `.env.local`에 `BG_API_URL`이 없어 누끼 단계에서 실패
+  - 기존 흐름은 Gemini 이미지 생성 이후 누끼 단계에서 실패가 드러나 응답까지 시간이 길어짐
+
+### 구현/수정 내용
+
+- [src/app/api/generate-professor-image/route.ts](/Users/jeongin/ssu-simulation/src/app/api/generate-professor-image/route.ts)
+  - 요청 초기에 `BG_API_URL` 존재 여부를 확인하도록 보강
+  - 누락 시 즉시 500과 안내 메시지 반환
+  - 불필요한 이미지 생성 호출/대기 시간/비용을 줄이도록 실패를 앞단에서 차단
+
+### 검증
+
+- `npm run lint` 통과
+- `npm run build` 통과
+
+## 2026-04-15 추가 로그 (로컬 env 누락 수정)
+
+### 이슈
+
+- `/api/generate-professor-image` 500(빠른 실패) 발생
+- 원인: `.env.local`에 `BG_API_URL` 키 자체가 누락되어 있었음
+
+### 구현/수정 내용
+
+- [.env.local](/Users/jeongin/ssu-simulation/.env.local)
+  - `BG_API_URL=https://angela-authentic-gauge-likes.trycloudflare.com` 추가
+  - `BG_API_TIMEOUT_MS=45000` 추가
+
+### 후속 조치
+
+- Next.js 개발 서버 재시작 후 적용 확인 필요 (`.env.local`은 서버 시작 시 로드됨)
