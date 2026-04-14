@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { Volume2, VolumeX } from "lucide-react";
 import {
   buildIllustrationPrompt,
   buildProfessorSummary,
@@ -11,6 +12,7 @@ import {
   endingMeta,
   finalRealityLine,
   getEndingRank,
+  MAIN_BGM_URL,
   morningLunchBranchByChoice,
   pickSixChaptersForRun,
   playerGenderOptions,
@@ -206,6 +208,19 @@ export default function Home() {
 
   const [player, setPlayer] = useState<PlayerFormState>(initialPlayerState);
   const [professor, setProfessor] = useState<ProfessorFormState>(initialProfessorState);
+
+  const [isBgmOn, setIsBgmOn] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const toggleBgm = () => {
+    if (!audioRef.current) return;
+    if (isBgmOn) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play().catch((err) => console.error("BGM 재생 실패:", err));
+    }
+    setIsBgmOn(!isBgmOn);
+  };
 
   const [generatedImageUrl, setGeneratedImageUrl] = useState("");
   const [imageMessage, setImageMessage] = useState("");
@@ -585,6 +600,23 @@ export default function Home() {
 
   return (
     <main className="min-h-screen text-black">
+      {/* BGM 컨트롤 버튼 (우측 상단 고정) */}
+      <div className="fixed top-6 right-6 z-[100] flex flex-col items-end gap-2">
+        <button
+          onClick={toggleBgm}
+          className={`w-14 h-14 flex items-center justify-center rounded-full shadow-2xl transition-all active:scale-90 border-[3px] ${
+            isBgmOn 
+              ? "bg-[#ffb8d5] border-white text-white" 
+              : "bg-white border-[#ffb8d5] text-[#ffb8d5]"
+          }`}
+          aria-label={isBgmOn ? "BGM 끄기" : "BGM 켜기"}
+        >
+          {isBgmOn ? <Volume2 size={32} strokeWidth={2.5} /> : <VolumeX size={32} strokeWidth={2.5} />}
+        </button>
+        {/* 실제 오디오 태그 */}
+        <audio ref={audioRef} src={MAIN_BGM_URL} loop />
+      </div>
+
       {phase === "screen1_title" && (
         <section
           className="relative flex min-h-screen cursor-pointer items-end justify-center overflow-hidden px-4 py-8 md:px-8 md:py-10"
