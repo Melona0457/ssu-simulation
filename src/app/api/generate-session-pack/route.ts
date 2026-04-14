@@ -86,6 +86,18 @@ const ENDING_RANKS: EndingRank[] = [
 
 const EXPRESSION_KEYS: ExpressionKey[] = ["EXP_1", "EXP_2", "EXP_3"];
 
+const sessionPackResponseJsonSchema = {
+  type: "object",
+  required: ["chapters", "endingPolish", "expressionSet", "spriteCues"],
+  properties: {
+    chapters: { type: "array" },
+    endingPolish: { type: "object" },
+    expressionSet: { type: "array" },
+    spriteCues: { type: "object" },
+  },
+  additionalProperties: true,
+} as const;
+
 const DEFAULT_EXPRESSION_SET: Record<ExpressionKey, Omit<SessionExpressionDefinition, "key">> = {
   EXP_1: {
     label: "차분한 기본",
@@ -331,6 +343,42 @@ function normalizeSpriteCues(
   );
 }
 
+function stripJsonCodeFence(raw: string) {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("```")) {
+    return trimmed;
+  }
+
+  return trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+}
+
+function parseSessionPackJson(raw: string) {
+  const direct = raw.trim();
+  const withoutFence = stripJsonCodeFence(direct);
+  const firstBrace = withoutFence.indexOf("{");
+  const lastBrace = withoutFence.lastIndexOf("}");
+  const extracted =
+    firstBrace >= 0 && lastBrace > firstBrace
+      ? withoutFence.slice(firstBrace, lastBrace + 1)
+      : withoutFence;
+
+  const candidates = Array.from(new Set([direct, withoutFence, extracted]));
+  let lastError: unknown;
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate) as RawSessionPackResponse;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("세션 JSON 파싱에 실패했습니다.");
+}
+
 export async function POST(request: Request) {
   const payload = (await request.json()) as SessionPackRequestPayload;
   const chapterIds = toUniqueChapterIds(payload.chapterIds);
@@ -461,8 +509,9 @@ export async function POST(request: Request) {
         },
       ],
       config: {
-        temperature: 0.8,
+        temperature: 0.4,
         responseMimeType: "application/json",
+        responseJsonSchema: sessionPackResponseJsonSchema,
         maxOutputTokens: 4300,
       },
     });
@@ -480,7 +529,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const parsed = JSON.parse(raw) as RawSessionPackResponse;
+    const parsed = parseSessionPackJson(raw);
 
     const normalizedChapters = chapterIds.reduce(
       (acc, chapterId) => {
