@@ -1988,7 +1988,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,208,227,0.08),rgba(64,20,42,0.52))]" />
 
           <div className="relative z-10 mx-auto w-full max-w-[1120px] px-2 text-center md:px-4">
-            <h1 className="text-[clamp(42px,6.6vw,110px)] font-black leading-[1.01] tracking-[-0.04em] text-[#ffd6e7] [text-shadow:_0_4px_0_#8c3f64,_0_9px_26px_rgba(38,10,24,0.5)]">
+            <h1 className="font-sans text-[clamp(42px,6.6vw,110px)] font-black leading-[1.01] tracking-[-0.04em] text-[#ffd6e7] [text-shadow:_0_4px_0_#8c3f64,_0_9px_26px_rgba(38,10,24,0.5)]">
               ♡교수님과 두근두근♡
               <br />
               시험기간 시뮬레이션
@@ -2016,7 +2016,7 @@ export default function Home() {
           }}
         >
           <div className="w-full max-w-[980px] text-center">
-            <h2 className="text-[clamp(56px,8vw,112px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8b3a60,_0_12px_30px_rgba(0,0,0,0.45)]">
+            <h2 className="font-sans text-[clamp(56px,8vw,112px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8b3a60,_0_12px_30px_rgba(0,0,0,0.45)]">
               당신의 이름과 성별은?
             </h2>
 
@@ -2089,7 +2089,7 @@ export default function Home() {
           }}
         >
           <div className="w-full max-w-[1240px] text-center">
-            <h2 className="text-[clamp(56px,8vw,108px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8a3a5f,_0_12px_30px_rgba(0,0,0,0.45)]">
+            <h2 className="font-sans text-[clamp(56px,8vw,108px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8a3a5f,_0_12px_30px_rgba(0,0,0,0.45)]">
               교수님 생성
             </h2>
 
@@ -2485,7 +2485,7 @@ export default function Home() {
           <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-end px-4 pb-6 md:px-8">
             <div className="rounded border border-[#8b8b8b] bg-[rgba(30,30,30,0.62)] p-4 text-white">
               <p className="text-xl">엔딩 내용</p>
-              <p className="mt-2 text-3xl font-semibold">{ending.title}</p>
+              <p className="font-sans mt-2 text-3xl font-semibold">{ending.title}</p>
               <p className="mt-3 text-2xl leading-relaxed">{ending.description}</p>
               <p className="mt-3 text-lg">최종 점수: {ending.score100}점</p>
               <button
@@ -2511,12 +2511,14 @@ export default function Home() {
               <br />
               시험 잘 보길 바랄게.
             </p>
-            <button
+              <button
               type="button"
               onClick={goCreditScreen}
-              className="mt-16 border-[3px] border-black bg-white px-14 py-4 text-[clamp(48px,4.7vw,76px)] font-semibold leading-none text-black hover:bg-[#f8f8f8]"
+              className="font-sans mt-16 border-[3px] border-black bg-white px-14 py-4 text-[clamp(48px,4.7vw,76px)] font-semibold leading-none text-black hover:bg-[#f8f8f8]"
+            
             >
               크레딧 보기
+
             </button>
           </div>
         </section>
@@ -2543,11 +2545,11 @@ export default function Home() {
               className="credit-roll-content"
               onAnimationEnd={() => setIsCreditFinished(true)}
             >
-              <p className="text-5xl font-semibold leading-snug">
+              <p className="font-sans text-5xl font-semibold leading-snug">
                 두근두근 교수님과 시험기간 시뮬레이션
               </p>
-              <p className="mt-14 text-5xl">Credit</p>
-              <p className="mt-12 text-5xl">숭멋사 14기</p>
+              <p className="font-sans mt-14 text-5xl">Credit</p>
+              <p className="font-sans mt-12 text-5xl">숭멋사 14기</p>
               <p className="mt-14 text-5xl leading-[1.35]">
                 PM 최영환
                 <br />
