@@ -601,6 +601,21 @@ const initialProfessorState: ProfessorFormState = {
 
 const preGameBackgroundImageUrl = "/backgrounds/pre-game-bg.webp";
 const mainCoverImageUrl = "/backgrounds/screen1-cover.webp";
+const ep03BathroomSinkBackdropImageUrl = "/backgrounds/scenes/ep03-bathroom-sink.webp";
+const ep03SteakHouseBackdropImageUrl = "/backgrounds/scenes/ep03-steak-house.webp";
+const ep03AfterMealCampusBackdropImageUrl = "/backgrounds/scenes/ep03-after-meal-campus.webp";
+const ep04LibraryDeskPenBackdropImageUrl = "/backgrounds/scenes/ep04-library-desk-pen.webp";
+const ep04LibraryReadingHallBackdropImageUrl = "/backgrounds/scenes/ep04-library-reading-hall.webp";
+const ep04LibraryShelfBackdropImageUrl = "/backgrounds/scenes/ep04-library-shelf.webp";
+const ep02PenGiftCutinImageUrl = "/cutins/ep02/ep02-scene06-pen-gift.webp";
+const ep02CanCoffeeCutinImageUrl = "/cutins/ep02/ep02-scene03-can-coffee.webp";
+const ep03cYogurtCutinImageUrl = "/cutins/ep03/ep03c-scene04-yogurt.webp";
+const ep03cTissueHandkerchiefCutinImageUrl =
+  "/cutins/ep03/ep03c-scene06-tissue-handkerchief.webp";
+const ep04PenCloseupCutinImageUrl = "/cutins/ep04/ep04-scene01-pen-closeup.webp";
+const ep06oUmbrellaCutinImageUrl = "/cutins/ep06/ep06o-scene05-umbrella.webp";
+const ep06oRollsFrontCutinImageUrl = "/cutins/ep06/ep06o-scene06-rolls-front.webp";
+const ep06cEnergyBagCutinImageUrl = "/cutins/ep06/ep06c-scene04-energy-bag.webp";
 const screen1TitleImageUrl = "/ui/title-logo.webp";
 const screen11CreditTitleImageUrl = "/ui/title-logo.webp";
 const DEBUG_PASSWORD = "ssulikelion";
@@ -609,6 +624,48 @@ const debugEndingScoreMap: Record<EndingRank, number> = {
   ENDING_B_PLUS: 78,
   ENDING_C_PLUS: 58,
   ENDING_F: 22,
+};
+
+const storySceneBackdropMap: Partial<Record<string, string>> = {
+  ep03b_scene05_sink: ep03BathroomSinkBackdropImageUrl,
+  ep03b_scene06_steak_1: ep03SteakHouseBackdropImageUrl,
+  ep03b_scene07_steak_2: ep03SteakHouseBackdropImageUrl,
+  ep03b_scene08_steak_3: ep03SteakHouseBackdropImageUrl,
+  ep03b_scene09_outro: ep03AfterMealCampusBackdropImageUrl,
+  ep04_scene01_intro: ep04LibraryDeskPenBackdropImageUrl,
+  ep04_scene02_stacks: ep04LibraryReadingHallBackdropImageUrl,
+  ep04_scene03_meet_professor: ep04LibraryShelfBackdropImageUrl,
+  ep04_choice01: ep04LibraryShelfBackdropImageUrl,
+  ep04_scene04_opt01: ep04LibraryShelfBackdropImageUrl,
+  ep04_scene05_opt02: ep04LibraryShelfBackdropImageUrl,
+  ep04_scene06_opt03: ep04LibraryShelfBackdropImageUrl,
+  ep04_scene07_shelf_talk: ep04LibraryShelfBackdropImageUrl,
+  ep04_choice02: ep04LibraryShelfBackdropImageUrl,
+  ep04_scene08_opt01: ep04LibraryShelfBackdropImageUrl,
+  ep04_scene09_opt02: ep04LibraryShelfBackdropImageUrl,
+  ep04_scene10_outro: ep04LibraryShelfBackdropImageUrl,
+};
+
+const storySceneCutinMap: Partial<Record<string, string>> = {
+  ep02_scene06_pen_gift: ep02PenGiftCutinImageUrl,
+  ep02_scene03_after_choice02: ep02CanCoffeeCutinImageUrl,
+  ep03c_scene04_opt03: ep03cYogurtCutinImageUrl,
+  ep03c_scene06_outro: ep03cTissueHandkerchiefCutinImageUrl,
+  ep04_scene01_intro: ep04PenCloseupCutinImageUrl,
+  ep06o_scene05_umbrella: ep06oUmbrellaCutinImageUrl,
+  ep06o_scene06_rolls_intro: ep06oRollsFrontCutinImageUrl,
+  ep06c_scene04_opt02: ep06cEnergyBagCutinImageUrl,
+};
+
+const storySceneCutinTriggerPatternMap: Partial<Record<string, RegExp>> = {
+  ep02_scene06_pen_gift: /(볼펜|펜|잉크|반납)/,
+  ep02_scene03_after_choice02: /캔커피/,
+  ep03c_scene04_opt03: /요구르트/,
+  ep03c_scene06_outro: /(휴지|손수건)/,
+  ep04_scene01_intro: /(볼펜|펜|잉크)/,
+  ep06o_scene05_umbrella: /우산/,
+  ep06o_scene06_rolls_intro: /롤스로이스/,
+  ep06c_scene04_opt02: /(에너지\s*음료|봉투)/,
 };
 
 function toDisplayPlayerName(name: string) {
@@ -1318,6 +1375,11 @@ export default function Home() {
   const particleCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const particleImageRef = useRef<HTMLImageElement | null>(null);
   const particleFrameRef = useRef<number | null>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const moveNextChapterRef = useRef<() => void>(() => {});
+  const revealCurrentDialogueImmediatelyRef = useRef<() => void>(() => {});
+  const isDialogueLineTypingRef = useRef(false);
+  const canAdvanceCurrentStepRef = useRef(false);
 
   const [ending, setEnding] = useState<EndingState | null>(null);
   const [isCreditFinished, setIsCreditFinished] = useState(false);
@@ -1330,6 +1392,9 @@ export default function Home() {
     Partial<Record<ChapterId, ChapterSpriteCue>>
   >(normalizeSpriteCueMap(defaultSpriteCues));
   const [typedProfessorLine, setTypedProfessorLine] = useState("");
+  const [isAutoPlayOn, setIsAutoPlayOn] = useState(false);
+  const [visibleSceneCutinUrl, setVisibleSceneCutinUrl] = useState<string | null>(null);
+  const [isSceneCutinVisible, setIsSceneCutinVisible] = useState(false);
   const [isDebugUnlocked, setIsDebugUnlocked] = useState(false);
   const [isDebugPanelOpen, setIsDebugPanelOpen] = useState(false);
   const [isDebugPasswordModalOpen, setIsDebugPasswordModalOpen] = useState(false);
@@ -1395,19 +1460,93 @@ export default function Home() {
   const currentLegacyChapterId = currentEpisode
     ? storyEpisodeToChapterIdMap[currentEpisode.id]
     : null;
+  const currentSceneBackdropUrl = currentScene ? storySceneBackdropMap[currentScene.id] : undefined;
+  const currentSceneCutinUrl = currentScene ? storySceneCutinMap[currentScene.id] : undefined;
+  const currentSceneCutinTriggerPattern = currentScene
+    ? storySceneCutinTriggerPatternMap[currentScene.id]
+    : undefined;
+  const currentBackdropLayers = [
+    currentSceneBackdropUrl,
+    currentChapterInfo?.backdrop ?? preGameBackgroundImageUrl,
+  ].filter((value): value is string => Boolean(value));
   const endingBackdrop =
     currentChapterInfo?.backdrop ?? generatedImageUrl ?? preGameBackgroundImageUrl;
   const activeSpeakerLabel = pendingChoice ? "나" : currentLine?.speaker ?? "나레이션";
   const activeDialogueLine = pendingChoice
     ? replaceStoryPlaceholders(pendingChoice.text, playerName, professorName)
     : currentLine?.text ?? "";
+  const currentStoryLineText = currentLine?.text ?? "";
   const isDialogueLineTyping =
     phase === "screen4_8_chapter" &&
     activeDialogueLine.length > 0 &&
     typedProfessorLine !== activeDialogueLine;
   const shouldShowChoiceOverlay =
     hasCurrentChoices && !isDialogueLineTyping;
-  const canAdvanceCurrentStep = (!hasCurrentChoices || Boolean(pendingChoice) || currentLine !== null) && !isDialogueLineTyping;
+  const canAdvanceCurrentStep =
+    (!hasCurrentChoices || Boolean(pendingChoice) || currentLine !== null) && !isDialogueLineTyping;
+  const shouldDimProfessorSprite = !pendingChoice && currentLine?.speaker === "교수" ? false : true;
+  const shouldShowSceneCutin = useMemo(() => {
+    if (!currentSceneCutinUrl || !currentStoryLineText.trim()) {
+      return false;
+    }
+
+    if (!currentSceneCutinTriggerPattern) {
+      return true;
+    }
+
+    return currentSceneCutinTriggerPattern.test(currentStoryLineText);
+  }, [currentSceneCutinTriggerPattern, currentSceneCutinUrl, currentStoryLineText]);
+
+  function revealCurrentDialogueImmediately() {
+    const line = activeDialogueLine.trim();
+    if (!line) {
+      return;
+    }
+
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+    setTypedProfessorLine(line);
+  }
+
+  isDialogueLineTypingRef.current = isDialogueLineTyping;
+  canAdvanceCurrentStepRef.current = canAdvanceCurrentStep;
+  revealCurrentDialogueImmediatelyRef.current = revealCurrentDialogueImmediately;
+  moveNextChapterRef.current = moveNextChapter;
+
+  useEffect(() => {
+    if (phase !== "screen4_8_chapter") {
+      setIsSceneCutinVisible(false);
+      setVisibleSceneCutinUrl(null);
+      return;
+    }
+
+    if (shouldShowSceneCutin && currentSceneCutinUrl) {
+      setVisibleSceneCutinUrl(currentSceneCutinUrl);
+      requestAnimationFrame(() => {
+        setIsSceneCutinVisible(true);
+      });
+      return;
+    }
+
+    setIsSceneCutinVisible(false);
+  }, [currentSceneCutinUrl, phase, shouldShowSceneCutin]);
+
+  useEffect(() => {
+    if (isSceneCutinVisible || !visibleSceneCutinUrl) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setVisibleSceneCutinUrl(null);
+    }, 260);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [isSceneCutinVisible, visibleSceneCutinUrl]);
+
   const activeProfessorImageUrl = useMemo(() => {
     if (!generatedImageUrl) {
       return "";
@@ -1504,6 +1643,10 @@ export default function Home() {
     return () => {
       if (affinityDeltaTimerRef.current) {
         clearTimeout(affinityDeltaTimerRef.current);
+      }
+      if (typingTimerRef.current) {
+        clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = null;
       }
       if (particleFrameRef.current) {
         cancelAnimationFrame(particleFrameRef.current);
@@ -1618,6 +1761,11 @@ export default function Home() {
   }, [affinityDelta, affinityPercent, phase]);
 
   useEffect(() => {
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+
     if (phase !== "screen4_8_chapter") {
       setTypedProfessorLine("");
       return;
@@ -1638,27 +1786,88 @@ export default function Home() {
     }
 
     let frameIndex = 0;
-    let timer: ReturnType<typeof setTimeout> | undefined;
 
     const tick = () => {
       frameIndex += 1;
 
       if (frameIndex >= frames.length) {
+        typingTimerRef.current = null;
         return;
       }
 
       setTypedProfessorLine(frames[frameIndex]);
-      timer = setTimeout(tick, 52);
+      typingTimerRef.current = setTimeout(tick, 52);
     };
 
-    timer = setTimeout(tick, 52);
+    typingTimerRef.current = setTimeout(tick, 52);
 
     return () => {
-      if (timer) {
-        clearTimeout(timer);
+      if (typingTimerRef.current) {
+        clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = null;
       }
     };
   }, [activeDialogueLine, phase]);
+
+  useEffect(() => {
+    if (phase !== "screen4_8_chapter") {
+      return;
+    }
+
+    const handleSpaceAdvance = (event: KeyboardEvent) => {
+      const isSpace = event.code === "Space" || event.key === " " || event.key === "Spacebar";
+      if (!isSpace) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (isDialogueLineTypingRef.current) {
+        revealCurrentDialogueImmediatelyRef.current();
+        return;
+      }
+
+      if (canAdvanceCurrentStepRef.current) {
+        moveNextChapterRef.current();
+      }
+    };
+
+    window.addEventListener("keydown", handleSpaceAdvance);
+    return () => {
+      window.removeEventListener("keydown", handleSpaceAdvance);
+    };
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "screen4_8_chapter" || !isAutoPlayOn || !canAdvanceCurrentStep) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      moveNextChapterRef.current();
+    }, 420);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [canAdvanceCurrentStep, isAutoPlayOn, phase]);
+
+  useEffect(() => {
+    if (phase !== "screen4_8_chapter") {
+      setIsAutoPlayOn(false);
+    }
+  }, [phase]);
 
   useEffect(() => {
     setDebugAffinityInput(affinityPercent);
@@ -2081,6 +2290,9 @@ export default function Home() {
     setIsCreditFinished(false);
     setIsScreen1TitleImageErrored(false);
     setIsScreen11TitleImageErrored(false);
+    setIsAutoPlayOn(false);
+    setIsSceneCutinVisible(false);
+    setVisibleSceneCutinUrl(null);
     setSessionExpressionSet(defaultExpressionSet);
     setSessionSpriteCues(normalizeSpriteCueMap(defaultSpriteCues));
   }
@@ -2728,7 +2940,12 @@ export default function Home() {
         <section className="relative min-h-screen overflow-hidden">
           <div
             className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${currentChapterInfo.backdrop})` }}
+            style={{
+              backgroundImage: currentBackdropLayers.map((url) => `url(${url})`).join(", "),
+              backgroundSize: currentBackdropLayers.map(() => "cover").join(", "),
+              backgroundPosition: currentBackdropLayers.map(() => "center").join(", "),
+              backgroundRepeat: currentBackdropLayers.map(() => "no-repeat").join(", "),
+            }}
           />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(44,14,33,0.22),rgba(34,10,27,0.58))]" />
           <div className="episode-soft-pink-tint absolute inset-0" />
@@ -2822,7 +3039,11 @@ export default function Home() {
                 <img
                   src={activeProfessorImageUrl}
                   alt={`${professorName} 교수 스프라이트`}
-                  className="max-h-[72vh] w-auto object-contain drop-shadow-[0_20px_36px_rgba(0,0,0,0.45)]"
+                  className={`max-h-[72vh] w-auto object-contain drop-shadow-[0_20px_36px_rgba(0,0,0,0.45)] transition-[opacity,filter] duration-300 ${
+                    shouldDimProfessorSprite
+                      ? "opacity-50 saturate-[0.45] brightness-[0.8]"
+                      : "opacity-100 saturate-100 brightness-100"
+                  }`}
                 />
               ) : (
                 <div className="rounded-2xl border border-white/70 bg-white/30 px-6 py-10 text-center text-white">
@@ -2830,6 +3051,22 @@ export default function Home() {
                 </div>
               )}
             </div>
+
+            {visibleSceneCutinUrl && (
+              <div
+                key={`${currentScene?.id ?? "scene"}-${storyCursor?.lineIndex ?? 0}`}
+                className={`episode-scene-cutin pointer-events-none absolute inset-x-4 top-24 z-40 flex justify-center md:top-28 md:inset-x-10 ${
+                  isSceneCutinVisible ? "is-visible" : "is-hidden"
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={visibleSceneCutinUrl}
+                  alt="장면 연출 컷인"
+                  className="h-auto w-full max-w-[460px] rounded-[18px] border-2 border-white/80 object-contain shadow-[0_20px_40px_rgba(0,0,0,0.45)]"
+                />
+              </div>
+            )}
 
             {shouldShowChoiceOverlay && (
               <div className="absolute inset-0 z-30 flex items-center justify-center px-4 md:px-10">
@@ -2854,7 +3091,14 @@ export default function Home() {
             <div className="mx-auto w-full max-w-6xl pointer-events-auto">
               <div className="episode-dialog-box">
                 <div className="episode-dialog-perforation" aria-hidden />
-                <div className="episode-dialog-paper">
+                <div
+                  className="episode-dialog-paper"
+                  onClick={() => {
+                    if (isDialogueLineTyping) {
+                      revealCurrentDialogueImmediately();
+                    }
+                  }}
+                >
                   <div className="episode-dialog-content">
                   <p className="font-story m-0 flex flex-col items-start gap-1 text-[clamp(24px,2.5vw,50px)] font-medium leading-[1.24] text-[#242424] sm:flex-row sm:gap-[clamp(18px,2vw,36px)]">
                     <span className="episode-dialog-speaker-badge font-black sm:min-w-[clamp(60px,5vw,120px)]">
@@ -2869,22 +3113,37 @@ export default function Home() {
                       <span className="episode-dialog-note-mark" aria-hidden>
                         N
                       </span>
-                      {hasCurrentChoices
+                      {isAutoPlayOn
+                        ? "자동 진행 중입니다."
+                        : hasCurrentChoices
                         ? "선택 완료. 다음 단계로 이동하세요."
                         : "다음 단계로 이동하세요."}
                     </p>
-                    <button
-                      type="button"
-                      onClick={moveNextChapter}
-                      className="vn-next-button group w-full px-7 py-3 text-base font-black text-[#23131c] transition sm:w-auto sm:shrink-0 sm:text-lg"
-                    >
-                      <span className="relative z-[2] flex items-center gap-3">
-                        <span className="tracking-[0.08em]">다음</span>
-                        <span className="text-xl transition-transform duration-150 group-hover:translate-x-[2px]">
-                          ▶
+                    <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsAutoPlayOn((current) => !current)}
+                        className={`w-full rounded-[14px] border-2 px-4 py-3 text-sm font-black transition sm:w-auto ${
+                          isAutoPlayOn
+                            ? "border-[#3f2f39] bg-[#23131c] text-white shadow-[0_8px_18px_rgba(0,0,0,0.28)]"
+                            : "border-[#7f727a] bg-white/90 text-[#26141e] hover:bg-white"
+                        }`}
+                      >
+                        자동 {isAutoPlayOn ? "ON" : "OFF"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={moveNextChapter}
+                        className="vn-next-button group w-full px-7 py-3 text-base font-black text-[#23131c] transition sm:w-auto sm:shrink-0 sm:text-lg"
+                      >
+                        <span className="relative z-[2] flex items-center gap-3">
+                          <span className="tracking-[0.08em]">다음</span>
+                          <span className="text-xl transition-transform duration-150 group-hover:translate-x-[2px]">
+                            ▶
+                          </span>
                         </span>
-                      </span>
-                    </button>
+                      </button>
+                    </div>
                     </div>
                   )}
                 </div>
