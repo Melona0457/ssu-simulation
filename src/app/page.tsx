@@ -601,6 +601,8 @@ const initialProfessorState: ProfessorFormState = {
 
 const preGameBackgroundImageUrl = "/backgrounds/pre-game-bg.webp";
 const mainCoverImageUrl = "/backgrounds/screen1-cover.webp";
+const screen1TitleImageUrl = "/ui/title-logo.webp";
+const screen11CreditTitleImageUrl = "/ui/title-logo.webp";
 const DEBUG_PASSWORD = "ssulikelion";
 const debugEndingScoreMap: Record<EndingRank, number> = {
   ENDING_A_PLUS: 95,
@@ -1319,6 +1321,8 @@ export default function Home() {
 
   const [ending, setEnding] = useState<EndingState | null>(null);
   const [isCreditFinished, setIsCreditFinished] = useState(false);
+  const [isScreen1TitleImageErrored, setIsScreen1TitleImageErrored] = useState(false);
+  const [isScreen11TitleImageErrored, setIsScreen11TitleImageErrored] = useState(false);
   const [sessionExpressionSet, setSessionExpressionSet] = useState<
     SessionExpressionDefinition[]
   >(defaultExpressionSet);
@@ -2075,6 +2079,8 @@ export default function Home() {
     setStoryLog([]);
     setEnding(null);
     setIsCreditFinished(false);
+    setIsScreen1TitleImageErrored(false);
+    setIsScreen11TitleImageErrored(false);
     setSessionExpressionSet(defaultExpressionSet);
     setSessionSpriteCues(normalizeSpriteCueMap(defaultSpriteCues));
   }
@@ -2364,11 +2370,23 @@ export default function Home() {
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,208,227,0.08),rgba(64,20,42,0.52))]" />
 
           <div className="relative z-10 mx-auto w-full max-w-[1120px] px-2 text-center md:px-4">
-            <h1 className="text-[clamp(42px,6.6vw,110px)] font-black leading-[1.01] tracking-[-0.04em] text-[#ffd6e7] [text-shadow:_0_4px_0_#8c3f64,_0_9px_26px_rgba(38,10,24,0.5)]">
-              ♡교수님과 두근두근♡
-              <br />
-              시험기간 시뮬레이션
-            </h1>
+            {!isScreen1TitleImageErrored ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={screen1TitleImageUrl}
+                  alt="♡교수님과 두근두근♡ 시험기간 시뮬레이션"
+                  className="mx-auto h-auto w-full max-w-[980px] object-contain drop-shadow-[0_9px_26px_rgba(38,10,24,0.5)]"
+                  onError={() => setIsScreen1TitleImageErrored(true)}
+                />
+              </>
+            ) : (
+              <h1 className="text-[clamp(42px,6.6vw,110px)] font-black leading-[1.01] tracking-[-0.04em] text-[#ffd6e7] [text-shadow:_0_4px_0_#8c3f64,_0_9px_26px_rgba(38,10,24,0.5)]">
+                ♡교수님과 두근두근♡
+                <br />
+                시험기간 시뮬레이션
+              </h1>
+            )}
             <p className="screen1-touch-guide mt-4 text-[clamp(18px,2.2vw,34px)] font-bold leading-none text-white [text-shadow:_0_2px_10px_rgba(0,0,0,0.82)]">
               화면을 클릭하여 게임을 시작해 주세요
             </p>
@@ -3013,7 +3031,19 @@ export default function Home() {
               onAnimationEnd={() => setIsCreditFinished(true)}
             >
               <p className="text-[clamp(30px,7vw,48px)] font-semibold leading-snug">
-                두근두근 교수님과 시험기간 시뮬레이션
+                {!isScreen11TitleImageErrored ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={screen11CreditTitleImageUrl}
+                      alt="두근두근 교수님과 시험기간 시뮬레이션"
+                      className="mx-auto h-auto w-full max-w-[700px] object-contain"
+                      onError={() => setIsScreen11TitleImageErrored(true)}
+                    />
+                  </>
+                ) : (
+                  "두근두근 교수님과 시험기간 시뮬레이션"
+                )}
               </p>
               <p className="mt-10 text-[clamp(28px,6.5vw,48px)] sm:mt-14">Credit</p>
               <p className="mt-8 text-[clamp(28px,6.5vw,48px)] sm:mt-12">숭멋사 14기</p>
