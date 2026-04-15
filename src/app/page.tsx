@@ -607,6 +607,15 @@ const ep03AfterMealCampusBackdropImageUrl = "/backgrounds/scenes/ep03-after-meal
 const ep04LibraryDeskPenBackdropImageUrl = "/backgrounds/scenes/ep04-library-desk-pen.webp";
 const ep04LibraryReadingHallBackdropImageUrl = "/backgrounds/scenes/ep04-library-reading-hall.webp";
 const ep04LibraryShelfBackdropImageUrl = "/backgrounds/scenes/ep04-library-shelf.webp";
+const ep06oCampusNightBackdropImageUrl = "/backgrounds/scenes/ep06o-campus-night.webp";
+const ep06oOfficeDoorCorridorBackdropImageUrl =
+  "/backgrounds/scenes/ep06o-office-door-corridor.webp";
+const ep06oOfficeInteriorBackdropImageUrl = "/backgrounds/scenes/ep06o-office-interior.webp";
+const ep06oRainGateRollsBackdropImageUrl = "/backgrounds/scenes/ep06o-rain-gate-rolls.webp";
+const ep06oRollsInteriorBackdropImageUrl = "/backgrounds/scenes/ep06o-rolls-interior.webp";
+const ep06oHomeRoomBackdropImageUrl = "/backgrounds/scenes/ep06o-home-room.webp";
+const ep06cClassroomNightReturnBackdropImageUrl =
+  "/backgrounds/scenes/ep06c-classroom-night-return.webp";
 const ep02PenGiftCutinImageUrl = "/cutins/ep02/ep02-scene06-pen-gift.webp";
 const ep02CanCoffeeCutinImageUrl = "/cutins/ep02/ep02-scene03-can-coffee.webp";
 const ep03cYogurtCutinImageUrl = "/cutins/ep03/ep03c-scene04-yogurt.webp";
@@ -644,6 +653,17 @@ const storySceneBackdropMap: Partial<Record<string, string>> = {
   ep04_scene08_opt01: ep04LibraryShelfBackdropImageUrl,
   ep04_scene09_opt02: ep04LibraryShelfBackdropImageUrl,
   ep04_scene10_outro: ep04LibraryShelfBackdropImageUrl,
+  ep06o_scene01_intro: ep06oCampusNightBackdropImageUrl,
+  ep06o_scene02_route_a: ep06oOfficeDoorCorridorBackdropImageUrl,
+  ep06o_scene03_route_b: ep06oOfficeDoorCorridorBackdropImageUrl,
+  ep06o_scene04_common_office: ep06oOfficeInteriorBackdropImageUrl,
+  ep06o_scene05_umbrella: ep06oOfficeInteriorBackdropImageUrl,
+  ep06o_scene06_rolls_intro: ep06oRainGateRollsBackdropImageUrl,
+  ep06o_scene07_umbrella_keep: ep06oRainGateRollsBackdropImageUrl,
+  ep06o_scene08_romance_ride: ep06oRollsInteriorBackdropImageUrl,
+  ep06o_scene09_distance: ep06oRainGateRollsBackdropImageUrl,
+  ep06o_scene10_home_final: ep06oHomeRoomBackdropImageUrl,
+  ep06c_scene04_opt02: ep06cClassroomNightReturnBackdropImageUrl,
 };
 
 const storySceneCutinMap: Partial<Record<string, string>> = {
