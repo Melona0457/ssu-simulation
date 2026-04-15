@@ -218,6 +218,86 @@
   - 메인표지 태그, 중앙 대형 프레임, 하단 타이틀/시작문구 오버레이 구성
 - 화면2:
   - 대형 타이틀, 반투명 입력 패널, 성별 토글, 핑크 확인 버튼 구성
+
+## 2026-04-15 변경 로그
+
+### 스토리 폰트 적용 준비
+
+- 스토리 대사창과 선택지 버튼에 별도 `font-story` 클래스를 연결
+- `온글잎 밑미`용 `@font-face`를 `/public/fonts/OwnglyphMeetme.ttf` 경로 기준으로 추가
+- 실제 폰트 파일이 없을 때도 화면이 깨지지 않도록 `Gowun Batang`을 fallback으로 유지
+- `public/fonts/.gitkeep`를 추가해 폰트 파일을 둘 위치를 고정
+
+### 운영 요청 반영
+
+- 앞으로 Codex가 직접 적용한 코드/스타일 변경사항은 `WORKLOG.md`에 함께 기록
+
+### 폰트 로딩 에러 정리
+
+- 기존 `PretendardGothic`은 외부 jsDelivr CDN의 `Pretendard-Bold.woff2`를 직접 불러오고 있었음
+- 해당 요청에서 `403 Forbidden`이 발생해, 게이지/보조 UI에 쓰이던 `font-gothic` 계열을 `Noto Sans KR` 기반 fallback 스택으로 정리
+- 결과적으로 `온글잎 밑미` 적용과 무관한 콘솔 폰트 에러를 제거하는 방향으로 수정
+
+### 폰트 체계 단순화
+
+- 전체 폰트 체계를 `온글잎 밑미 + Noto Sans KR` 2종으로 정리
+- Google Fonts import에서 `Gowun Batang`을 제거
+- `font-story`의 fallback과 테마 serif 변수도 `Noto Sans KR` 기준으로 통일
+
+### 스토리 분기 기준 교체
+
+- 사용자가 제공한 전체 스토리 문서를 새 기준 데이터로 반영
+- 기존 `점수 기반 챕터/엔딩 흐름`보다 `scene 기반 분기 이동`이 우선 동작하도록 플레이 로직 수정
+- 에피소드 진행은 `episode -> scene -> line -> choice -> next_scene/next_episode` 순서로 따라가도록 변경
+- 밤 에피소드의 마지막 선택은 하루 서사의 감정 분기/호감도 차이로 반영하고, 최종 엔딩 등급은 다시 A+/B+/C+/F 점수형 구조로 복원
+- 플레이 화면의 진행 표시는 기존 `STEP` 대신 현재 에피소드 내 `SCENE` 기준으로 노출
+
+### 엔딩 구조 재정렬
+
+- `episodes`는 시험 전날 하루의 서사 진행으로 사용
+- 각 선택지는 내부 호감도 점수(0~2)를 부여하고, 실제 플레이 중 만난 선택지 수 기준으로 정규화해 최종 퍼센트를 계산
+- 터미널 장면(집/벤치/강의실) 이후 최종 퍼센트로 `A+ / B+ / C+ / F` 등급을 결정
+- 등급 내부 variant는 랜덤이 아니라 `밤 루트 + 핵심 선택 기록`을 반영해 결정
+- `ending_catalog` 전체를 데이터로 추가하고, 엔딩 화면에서 등급/variant 제목과 요약을 노출
+
+### 표정/디버그/정리 보강
+
+- 교수 표정 3종(`EXP_1/2/3`)은 그대로 생성 유지
+- 플레이 중 교수 이미지 표정은 `scene/choice -> legacy chapter cue -> fallback text heuristic` 순서로 자동 매핑되도록 복원
+- 생성 화면의 표정 썸네일 미리보기는 유지하고, 실제 플레이 중에도 대사 분위기에 따라 표정이 바뀌도록 연결
+- 디버그 패널은 기존 `챕터/스텝` 기준에서 `episode/scene` 기준으로 개편
+- 디버그 패널에서 현재 에피소드/씬/호감도/최대 점수를 확인하고 원하는 씬으로 바로 이동 가능하게 수정
+- 더 이상 읽지 않는 구 챕터 상태값과 일부 미사용 함수/참조를 정리해 lint warning을 해소
+
+### 후속 정리
+
+- 실제 플레이 경로에서 `/api/generate-session-pack` 호출 의존성을 제거하고, 로컬 기본 표정 세트/표정 cue로 단일화
+- 엔딩 화면에 등급/variant 요약뿐 아니라 variant 전문 대사/연출 라인까지 함께 노출하도록 확장
+- 교수 `말투` 선택값은 이미지 생성 요약 외에도 고정 스토리의 교수 대사와 엔딩 전문에 후처리 방식으로 반영되도록 보강
+
+### 말투/엔딩 연출 추가 보강
+
+- 말투 후처리 규칙을 더 세밀하게 조정해 `차분 / 츤데레 / 유머 직설 / 다정하지만 단호` 차이가 더 명확히 드러나도록 강화
+- 엔딩 화면을 단순 텍스트 박스에서 `결과 카드 + variant script` 구조로 재구성
+- variant 전문 라인은 스토리 폰트와 카드형 블록으로 읽기 쉽게 정리
+
+### VN 연출 디테일 강화
+
+- 엔딩 카드에 현재 variant 분위기에 맞는 교수 표정 이미지를 함께 노출
+- `VARIANT SCRIPT`의 `교수 / 나레이션 / 나` 라벨을 배지형으로 분리해 가독성 개선
+- 플레이 화면 하단 `다음` 버튼을 비주얼노벨 스타일 장식 버튼으로 리디자인
+
+### 영향 파일
+
+- [src/lib/professor-route-story.ts](/Users/jeongin/ssu-simulation/src/lib/professor-route-story.ts)
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+
+### 영향 파일
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css)
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+- [public/fonts/.gitkeep](/Users/jeongin/ssu-simulation/public/fonts/.gitkeep)
+- [WORKLOG.md](/Users/jeongin/ssu-simulation/WORKLOG.md)
 - 화면3:
   - 좌우 2열 입력 구조(이름/성별/나이/말투 + 요소1~3), 요구사항 대형 텍스트영역, 하단 만들기 버튼 구성
   - `만들기` 클릭 시 교수 이미지 생성 후 스토리 시작으로 연결
@@ -1248,6 +1328,26 @@
   - `temperature`를 `0.8 -> 0.4`로 낮춰 형식 불안정성 완화
   - `parseSessionPackJson` 추가:
     - 원문 파싱 실패 시 code fence 제거/JSON 블록 추출 후 재시도
+
+### 검증
+
+- `npm run lint` 통과
+- `npm run build` 통과
+
+## 2026-04-15 추가 로그 (디버그 엔딩 variant 선택 지원)
+
+### 요청 배경
+
+- 디버그 패널의 엔딩 미리보기가 각 등급의 첫 번째 variant만 보여서
+  세부 엔딩 연출을 빠르게 확인하기 어려움
+
+### 구현/수정 내용
+
+- [src/app/page.tsx](/Users/jeongin/ssu-simulation/src/app/page.tsx)
+  - 디버그 패널의 `엔딩 미리보기`에 등급별 variant 선택 UI 추가
+  - `A+ / B+ / C+ / F` 선택 후 해당 등급 내부 variant 목록을 바로 노출
+  - `subtype + title` 기준으로 원하는 세부 엔딩을 즉시 미리보기 가능하도록 수정
+  - 디버그 화면 이동 시에도 현재 선택한 variant가 유지되도록 반영
 
 ### 검증
 
