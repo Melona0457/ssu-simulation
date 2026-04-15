@@ -2082,28 +2082,26 @@ export default function Home() {
   return (
     <main className="min-h-screen text-black">
       {/* BGM 컨트롤 버튼 (우측 상단 고정) */}
-      <div className="fixed top-6 right-6 z-[100] flex items-center gap-2">
+      <div className="top-hud-controls">
         <button
           type="button"
           onClick={handleDebugButtonClick}
-          className={`h-14 rounded-full border-[3px] px-5 text-base font-black tracking-wide transition-all active:scale-95 ${
-            isDebugUnlocked
-              ? "border-[#6f3a58] bg-[#ffe6f1] text-[#6f3a58]"
-              : "border-[#5f5f5f] bg-white text-[#4a4a4a]"
-          }`}
+          className={`top-hud-button ${isDebugUnlocked ? "is-active" : ""}`}
         >
-          DEBUG
+          <span className="top-hud-button-label">Debug</span>
+          <span className="top-hud-button-value">{isDebugUnlocked ? "열림" : "잠금"}</span>
         </button>
         <button
+          type="button"
           onClick={toggleBgm}
-          className={`w-14 h-14 flex items-center justify-center rounded-full shadow-2xl transition-all active:scale-90 border-[3px] ${
-            isBgmOn 
-              ? "bg-[#ffb8d5] border-white text-white" 
-              : "bg-white border-[#ffb8d5] text-[#ffb8d5]"
-          }`}
+          className={`top-hud-button ${isBgmOn ? "is-active" : ""}`}
           aria-label={isBgmOn ? "BGM 끄기" : "BGM 켜기"}
         >
-          {isBgmOn ? <Volume2 size={32} strokeWidth={2.5} /> : <VolumeX size={32} strokeWidth={2.5} />}
+          <span className="top-hud-button-label">Sound</span>
+          <span className="top-hud-button-icon" aria-hidden>
+            {isBgmOn ? <Volume2 size={18} strokeWidth={2.5} /> : <VolumeX size={18} strokeWidth={2.5} />}
+          </span>
+          <span className="top-hud-button-value">{isBgmOn ? "On" : "Off"}</span>
         </button>
         {/* 실제 오디오 태그 */}
         <audio ref={audioRef} src={MAIN_BGM_URL} loop />
@@ -2161,7 +2159,7 @@ export default function Home() {
       )}
 
       {isDebugPanelOpen && isDebugUnlocked && (
-        <aside className="fixed right-6 top-24 z-[120] w-[min(92vw,430px)] rounded-2xl border-2 border-[#b97d99] bg-[rgba(255,246,251,0.95)] p-4 text-[#2f2f2f] shadow-[0_18px_38px_rgba(55,20,37,0.3)] backdrop-blur-sm">
+        <aside className="fixed inset-x-3 top-20 z-[120] max-h-[calc(100dvh-6rem)] w-auto overflow-y-auto rounded-2xl border-2 border-[#b97d99] bg-[rgba(255,246,251,0.95)] p-4 text-[#2f2f2f] shadow-[0_18px_38px_rgba(55,20,37,0.3)] backdrop-blur-sm md:inset-x-auto md:right-6 md:top-24 md:max-h-[calc(100dvh-8rem)] md:w-[min(92vw,430px)]">
           <div className="flex items-center justify-between">
             <p className="text-lg font-black text-[#5d2240]">디버그 패널</p>
             <button
@@ -2402,7 +2400,7 @@ export default function Home() {
               <input
                 value={player.name}
                 onChange={(event) => updatePlayer("name", event.target.value)}
-                className="h-16 w-full rounded-2xl border-[3px] border-[#bb6f91] bg-white/92 px-4 text-center text-3xl font-semibold text-[#4d1d37] outline-none placeholder:text-[#b57d94] focus:ring-2 focus:ring-[#d778a1]/65"
+                className="h-14 w-full rounded-2xl border-[3px] border-[#bb6f91] bg-white/92 px-4 text-center text-xl font-semibold text-[#4d1d37] outline-none placeholder:text-[#b57d94] focus:ring-2 focus:ring-[#d778a1]/65 sm:h-16 sm:text-3xl"
                 placeholder="이름은 최대 3자까지 가능합니다."
                 maxLength={3}
               />
@@ -2413,7 +2411,7 @@ export default function Home() {
                     key={option.value}
                     type="button"
                     onClick={() => updatePlayer("gender", option.value)}
-                    className={`min-w-[128px] rounded-full border-[3px] px-6 py-2 text-3xl font-bold transition ${
+                    className={`min-w-[110px] rounded-full border-[3px] px-5 py-2 text-xl font-bold transition sm:min-w-[128px] sm:px-6 sm:text-3xl ${
                       player.gender === option.value
                         ? "border-[#b15f84] bg-[linear-gradient(180deg,#ffd8ea,#f7a9c8)] text-[#5d1e3c] shadow-[inset_0_2px_0_rgba(255,255,255,0.8),0_6px_12px_rgba(0,0,0,0.18)]"
                         : "border-[#c798ad] bg-white/78 text-[#6a2a49] hover:bg-white"
@@ -2474,25 +2472,29 @@ export default function Home() {
             <article className="mx-auto mt-5 rounded-[28px] border-4 border-[#be809d] bg-[rgba(255,239,246,0.55)] px-5 py-5 shadow-[0_14px_40px_rgba(68,18,40,0.2)] backdrop-blur-[4px] md:px-8 md:py-7">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-8">
                 <div className="space-y-3 text-left">
-                  <div className="grid grid-cols-[92px_1fr] items-center gap-3">
-                    <label className="text-[44px] font-bold leading-none text-[#5f213f]">이름</label>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[92px_1fr] sm:items-center sm:gap-3">
+                    <label className="text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
+                      이름
+                    </label>
                     <input
                       value={professor.name}
                       onChange={(event) => updateProfessor("name", event.target.value)}
-                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60"
+                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
                       placeholder="교수 이름"
                     />
                   </div>
 
-                  <div className="grid grid-cols-[92px_1fr] items-center gap-3">
-                    <span className="text-[44px] font-bold leading-none text-[#5f213f]">성별</span>
-                    <div className="flex gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[92px_1fr] sm:items-center sm:gap-3">
+                    <span className="text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
+                      성별
+                    </span>
+                    <div className="flex flex-wrap gap-2">
                       {professorGenderOptions.map((option) => (
                         <button
                           key={option.value}
                           type="button"
                           onClick={() => updateProfessor("gender", option.value)}
-                          className={`h-16 min-w-[120px] rounded-full border-[3px] text-[44px] font-bold leading-none transition ${
+                          className={`h-13 min-w-[88px] rounded-full border-[3px] px-4 text-[clamp(24px,7vw,44px)] font-bold leading-none transition sm:h-16 sm:min-w-[120px] ${
                             professor.gender === option.value
                               ? "border-[#b05f84] bg-[linear-gradient(180deg,#ffd8ea,#f7a9c8)] text-[#5e1f3e] shadow-[inset_0_2px_0_rgba(255,255,255,0.82),0_6px_12px_rgba(0,0,0,0.18)]"
                               : "border-[#c99aae] bg-white/80 text-[#6b2b4a] hover:bg-white"
@@ -2504,22 +2506,26 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-[92px_1fr] items-center gap-3">
-                    <label className="text-[44px] font-bold leading-none text-[#5f213f]">나이</label>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[92px_1fr] sm:items-center sm:gap-3">
+                    <label className="text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
+                      나이
+                    </label>
                     <input
                       value={professor.age}
                       onChange={(event) => updateProfessor("age", event.target.value)}
-                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60"
+                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
                       placeholder="예: 30"
                     />
                   </div>
 
-                  <div className="grid grid-cols-[92px_1fr] items-center gap-3">
-                    <label className="text-[44px] font-bold leading-none text-[#5f213f]">말투</label>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[92px_1fr] sm:items-center sm:gap-3">
+                    <label className="text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
+                      말투
+                    </label>
                     <select
                       value={professor.speakingStyle}
                       onChange={(event) => updateProfessor("speakingStyle", event.target.value)}
-                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none focus:ring-2 focus:ring-[#d977a1]/60"
+                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
                     >
                       <option value="">선택</option>
                       {professorSpeakingStyleOptions.map((option) => (
@@ -2532,54 +2538,54 @@ export default function Home() {
                 </div>
 
                 <div className="space-y-3 text-left">
-                  <div className="grid grid-cols-[132px_1fr] items-center gap-3">
-                    <label className="whitespace-nowrap text-[44px] font-bold leading-none text-[#5f213f]">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[132px_1fr] sm:items-center sm:gap-3">
+                    <label className="whitespace-nowrap text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
                       요소1
                     </label>
                     <input
                       value={professor.feature1}
                       onChange={(event) => updateProfessor("feature1", event.target.value)}
                       list="feature1-options"
-                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60"
+                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
                       placeholder="헤어스타일"
                     />
                   </div>
 
-                  <div className="grid grid-cols-[132px_1fr] items-center gap-3">
-                    <label className="whitespace-nowrap text-[44px] font-bold leading-none text-[#5f213f]">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[132px_1fr] sm:items-center sm:gap-3">
+                    <label className="whitespace-nowrap text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
                       요소2
                     </label>
                     <input
                       value={professor.feature2}
                       onChange={(event) => updateProfessor("feature2", event.target.value)}
                       list="feature2-options"
-                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60"
+                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
                       placeholder="눈매"
                     />
                   </div>
 
-                  <div className="grid grid-cols-[132px_1fr] items-center gap-3">
-                    <label className="whitespace-nowrap text-[44px] font-bold leading-none text-[#5f213f]">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[132px_1fr] sm:items-center sm:gap-3">
+                    <label className="whitespace-nowrap text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
                       요소3
                     </label>
                     <input
                       value={professor.feature3}
                       onChange={(event) => updateProfessor("feature3", event.target.value)}
                       list="feature3-options"
-                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60"
+                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
                       placeholder="코/얼굴형"
                     />
                   </div>
 
-                  <div className="grid grid-cols-[132px_1fr] items-center gap-3">
-                    <label className="whitespace-nowrap text-[44px] font-bold leading-none text-[#5f213f]">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[132px_1fr] sm:items-center sm:gap-3">
+                    <label className="whitespace-nowrap text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
                       요소4
                     </label>
                     <input
                       value={professor.feature4}
                       onChange={(event) => updateProfessor("feature4", event.target.value)}
                       list="feature4-options"
-                      className="h-16 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-2xl font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60"
+                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
                       placeholder="입꼬리/피부톤"
                     />
                   </div>
@@ -2673,7 +2679,7 @@ export default function Home() {
                     className="mt-2 h-auto w-full rounded-xl border-2 border-[#c78ea8] object-cover shadow-[0_8px_18px_rgba(71,22,43,0.2)]"
                   />
                   {expressionPreviewEntries.length > 0 && (
-                    <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {expressionPreviewEntries.map((entry) => (
                         <div
                           key={entry.key}
@@ -2716,7 +2722,7 @@ export default function Home() {
           )}
 
           <div className="relative z-20 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-4 pt-8 md:px-8">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="w-full max-w-[340px] rounded-xl border border-white/40 bg-black/45 px-4 py-3 text-white relative shadow-lg heart-gauge-container">
                 <canvas
                   ref={particleCanvasRef}
@@ -2771,8 +2777,25 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="mt-3 rounded bg-black/45 px-4 py-2 text-sm text-white">
-              EPISODE {currentEpisodeNumber} / 6 · SCENE {currentSceneIndex} / {Math.max(1, currentEpisode?.scenes.length ?? 1)} · {currentChapterInfo.title} · {currentChapterInfo.location}
+            <div className="episode-meta-panel mt-3">
+              <div className="episode-meta-chip episode-meta-chip-main">
+                <div className="episode-meta-pill">
+                  <span className="episode-meta-label">Episode</span>
+                  <span className="episode-meta-value">{currentEpisodeNumber}/6</span>
+                </div>
+                <div className="episode-meta-pill">
+                  <span className="episode-meta-label">Scene</span>
+                  <span className="episode-meta-value">
+                    {currentSceneIndex}/{Math.max(1, currentEpisode?.scenes.length ?? 1)}
+                  </span>
+                </div>
+              </div>
+              <div className="episode-meta-chip episode-meta-chip-place">
+                <div className="episode-meta-place">
+                  <span className="episode-meta-title">{currentChapterInfo.title}</span>
+                  <span className="episode-meta-location">{currentChapterInfo.location}</span>
+                </div>
+              </div>
             </div>
 
             <div className="relative mt-4 flex flex-1 items-end justify-center pb-[260px] md:pb-[300px]">
@@ -2811,24 +2834,23 @@ export default function Home() {
 
           <div className="pointer-events-none fixed inset-x-3 bottom-3 z-[70] md:inset-x-6 md:bottom-6">
             <div className="mx-auto w-full max-w-6xl pointer-events-auto">
-              <div className="overflow-hidden rounded-[8px] shadow-[0_18px_34px_rgba(0,0,0,0.28)]">
-                <div
-                  className="h-7 rounded-t-[8px] border-2 border-b-[#323232] border-[#a8a8a8]"
-                  style={{
-                    background:
-                      "repeating-linear-gradient(90deg,#ffffff 0 14px,#ffffff 14px 21px,#2f2f2f 21px 25px,#ffffff 25px 35px)",
-                  }}
-                  aria-hidden
-                />
-                <div className="border-x-2 border-b-2 border-[#a8a8a8] bg-[#f4f4f4] px-[clamp(16px,1.8vw,28px)] py-[clamp(16px,1.8vw,28px)]">
-                  <p className="font-story m-0 flex items-start gap-[clamp(18px,2vw,36px)] text-[clamp(24px,2.5vw,50px)] font-medium leading-[1.24] text-[#242424]">
-                    <span className="min-w-[clamp(60px,5vw,120px)] font-black">{activeSpeakerLabel}</span>
+              <div className="episode-dialog-box">
+                <div className="episode-dialog-perforation" aria-hidden />
+                <div className="episode-dialog-paper">
+                  <div className="episode-dialog-content">
+                  <p className="font-story m-0 flex flex-col items-start gap-1 text-[clamp(24px,2.5vw,50px)] font-medium leading-[1.24] text-[#242424] sm:flex-row sm:gap-[clamp(18px,2vw,36px)]">
+                    <span className="episode-dialog-speaker-badge font-black sm:min-w-[clamp(60px,5vw,120px)]">
+                      {activeSpeakerLabel}
+                    </span>
                     <span>{typedProfessorLine || "\u00A0"}</span>
                   </p>
-                </div>
-                {canAdvanceCurrentStep && (
-                  <div className="flex items-center justify-between gap-4 border-x-2 border-b-2 border-t border-[#a8a8a8] bg-[#f4f4f4] px-[clamp(16px,1.8vw,28px)] py-[clamp(14px,1.5vw,20px)]">
-                    <p className="text-base text-[#2d2d2d] md:text-lg">
+                  </div>
+                  {canAdvanceCurrentStep && (
+                    <div className="episode-dialog-action flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                    <p className="episode-dialog-note">
+                      <span className="episode-dialog-note-mark" aria-hidden>
+                        N
+                      </span>
                       {hasCurrentChoices
                         ? "선택 완료. 다음 단계로 이동하세요."
                         : "다음 단계로 이동하세요."}
@@ -2836,7 +2858,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={moveNextChapter}
-                      className="vn-next-button group shrink-0 px-7 py-3 text-lg font-black text-[#23131c] transition"
+                      className="vn-next-button group w-full px-7 py-3 text-base font-black text-[#23131c] transition sm:w-auto sm:shrink-0 sm:text-lg"
                     >
                       <span className="relative z-[2] flex items-center gap-3">
                         <span className="tracking-[0.08em]">다음</span>
@@ -2845,8 +2867,9 @@ export default function Home() {
                         </span>
                       </span>
                     </button>
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -2929,7 +2952,7 @@ export default function Home() {
                 </div>
               )}
               {typeof ending.score100 === "number" && (
-                <div className="mt-5 flex items-center justify-between gap-4 rounded-[16px] border border-white/15 bg-black/15 px-4 py-3">
+                <div className="mt-5 flex flex-col items-start gap-2 rounded-[16px] border border-white/15 bg-black/15 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <p className="text-sm font-bold tracking-[0.18em] text-[#ffd9ea]">FINAL SCORE</p>
                   <p className="text-xl font-black text-white">{ending.score100}점</p>
                 </div>
@@ -2960,7 +2983,7 @@ export default function Home() {
             <button
               type="button"
               onClick={goCreditScreen}
-              className="mt-16 border-[3px] border-black bg-white px-14 py-4 text-[clamp(48px,4.7vw,76px)] font-semibold leading-none text-black hover:bg-[#f8f8f8]"
+              className="mt-10 border-[3px] border-black bg-white px-7 py-3 text-[clamp(34px,8vw,76px)] font-semibold leading-none text-black hover:bg-[#f8f8f8] sm:mt-16 sm:px-14 sm:py-4"
             >
               크레딧 보기
             </button>
@@ -2989,12 +3012,12 @@ export default function Home() {
               className="credit-roll-content"
               onAnimationEnd={() => setIsCreditFinished(true)}
             >
-              <p className="text-5xl font-semibold leading-snug">
+              <p className="text-[clamp(30px,7vw,48px)] font-semibold leading-snug">
                 두근두근 교수님과 시험기간 시뮬레이션
               </p>
-              <p className="mt-14 text-5xl">Credit</p>
-              <p className="mt-12 text-5xl">숭멋사 14기</p>
-              <p className="mt-14 text-5xl leading-[1.35]">
+              <p className="mt-10 text-[clamp(28px,6.5vw,48px)] sm:mt-14">Credit</p>
+              <p className="mt-8 text-[clamp(28px,6.5vw,48px)] sm:mt-12">숭멋사 14기</p>
+              <p className="mt-10 text-[clamp(28px,6.5vw,48px)] leading-[1.35] sm:mt-14">
                 PM 최영환
                 <br />
                 PM 이영서
