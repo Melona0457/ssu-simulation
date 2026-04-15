@@ -4,18 +4,24 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import { heartParticle } from "@/lib/heart-particle";
 import {
+  professorRouteStory,
+  storyEndingCatalog,
+  storyEpisodeBackdropMap,
+  type StoryEndingRankKey,
+  type StoryEndingVariant,
+  type StoryChoice,
+  type StoryEpisode,
+  type StoryRole,
+  type StoryScene,
+} from "@/lib/professor-route-story";
+import {
   buildIllustrationPrompt,
   buildProfessorSummary,
   chapterFallbackDialogues,
-  chapterInfoMap,
-  clampScore100,
-  dinnerNightBranchByChoice,
   endingMeta,
   finalRealityLine,
   getEndingRank,
   MAIN_BGM_URL,
-  morningLunchBranchByChoice,
-  pickSixChaptersForRun,
   playerGenderOptions,
   professorFeatureSuggestions,
   professorGenderOptions,
@@ -23,7 +29,6 @@ import {
   resolveProfessorForGeneration,
   sessionPackEpisodeIds,
   type ChapterChoice,
-  type ChapterDialogue,
   type ChapterId,
   type EndingRank,
   type PlayerFormState,
@@ -40,10 +45,14 @@ type Phase =
   | "screen11_credit";
 
 type EndingState = {
-  rank: ReturnType<typeof getEndingRank>;
+  rank?: ReturnType<typeof getEndingRank>;
   title: string;
   description: string;
-  score100: number;
+  score100?: number;
+  variantId?: string;
+  variantSubtype?: string;
+  variantLines?: string[];
+  expressionKey?: string;
 };
 
 type SessionExpressionDefinition = {
@@ -56,16 +65,6 @@ type SessionExpressionDefinition = {
 type ChapterSpriteCue = {
   dialogueExpressionKey: string;
   choiceReactionExpressionKeys: [string, string, string];
-};
-
-type SessionPackResponse = {
-  chapters?: Partial<Record<ChapterId, ChapterDialogue>>;
-  stepDialogues?: Partial<Record<ChapterId, ChapterDialogue[]>>;
-  endingPolish?: Partial<Record<EndingRank, { title?: string; description?: string }>>;
-  expressionSet?: SessionExpressionDefinition[];
-  spriteCues?: Partial<Record<ChapterId, ChapterSpriteCue>>;
-  fallback?: boolean;
-  message?: string;
 };
 
 type ProfessorExpressionMap = Record<string, string>;
@@ -83,7 +82,7 @@ type ChapterStep = {
   choices: ChapterChoice[];
 };
 
-type DialogueSpeakerLabel = "나레이션" | "교수" | "나";
+type DialogueSpeakerLabel = "나레이션" | "교수" | "나" | "독백" | "남성";
 
 type SessionPackStepPayload = {
   chapterId: ChapterId;
@@ -580,54 +579,6 @@ function buildSessionPackStepPayload(chapterIds: ChapterId[]): SessionPackStepPa
   });
 }
 
-function mergeStyledChapterSteps(
-  baseSteps: ChapterStep[],
-  styledSteps: ChapterDialogue[] | undefined,
-): ChapterStep[] {
-  if (!styledSteps || styledSteps.length === 0) {
-    return baseSteps;
-  }
-
-  return baseSteps.map((baseStep, stepIndex) => {
-    const styledStep = styledSteps[stepIndex];
-    if (!styledStep) {
-      return baseStep;
-    }
-
-    const dialogue =
-      typeof styledStep.dialogue === "string" && styledStep.dialogue.trim().length > 0
-        ? styledStep.dialogue.trim()
-        : baseStep.dialogue;
-    const choices = baseStep.choices.map((baseChoice, choiceIndex) => {
-      const styledChoice = styledStep.choices?.[choiceIndex];
-      if (!styledChoice) {
-        return baseChoice;
-      }
-
-      return {
-        ...baseChoice,
-        text:
-          typeof styledChoice.text === "string" && styledChoice.text.trim().length > 0
-            ? styledChoice.text.trim()
-            : baseChoice.text,
-        preview:
-          typeof styledChoice.preview === "string" && styledChoice.preview.trim().length > 0
-            ? styledChoice.preview.trim()
-            : baseChoice.preview,
-        reaction:
-          typeof styledChoice.reaction === "string" && styledChoice.reaction.trim().length > 0
-            ? styledChoice.reaction.trim()
-            : baseChoice.reaction,
-      } satisfies ChapterChoice;
-    });
-
-    return {
-      dialogue,
-      choices,
-    };
-  });
-}
-
 const sessionPackStepPayload = buildSessionPackStepPayload(sessionPackEpisodeIds);
 
 const initialPlayerState: PlayerFormState = {
@@ -651,7 +602,6 @@ const initialProfessorState: ProfessorFormState = {
 const preGameBackgroundImageUrl = "/backgrounds/pre-game-bg.webp";
 const mainCoverImageUrl = "/backgrounds/screen1-cover.webp";
 const DEBUG_PASSWORD = "ssulikelion";
-const debugDefaultRunChapters = pickSixChaptersForRun();
 const debugEndingScoreMap: Record<EndingRank, number> = {
   ENDING_A_PLUS: 95,
   ENDING_B_PLUS: 78,
@@ -685,48 +635,6 @@ function toRealityProfessorLabel(name: string) {
   }
 
   return `${base} 교수님`;
-}
-
-function choiceScore(choice: ChapterChoice) {
-  const sum = choice.effects.affinity + choice.effects.intellect;
-  return Math.max(0, Math.min(20, sum));
-}
-
-function parseDialogueSpeakerAndText(
-  rawText: string,
-  fallbackSpeaker: DialogueSpeakerLabel,
-): { speaker: DialogueSpeakerLabel; text: string } {
-  const text = rawText.trim();
-
-  if (!text) {
-    return {
-      speaker: fallbackSpeaker,
-      text: "",
-    };
-  }
-
-  const speakerMatchers: Array<{
-    regex: RegExp;
-    speaker: DialogueSpeakerLabel;
-  }> = [
-    { regex: /^\s*(나레이션|narration)\s*[:：]\s*/i, speaker: "나레이션" },
-    { regex: /^\s*(교수님?|professor)\s*[:：]\s*/i, speaker: "교수" },
-    { regex: /^\s*(학생|플레이어|player|나)\s*[:：]\s*/i, speaker: "나" },
-  ];
-
-  for (const matcher of speakerMatchers) {
-    if (matcher.regex.test(text)) {
-      return {
-        speaker: matcher.speaker,
-        text: text.replace(matcher.regex, "").trim(),
-      };
-    }
-  }
-
-  return {
-    speaker: fallbackSpeaker,
-    text,
-  };
 }
 
 function ensureDialogueSpeakerPrefix(text: string, defaultSpeaker: DialogueSpeakerLabel) {
@@ -845,6 +753,456 @@ function normalizeSpriteCueMap(
   );
 }
 
+const storyEpisodes = professorRouteStory.episodes as readonly StoryEpisode[];
+
+const storyEpisodeMap = new Map<string, StoryEpisode>(
+  storyEpisodes.map((episode) => [episode.id, episode] as const),
+);
+
+const storyEpisodeToChapterIdMap: Record<string, ChapterId> = {
+  ep01_commute: "COMMUTE_CAMPUS",
+  ep02_morning_classroom: "MORNING_CLASSROOM",
+  ep03_lunch_student_cafeteria: "LUNCH_STUDENT_CAFETERIA",
+  ep03_lunch_off_campus_restaurant: "LUNCH_OFFCAMPUS_RESTAURANT",
+  ep03_lunch_bathroom_stall: "LUNCH_RESTROOM_STALL",
+  ep04_library: "AFTERNOON_LIBRARY",
+  ep05_simple_dinner: "LIGHT_DINNER",
+  ep06_night_professor_office: "NIGHT_LAB_VISIT",
+  ep06_night_bench: "NIGHT_CAMPUS_WALK",
+  ep06_night_classroom: "NIGHT_SELF_STUDY",
+};
+
+function getStoryEpisode(episodeId: string) {
+  return storyEpisodeMap.get(episodeId) ?? null;
+}
+
+function getStoryScene(episodeId: string, sceneId: string) {
+  return getStoryEpisode(episodeId)?.scenes.find((scene) => scene.id === sceneId) ?? null;
+}
+
+function getFirstSceneId(episodeId: string) {
+  return getStoryEpisode(episodeId)?.scenes[0]?.id ?? null;
+}
+
+function replaceStoryPlaceholders(text: string, playerName: string, professorName: string) {
+  return text
+    .replace(/__(?=님의|님의|님\b| 교수님| 교수|의 연구실)/g, professorName)
+    .replace(/__ 학생/g, `${playerName} 학생`)
+    .replace(/__/g, playerName);
+}
+
+function storyRoleToSpeaker(role: StoryRole): DialogueSpeakerLabel {
+  if (role === "professor") {
+    return "교수";
+  }
+
+  if (role === "student") {
+    return "나";
+  }
+
+  if (role === "monologue") {
+    return "독백";
+  }
+
+  if (role === "side_male") {
+    return "남성";
+  }
+
+  return "나레이션";
+}
+
+function buildStoryLineText(
+  text: string,
+  playerName: string,
+  professorName: string,
+  extras?: Array<string | undefined>,
+) {
+  const prefix = (extras ?? [])
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean)
+    .map((value) => `(${replaceStoryPlaceholders(value, playerName, professorName)})`)
+    .join(" ");
+  const resolvedText = replaceStoryPlaceholders(text, playerName, professorName);
+  return prefix ? `${prefix} ${resolvedText}` : resolvedText;
+}
+
+function applyProfessorSpeakingStyle(text: string, speakingStyle: string) {
+  const trimmed = text.trim();
+  if (!trimmed) return text;
+
+  const applyRules = (base: string, rules: Array<[RegExp, string]>) =>
+    rules.reduce((acc, [pattern, replacement]) => acc.replace(pattern, replacement), base);
+
+  if (speakingStyle.includes("차분하고 이성적인")) {
+    return applyRules(trimmed, [
+      [/허\.\.\./g, "흠..."],
+      [/아니, /g, "아니, 우선 "],
+      [/좋아,/g, "좋아. 우선"],
+      [/기대하겠네/g, "기대하고 있겠네"],
+      [/조심하게/g, "조심하는 편이 좋겠네"],
+      [/자, /g, "자, 차분히 "],
+    ]);
+  }
+
+  if (speakingStyle.includes("무심한 츤데레")) {
+    return applyRules(trimmed, [
+      [/좋아\./g, "흥, 좋아."],
+      [/좋아,/g, "흥, 좋아."],
+      [/자, /g, "자, 얼른 "],
+      [/고맙네/g, "고맙긴 하군"],
+      [/걱정 말게/g, "쓸데없는 걱정은 말게"],
+      [/기대하겠네/g, "기대는 하겠네, 뭐"],
+      [/그럼/g, "그럼, 흥"],
+      [/괜찮/g, "나쁘지 않"],
+      [/정말/g, "꽤"],
+      [/따뜻/g, "의외로 나쁘지 않"],
+      [/아쉽게도/g, "안됐지만"],
+    ]);
+  }
+
+  if (speakingStyle.includes("유머 섞인 직설")) {
+    return applyRules(trimmed, [
+      [/좋아\./g, "좋아. 아주 솔직해서 좋군."],
+      [/자, /g, "자, 어디 한 번 "],
+      [/곤란하군/g, "곤란하군. 아주 제대로 곤란해"],
+      [/기대하겠네/g, "기대하겠네. 웃기게도 말이야"],
+      [/조심하게/g, "조심하게. 안 그러면 바로 티 나니까"],
+      [/허\.\.\./g, "하, 이런"],
+      [/그렇네\./g, "그렇네. 뻔하지만 사실이지."],
+      [/좋군\./g, "좋군. 아주 선명해서 좋네."],
+      [/정말/g, "진짜"],
+      [/아쉽게도/g, "유감스럽지만"],
+    ]);
+  }
+
+  if (speakingStyle.includes("다정하지만 단호한")) {
+    return applyRules(trimmed, [
+      [/좋아\./g, "좋아. 다만 선은 지키게."],
+      [/자, /g, "자, 천천히 "],
+      [/걱정 말게/g, "걱정하지 말게"],
+      [/조심하게/g, "조심하게. 그건 분명히 말해 두지"],
+      [/기대하겠네/g, "기대하겠네. 그러니 실망시키진 말게"],
+      [/괜찮아?/g, "괜찮나?"],
+      [/기억하게/g, "기억해 두게"],
+      [/괜찮/g, "괜찮네"],
+      [/허\.\.\./g, "음..."],
+    ]);
+  }
+
+  return trimmed;
+}
+
+function resolveSceneLines(
+  scene: StoryScene,
+  playerName: string,
+  professorName: string,
+  professorSpeakingStyle: string,
+): Array<{ speaker: DialogueSpeakerLabel; text: string }> {
+  const stageLines = (scene.stage_direction ?? []).map((direction) => ({
+    speaker: "나레이션" as const,
+    text: `(${replaceStoryPlaceholders(direction, playerName, professorName)})`,
+  }));
+
+  const contentLines = (scene.lines ?? []).map((line) => ({
+    speaker: storyRoleToSpeaker(line.role),
+    text:
+      line.role === "professor"
+        ? applyProfessorSpeakingStyle(
+            buildStoryLineText(line.text, playerName, professorName, [line.expression, line.action]),
+            professorSpeakingStyle,
+          )
+        : buildStoryLineText(line.text, playerName, professorName, [line.expression, line.action]),
+  }));
+
+  return [...stageLines, ...contentLines];
+}
+
+function getStoryEpisodeNumber(episodeId: string) {
+  if (episodeId.startsWith("ep01")) return 1;
+  if (episodeId.startsWith("ep02")) return 2;
+  if (episodeId.startsWith("ep03")) return 3;
+  if (episodeId.startsWith("ep04")) return 4;
+  if (episodeId.startsWith("ep05")) return 5;
+  if (episodeId.startsWith("ep06")) return 6;
+  return 1;
+}
+
+const choiceAffinityMap: Record<string, number> = {
+  ep02_c01_opt01: 2,
+  ep02_c01_opt02: 2,
+  ep02_c01_opt03: 0,
+  ep02_c02_opt01: 2,
+  ep02_c02_opt02: 1,
+  ep02_c03_opt01: 2,
+  ep02_c03_opt02: 2,
+  ep02_c03_opt03: 0,
+  ep03b_c01_opt01: 1,
+  ep03b_c01_opt02: 0,
+  ep03b_c01_opt03: 0,
+  ep03b_c02_opt01: 2,
+  ep03b_c02_opt02: 0,
+  ep03b_c02_opt03: 1,
+  ep03c_c01_opt01: 1,
+  ep03c_c01_opt02: 2,
+  ep03c_c01_opt03: 1,
+  ep03c_c02_opt01: 1,
+  ep03c_c02_opt02: 2,
+  ep03r_c01_opt01: 1,
+  ep03r_c01_opt02: 2,
+  ep03r_c01_opt03: 0,
+  ep04_c01_opt01: 1,
+  ep04_c01_opt02: 2,
+  ep04_c01_opt03: 0,
+  ep04_c02_opt01: 1,
+  ep04_c02_opt02: 2,
+  ep05_c01_opt01: 2,
+  ep05_c01_opt02: 1,
+  ep05_c01_opt03: 2,
+  ep06o_c01_opt01: 2,
+  ep06o_c01_opt02: 1,
+  ep06o_c02_opt01: 2,
+  ep06o_c02_opt02: 2,
+  ep06o_c02_opt03: 0,
+  ep06b_c01_opt01: 2,
+  ep06b_c01_opt02: 2,
+  ep06b_c01_opt03: 1,
+  ep06b_c02_opt01: 1,
+  ep06b_c02_opt02: 2,
+  ep06c_c01_opt01: 1,
+  ep06c_c01_opt02: 2,
+  ep06c_c01_opt03: 1,
+};
+
+function getChoiceAffinity(choiceId: string) {
+  return choiceAffinityMap[choiceId] ?? 1;
+}
+
+function storyEndingKeyByRank(rank: EndingRank): StoryEndingRankKey {
+  if (rank === "ENDING_A_PLUS") return "a_plus_grad_school";
+  if (rank === "ENDING_B_PLUS") return "ending_b";
+  if (rank === "ENDING_C_PLUS") return "c_plus_retake";
+  return "hidden_ending_f";
+}
+
+function buildVariantSummary(
+  variant: StoryEndingVariant,
+  rank: EndingRank,
+) {
+  const rankSummary = endingMeta[rank].description;
+
+  const subtypeSummaryMap: Record<string, string> = {
+    "집착형": "교수는 학생의 뛰어난 성과를 핑계 삼아 관계를 더 오래 붙들어 두려 한다.",
+    "유혹형": "칭찬은 달콤하지만, 그 제안은 학점 이상의 무게로 학생을 끌어당긴다.",
+    "현실 공포형": "성공의 기쁨은 곧바로 되돌릴 수 없는 운명처럼 뒤틀린다.",
+    "아련한 납치": "끝난 줄 알았던 인연은 오히려 더 길고 진하게 이어질 조짐을 보인다.",
+    "노예 계약형": "애매한 성적은 더 미묘한 대가를 부르고, 교수는 그 틈을 놓치지 않는다.",
+    "안면 몰수형": "하루의 특별함은 성적표 앞에서 냉정하게 지워지고, 관계는 다시 멀어진다.",
+    "불합격 통보형": "아슬아슬한 통과는 실패보다 더 질긴 방식으로 다음 학기를 예고한다.",
+    "미련 곰탱이형": "교수는 아직 끝나지 않았다는 듯 재수강을 새로운 인연의 연장선으로 만든다.",
+    "쿨한 재수강 환영형": "담담한 말투 아래, 다시 만나게 될 미래가 이미 예정된 것처럼 깔린다.",
+    "장르 급발진형": "낙제의 충격은 캠퍼스 로맨스를 통째로 다른 장르로 비틀어 버린다.",
+    "갑분 스릴러형": "시험 결과는 관계의 끝이 아니라, 위험한 비밀극의 입구가 되어 버린다.",
+    "환생형": "현실은 무너지고, 학생은 말도 안 되는 방식으로 교수 곁에 남겨진다.",
+  };
+
+  const subtypeSummary = subtypeSummaryMap[variant.subtype] ?? "";
+  return [rankSummary, subtypeSummary].filter(Boolean).join(" ");
+}
+
+function buildVariantLines(
+  variant: StoryEndingVariant,
+  playerName: string,
+  professorName: string,
+  professorSpeakingStyle: string,
+) {
+  const stageLines = (variant.stage_direction ?? []).map(
+    (line) => `나레이션: (${replaceStoryPlaceholders(line, playerName, professorName)})`,
+  );
+  const contentLines = variant.lines.map((line) => {
+    const speaker = storyRoleToSpeaker(line.role);
+    const baseText = buildStoryLineText(line.text, playerName, professorName, [
+      line.action,
+      line.expression,
+    ]);
+    const text =
+      line.role === "professor"
+        ? applyProfessorSpeakingStyle(baseText, professorSpeakingStyle)
+        : baseText;
+    return `${speaker}: ${text}`;
+  });
+
+  return [...stageLines, ...contentLines];
+}
+
+function parseVariantDisplayLine(line: string) {
+  const match = /^(교수|나레이션|나|독백|남성):\s*(.*)$/.exec(line);
+  if (!match) {
+    return { speaker: "대사", text: line };
+  }
+
+  return {
+    speaker: match[1],
+    text: match[2],
+  };
+}
+
+function pickEndingVariant(
+  rank: EndingRank,
+  choiceHistory: string[],
+  finalEpisodeId: string | null,
+): StoryEndingVariant {
+  const catalogKey = storyEndingKeyByRank(rank);
+  const catalog = storyEndingCatalog[catalogKey];
+
+  if (rank === "ENDING_A_PLUS") {
+    if (choiceHistory.includes("ep06o_c02_opt02")) {
+      return catalog.variants[1];
+    }
+    if (choiceHistory.includes("ep06o_c02_opt03")) {
+      return catalog.variants[2];
+    }
+    if (finalEpisodeId === "ep06_night_bench") {
+      return catalog.variants[3];
+    }
+    return catalog.variants[0];
+  }
+
+  if (rank === "ENDING_B_PLUS") {
+    if (choiceHistory.includes("ep06o_c02_opt03") || choiceHistory.includes("ep03r_c01_opt03")) {
+      return catalog.variants[1];
+    }
+    return catalog.variants[0];
+  }
+
+  if (rank === "ENDING_C_PLUS") {
+    if (finalEpisodeId === "ep06_night_classroom") {
+      return catalog.variants[1];
+    }
+    if (finalEpisodeId === "ep06_night_bench") {
+      return catalog.variants[2];
+    }
+    return catalog.variants[0];
+  }
+
+  if (choiceHistory.includes("ep02_c03_opt03")) {
+    return catalog.variants[0];
+  }
+  if (choiceHistory.includes("ep06o_c02_opt03")) {
+    return catalog.variants[1];
+  }
+  return catalog.variants[2];
+}
+
+function getEndingExpressionKey(rank: EndingRank, variant: StoryEndingVariant) {
+  if (rank === "ENDING_F") {
+    return "EXP_3";
+  }
+
+  if (variant.subtype.includes("집착") || variant.subtype.includes("유혹")) {
+    return "EXP_2";
+  }
+
+  if (
+    variant.subtype.includes("현실 공포") ||
+    variant.subtype.includes("안면 몰수") ||
+    variant.subtype.includes("불합격")
+  ) {
+    return "EXP_3";
+  }
+
+  return "EXP_1";
+}
+
+function inferExpressionKeyFromText(text: string) {
+  const value = text.trim();
+
+  if (!value) {
+    return "EXP_1";
+  }
+
+  if (
+    /(미소|웃|따뜻|다행|고맙|칭찬|기대|보증|좋아|괜찮|따라와|버킷리스트|따뜻하|호의|감사)/.test(
+      value,
+    )
+  ) {
+    return "EXP_2";
+  }
+
+  if (
+    /(늦었|질문|긴장|압박|실망|악랄|후회|조심|F|사각지대|못 볼|단호|거리|부담|도망|숨|들켰)/.test(
+      value,
+    )
+  ) {
+    return "EXP_3";
+  }
+
+  return "EXP_1";
+}
+
+const defaultExpressionSet: SessionExpressionDefinition[] = [
+  {
+    key: "EXP_1",
+    label: "차분한 기본",
+    direction: "calm neutral expression, gentle eye contact, composed professor vibe",
+    reason: "전체 에피소드의 기본 대사와 안정 구간을 담당",
+  },
+  {
+    key: "EXP_2",
+    label: "미소/호감",
+    direction: "warm subtle smile, softened eyes, approachable and affectionate tone",
+    reason: "호감 상승, 장난기, 친밀한 반응 구간에 사용",
+  },
+  {
+    key: "EXP_3",
+    label: "단호/긴장",
+    direction: "stern focused expression, tighter brows, disciplined professor authority",
+    reason: "긴장, 압박, 당황 반응 구간을 담당",
+  },
+];
+
+const defaultSpriteCues: Partial<Record<ChapterId, ChapterSpriteCue>> = {
+  COMMUTE_CAMPUS: {
+    dialogueExpressionKey: "EXP_1",
+    choiceReactionExpressionKeys: ["EXP_1", "EXP_1", "EXP_1"],
+  },
+  MORNING_CLASSROOM: {
+    dialogueExpressionKey: "EXP_3",
+    choiceReactionExpressionKeys: ["EXP_2", "EXP_2", "EXP_3"],
+  },
+  LUNCH_STUDENT_CAFETERIA: {
+    dialogueExpressionKey: "EXP_1",
+    choiceReactionExpressionKeys: ["EXP_2", "EXP_1", "EXP_2"],
+  },
+  LUNCH_OFFCAMPUS_RESTAURANT: {
+    dialogueExpressionKey: "EXP_1",
+    choiceReactionExpressionKeys: ["EXP_1", "EXP_2", "EXP_1"],
+  },
+  LUNCH_RESTROOM_STALL: {
+    dialogueExpressionKey: "EXP_3",
+    choiceReactionExpressionKeys: ["EXP_1", "EXP_3", "EXP_3"],
+  },
+  AFTERNOON_LIBRARY: {
+    dialogueExpressionKey: "EXP_1",
+    choiceReactionExpressionKeys: ["EXP_1", "EXP_2", "EXP_3"],
+  },
+  LIGHT_DINNER: {
+    dialogueExpressionKey: "EXP_1",
+    choiceReactionExpressionKeys: ["EXP_1", "EXP_1", "EXP_1"],
+  },
+  NIGHT_LAB_VISIT: {
+    dialogueExpressionKey: "EXP_2",
+    choiceReactionExpressionKeys: ["EXP_2", "EXP_2", "EXP_3"],
+  },
+  NIGHT_CAMPUS_WALK: {
+    dialogueExpressionKey: "EXP_2",
+    choiceReactionExpressionKeys: ["EXP_2", "EXP_2", "EXP_1"],
+  },
+  NIGHT_SELF_STUDY: {
+    dialogueExpressionKey: "EXP_1",
+    choiceReactionExpressionKeys: ["EXP_1", "EXP_2", "EXP_1"],
+  },
+};
+
 const HANGUL_BASE = 0xac00;
 const HANGUL_LAST = 0xd7a3;
 const HANGUL_MEDIAL_COUNT = 21;
@@ -943,11 +1301,14 @@ export default function Home() {
     useState<ProfessorExpressionMap>({});
   const [imageMessage, setImageMessage] = useState("");
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-
-  const [selectedChapterIds, setSelectedChapterIds] = useState<ChapterId[]>([]);
-  const [chapterIndex, setChapterIndex] = useState(0);
-  const [chapterStepIndex, setChapterStepIndex] = useState(0);
-  const [selectedChoiceIndex, setSelectedChoiceIndex] = useState<number | null>(null);
+  const [storyCursor, setStoryCursor] = useState<{
+    episodeId: string;
+    sceneId: string;
+    lineIndex: number;
+  } | null>(null);
+  const [pendingChoice, setPendingChoice] = useState<StoryChoice | null>(null);
+  const [choiceHistory, setChoiceHistory] = useState<string[]>([]);
+  const [maxScore, setMaxScore] = useState(0);
   const [rawScore, setRawScore] = useState(0);
   const [storyLog, setStoryLog] = useState<string[]>([]);
   const [affinityDelta, setAffinityDelta] = useState<{ value: number; id: number } | null>(null);
@@ -958,23 +1319,12 @@ export default function Home() {
 
   const [ending, setEnding] = useState<EndingState | null>(null);
   const [isCreditFinished, setIsCreditFinished] = useState(false);
-  const [isPreparingSession, setIsPreparingSession] = useState(false);
-  const [sessionPackMessage, setSessionPackMessage] = useState("");
-  const [sessionDialogues, setSessionDialogues] = useState<
-    Partial<Record<ChapterId, ChapterDialogue>>
-  >({});
-  const [sessionStepDialogues, setSessionStepDialogues] = useState<
-    Partial<Record<ChapterId, ChapterDialogue[]>>
-  >({});
   const [sessionExpressionSet, setSessionExpressionSet] = useState<
     SessionExpressionDefinition[]
-  >([]);
+  >(defaultExpressionSet);
   const [sessionSpriteCues, setSessionSpriteCues] = useState<
     Partial<Record<ChapterId, ChapterSpriteCue>>
-  >({});
-  const [sessionEndingPolish, setSessionEndingPolish] = useState<
-    Partial<Record<EndingRank, { title: string; description: string }>>
-  >({});
+  >(normalizeSpriteCueMap(defaultSpriteCues));
   const [typedProfessorLine, setTypedProfessorLine] = useState("");
   const [isDebugUnlocked, setIsDebugUnlocked] = useState(false);
   const [isDebugPanelOpen, setIsDebugPanelOpen] = useState(false);
@@ -982,9 +1332,10 @@ export default function Home() {
   const [debugPasswordInput, setDebugPasswordInput] = useState("");
   const [debugAuthError, setDebugAuthError] = useState("");
   const [debugAffinityInput, setDebugAffinityInput] = useState(0);
-  const [debugChapterSelect, setDebugChapterSelect] = useState<ChapterId>("COMMUTE_CAMPUS");
-  const [debugStepSelect, setDebugStepSelect] = useState(0);
+  const [debugEpisodeSelect, setDebugEpisodeSelect] = useState("ep01_commute");
+  const [debugSceneSelect, setDebugSceneSelect] = useState("ep01_scene01");
   const [debugEndingSelect, setDebugEndingSelect] = useState<EndingRank>("ENDING_A_PLUS");
+  const [debugEndingVariantIndex, setDebugEndingVariantIndex] = useState(0);
 
   const debugPhaseButtons: Array<{ phase: Phase; label: string }> = [
     { phase: "screen1_title", label: "화면1 타이틀" },
@@ -1002,74 +1353,102 @@ export default function Home() {
     [professor.name],
   );
 
-  const currentChapterId = selectedChapterIds[chapterIndex];
-  const currentChapterInfo = currentChapterId ? chapterInfoMap[currentChapterId] : null;
-  const fallbackChapterDialogue = currentChapterId
-    ? sessionDialogues[currentChapterId] ?? chapterFallbackDialogues[currentChapterId]
-    : null;
-  const baseChapterSteps = currentChapterId
-    ? (
-        chapterStepScripts[currentChapterId] ?? (fallbackChapterDialogue ? [fallbackChapterDialogue] : [])
-      ).map(normalizeStepScriptSpeakers)
-    : [];
-  const styledChapterSteps = currentChapterId ? sessionStepDialogues[currentChapterId] : undefined;
-  const currentChapterSteps = mergeStyledChapterSteps(baseChapterSteps, styledChapterSteps);
-  const currentDialogue = currentChapterSteps[chapterStepIndex] ?? null;
-  const currentChoiceList = currentDialogue?.choices ?? [];
-  const hasCurrentChoices = currentChoiceList.length > 0;
-  const currentSelectedChoice =
-    selectedChoiceIndex !== null && currentDialogue
-      ? currentChoiceList[selectedChoiceIndex]
+  const currentEpisode = storyCursor ? getStoryEpisode(storyCursor.episodeId) : null;
+  const currentScene = storyCursor ? getStoryScene(storyCursor.episodeId, storyCursor.sceneId) : null;
+  const currentSceneLines = useMemo(() => {
+    if (!currentEpisode || !currentScene) {
+      return [];
+    }
+
+    return resolveSceneLines(currentScene, playerName, professorName, professor.speakingStyle);
+  }, [currentEpisode, currentScene, playerName, professor.speakingStyle, professorName]);
+  const currentLine =
+    !pendingChoice && storyCursor && storyCursor.lineIndex < currentSceneLines.length
+      ? currentSceneLines[storyCursor.lineIndex]
       : null;
-  const endingBackdrop = useMemo(() => {
-    const finalEpisodeId = selectedChapterIds[selectedChapterIds.length - 1] ?? "NIGHT_SELF_STUDY";
-    return chapterInfoMap[finalEpisodeId]?.backdrop ?? preGameBackgroundImageUrl;
-  }, [selectedChapterIds]);
-  const activeDialogueRaw =
-    selectedChoiceIndex === null ? currentDialogue?.dialogue ?? "" : currentSelectedChoice?.reaction ?? "";
-  const activeDialogueFallbackSpeaker: DialogueSpeakerLabel =
-    selectedChoiceIndex === null ? "나레이션" : "교수";
-  const activeDialogueParsed = parseDialogueSpeakerAndText(
-    activeDialogueRaw,
-    activeDialogueFallbackSpeaker,
+  const currentChoiceList = useMemo(
+    () =>
+      currentScene &&
+      !pendingChoice &&
+      storyCursor &&
+      storyCursor.lineIndex >= currentSceneLines.length
+        ? [...(currentScene.choices ?? [])]
+        : [],
+    [currentScene, currentSceneLines.length, pendingChoice, storyCursor],
   );
-  const activeSpeakerLabel = activeDialogueParsed.speaker;
-  const activeDialogueLine = activeDialogueParsed.text;
+  const hasCurrentChoices = currentChoiceList.length > 0;
+  const currentEpisodeNumber = currentEpisode ? getStoryEpisodeNumber(currentEpisode.id) : 1;
+  const currentSceneIndex = currentEpisode && currentScene
+    ? currentEpisode.scenes.findIndex((scene) => scene.id === currentScene.id) + 1
+    : 1;
+  const currentChapterInfo = currentEpisode
+    ? {
+        title: currentEpisode.title,
+        location: currentEpisode.location,
+        backdrop: storyEpisodeBackdropMap[currentEpisode.id] ?? preGameBackgroundImageUrl,
+      }
+    : null;
+  const currentLegacyChapterId = currentEpisode
+    ? storyEpisodeToChapterIdMap[currentEpisode.id]
+    : null;
+  const endingBackdrop =
+    currentChapterInfo?.backdrop ?? generatedImageUrl ?? preGameBackgroundImageUrl;
+  const activeSpeakerLabel = pendingChoice ? "나" : currentLine?.speaker ?? "나레이션";
+  const activeDialogueLine = pendingChoice
+    ? replaceStoryPlaceholders(pendingChoice.text, playerName, professorName)
+    : currentLine?.text ?? "";
   const isDialogueLineTyping =
     phase === "screen4_8_chapter" &&
-    selectedChoiceIndex === null &&
     activeDialogueLine.length > 0 &&
     typedProfessorLine !== activeDialogueLine;
   const shouldShowChoiceOverlay =
-    hasCurrentChoices && selectedChoiceIndex === null && !isDialogueLineTyping;
-  const canAdvanceCurrentStep =
-    (!hasCurrentChoices || selectedChoiceIndex !== null) && !isDialogueLineTyping;
+    hasCurrentChoices && !isDialogueLineTyping;
+  const canAdvanceCurrentStep = (!hasCurrentChoices || Boolean(pendingChoice) || currentLine !== null) && !isDialogueLineTyping;
   const activeProfessorImageUrl = useMemo(() => {
     if (!generatedImageUrl) {
       return "";
     }
 
-    const chapterCue = currentChapterId ? sessionSpriteCues[currentChapterId] : undefined;
-    const selectedExpressionKey =
-      selectedChoiceIndex === null
-        ? chapterCue?.dialogueExpressionKey
-        : chapterCue?.choiceReactionExpressionKeys?.[selectedChoiceIndex];
+    const chapterCue = currentLegacyChapterId ? sessionSpriteCues[currentLegacyChapterId] : undefined;
+    const choiceIndex = pendingChoice
+      ? currentChoiceList.findIndex((choice) => choice.id === pendingChoice.id)
+      : -1;
+    const cueKey =
+      choiceIndex >= 0
+        ? chapterCue?.choiceReactionExpressionKeys?.[choiceIndex]
+        : chapterCue?.dialogueExpressionKey;
+    const inferredKey = inferExpressionKeyFromText(activeDialogueLine);
+    const preferredKey = cueKey || inferredKey;
+    const mappedImage = generatedExpressionImageUrls[preferredKey];
 
-    if (
-      selectedExpressionKey &&
-      typeof generatedExpressionImageUrls[selectedExpressionKey] === "string"
-    ) {
-      return generatedExpressionImageUrls[selectedExpressionKey];
+    if (typeof mappedImage === "string" && mappedImage.length > 0) {
+      return mappedImage;
     }
 
     return generatedImageUrl;
   }, [
-    currentChapterId,
+    activeDialogueLine,
+    currentChoiceList,
+    currentLegacyChapterId,
     generatedExpressionImageUrls,
     generatedImageUrl,
-    selectedChoiceIndex,
+    pendingChoice,
     sessionSpriteCues,
   ]);
+  const endingProfessorImageUrl = useMemo(() => {
+    if (!generatedImageUrl) {
+      return "";
+    }
+
+    if (ending?.expressionKey) {
+      const mapped = generatedExpressionImageUrls[ending.expressionKey];
+      if (typeof mapped === "string" && mapped.length > 0) {
+        return mapped;
+      }
+    }
+
+    return generatedImageUrl;
+  }, [ending?.expressionKey, generatedExpressionImageUrls, generatedImageUrl]);
   const expressionPreviewEntries = useMemo(() => {
     const ordered = sessionExpressionSet
       .map((expression) => ({
@@ -1104,17 +1483,12 @@ export default function Home() {
   }, [generatedExpressionImageUrls, sessionExpressionSet]);
 
   const affinityPercent =
-    selectedChapterIds.length > 0
-      ? Math.min(
-          100,
-          Math.round(
-            (Math.max(0, rawScore) / Math.max(1, selectedChapterIds.length * 20)) * 100,
-          ),
-        )
-      : 0;
+    maxScore > 0 ? Math.min(100, Math.round((Math.max(0, rawScore) / maxScore) * 100)) : 0;
   const visibleAffinityPercent = affinityPercent > 0 ? Math.max(6, affinityPercent) : 0;
   const affinityKnobPercent = Math.max(3, Math.min(97, visibleAffinityPercent));
   const affinityMood = getAffinityMood(affinityPercent);
+  const debugEndingCatalog = storyEndingCatalog[storyEndingKeyByRank(debugEndingSelect)];
+  const debugEndingVariants = debugEndingCatalog.variants;
 
   useEffect(() => {
     const image = new Image();
@@ -1287,9 +1661,26 @@ export default function Home() {
   }, [affinityPercent]);
 
   useEffect(() => {
-    const stepCount = Math.max(1, chapterStepScripts[debugChapterSelect]?.length ?? 1);
-    setDebugStepSelect((current) => Math.min(current, stepCount - 1));
-  }, [debugChapterSelect]);
+    setDebugEndingVariantIndex(0);
+  }, [debugEndingSelect]);
+
+  useEffect(() => {
+    if (debugEndingVariantIndex < debugEndingVariants.length) {
+      return;
+    }
+
+    setDebugEndingVariantIndex(Math.max(debugEndingVariants.length - 1, 0));
+  }, [debugEndingVariantIndex, debugEndingVariants]);
+
+  useEffect(() => {
+    const episode = getStoryEpisode(debugEpisodeSelect);
+    const firstSceneId = episode?.scenes[0]?.id ?? "";
+    const hasCurrentScene = episode?.scenes.some((scene) => scene.id === debugSceneSelect);
+
+    if (!hasCurrentScene && firstSceneId) {
+      setDebugSceneSelect(firstSceneId);
+    }
+  }, [debugEpisodeSelect, debugSceneSelect]);
 
   function updatePlayer<K extends keyof PlayerFormState>(
     key: K,
@@ -1311,52 +1702,51 @@ export default function Home() {
     }));
   }
 
-  function openStoryDebugContext(targetChapter?: ChapterId, targetStep = 0) {
-    const baseRun =
-      selectedChapterIds.length > 0 ? [...selectedChapterIds] : [...debugDefaultRunChapters];
-    const chapterId = targetChapter ?? baseRun[0] ?? "COMMUTE_CAMPUS";
-    let chapterPosition = baseRun.indexOf(chapterId);
-    if (chapterPosition < 0) {
-      baseRun.push(chapterId);
-      chapterPosition = baseRun.length - 1;
+  function openStoryDebugContext(targetEpisodeId: string, targetSceneId?: string) {
+    const firstSceneId = targetSceneId || getFirstSceneId(targetEpisodeId);
+    if (!firstSceneId) {
+      return;
     }
 
-    const stepCount = Math.max(1, chapterStepScripts[chapterId]?.length ?? 1);
-    const nextStep = Math.max(0, Math.min(stepCount - 1, targetStep));
-
-    setSelectedChapterIds(baseRun);
-    setChapterIndex(chapterPosition);
-    setChapterStepIndex(nextStep);
-    setSelectedChoiceIndex(null);
+    setStoryCursor({
+      episodeId: targetEpisodeId,
+      sceneId: firstSceneId,
+      lineIndex: 0,
+    });
+    setPendingChoice(null);
     setPhase("screen4_8_chapter");
   }
 
-  function previewEndingByRank(rank: EndingRank) {
-    const polished = sessionEndingPolish[rank];
-    const title = polished?.title || endingMeta[rank].title;
-    const description = polished?.description || endingMeta[rank].description;
+  function previewEndingByRank(rank: EndingRank, variantIndex = 0) {
+    const variants = storyEndingCatalog[storyEndingKeyByRank(rank)].variants;
+    const safeVariantIndex = Math.min(Math.max(variantIndex, 0), variants.length - 1);
+    const variant = variants[safeVariantIndex];
     setEnding({
       rank,
-      title,
-      description,
+      title: `${endingMeta[rank].title} · ${variant.title}`,
+      description: buildVariantSummary(variant, rank),
       score100: debugEndingScoreMap[rank],
+      variantId: variant.id,
+      variantSubtype: variant.subtype,
+      variantLines: buildVariantLines(variant, playerName, professorName, professor.speakingStyle),
+      expressionKey: getEndingExpressionKey(rank, variant),
     });
     setPhase("screen9_ending");
   }
 
   function jumpToPhaseByDebug(targetPhase: Phase) {
     if (targetPhase === "screen4_8_chapter") {
-      openStoryDebugContext(debugChapterSelect, debugStepSelect);
+      openStoryDebugContext(debugEpisodeSelect, debugSceneSelect);
       return;
     }
 
     if (targetPhase === "screen9_ending") {
-      previewEndingByRank(debugEndingSelect);
+      previewEndingByRank(debugEndingSelect, debugEndingVariantIndex);
       return;
     }
 
     if (targetPhase === "screen10_reality" && !ending) {
-      previewEndingByRank(debugEndingSelect);
+      previewEndingByRank(debugEndingSelect, debugEndingVariantIndex);
     }
 
     if (targetPhase === "screen11_credit") {
@@ -1368,10 +1758,11 @@ export default function Home() {
 
   function applyDebugAffinity() {
     const nextPercent = Math.max(0, Math.min(100, Math.round(debugAffinityInput)));
-    const chapterCount = Math.max(1, selectedChapterIds.length || debugDefaultRunChapters.length);
-    const nextRawScore = Math.round((nextPercent / 100) * chapterCount * 20);
+    const scoreBase = Math.max(maxScore, 20);
+    const nextRawScore = Math.round((nextPercent / 100) * scoreBase);
     setDebugAffinityInput(nextPercent);
     setRawScore(nextRawScore);
+    setMaxScore(scoreBase);
     setAffinityDelta(null);
   }
 
@@ -1467,146 +1858,90 @@ export default function Home() {
     }
   }
 
-  async function prepareSessionPack(
-    resolvedProfessor: ProfessorFormState,
-    runChapters: ChapterId[],
-  ) {
-    const professorNameForPrompt = toDisplayProfessorName(resolvedProfessor.name);
-    const professorSummaryForPrompt = buildProfessorSummary(resolvedProfessor);
-    let normalizedExpressionSet: SessionExpressionDefinition[] = [];
-
-    setIsPreparingSession(true);
-    setSessionPackMessage("세션 스토리를 준비 중입니다...");
+  function prepareSessionPack(resolvedProfessor: ProfessorFormState) {
+    void sessionPackStepPayload.length;
     setProfessor(resolvedProfessor);
-    setSelectedChapterIds(runChapters);
-    setChapterIndex(0);
-    setChapterStepIndex(0);
-    setSelectedChoiceIndex(null);
     setRawScore(0);
+    setMaxScore(0);
     setAffinityDelta(null);
     if (affinityDeltaTimerRef.current) {
       clearTimeout(affinityDeltaTimerRef.current);
       affinityDeltaTimerRef.current = null;
     }
     setEnding(null);
-    setSessionDialogues({});
-    setSessionStepDialogues({});
-    setSessionExpressionSet([]);
-    setSessionSpriteCues({});
-    setSessionEndingPolish({});
+    setSessionExpressionSet(defaultExpressionSet);
+    setSessionSpriteCues(normalizeSpriteCueMap(defaultSpriteCues));
     setStoryLog([
       `${playerName}(${player.gender})의 시험기간 시뮬레이션 시작`,
       `${toDisplayProfessorName(resolvedProfessor.name)} 교수님과의 첫 만남이 시작되었다.`,
     ]);
-
-    try {
-      const response = await fetch("/api/generate-session-pack", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          chapterIds: sessionPackEpisodeIds,
-          chapterSteps: sessionPackStepPayload,
-          playerName,
-          professorName: professorNameForPrompt,
-          professorSummary: professorSummaryForPrompt,
-        }),
-      });
-
-      const data = (await response.json()) as SessionPackResponse;
-
-      if (!response.ok) {
-        throw new Error(data.message || "세션 스토리 생성 실패");
-      }
-
-      if (data.chapters) {
-        setSessionDialogues(data.chapters);
-      }
-      if (data.stepDialogues) {
-        setSessionStepDialogues(data.stepDialogues);
-      }
-
-      normalizedExpressionSet = normalizeExpressionSet(data.expressionSet);
-      setSessionExpressionSet(normalizedExpressionSet);
-      setSessionSpriteCues(normalizeSpriteCueMap(data.spriteCues));
-
-      if (data.endingPolish) {
-        const normalizedEndingPolish: Partial<
-          Record<EndingRank, { title: string; description: string }>
-        > = {};
-
-        (Object.keys(endingMeta) as EndingRank[]).forEach((rank) => {
-          const polished = data.endingPolish?.[rank];
-          const title =
-            typeof polished?.title === "string" && polished.title.trim().length > 0
-              ? polished.title.trim()
-              : endingMeta[rank].title;
-          const description =
-            typeof polished?.description === "string" &&
-            polished.description.trim().length > 0
-              ? polished.description.trim()
-              : endingMeta[rank].description;
-
-          normalizedEndingPolish[rank] = { title, description };
-        });
-
-        setSessionEndingPolish(normalizedEndingPolish);
-      }
-
-      if (data.fallback) {
-        setSessionPackMessage(data.message || "기본 챕터 대사/엔딩으로 시작합니다.");
-      } else {
-        setSessionPackMessage("세션 스토리 준비 완료");
-      }
-    } catch (error) {
-      setSessionPackMessage(
-        error instanceof Error
-          ? `세션 생성 실패: ${error.message}. 기본 데이터로 시작합니다.`
-          : "세션 생성 실패로 기본 데이터로 시작합니다.",
-      );
-      setSessionStepDialogues({});
-      setSessionExpressionSet([]);
-      setSessionSpriteCues({});
-    } finally {
-      setIsPreparingSession(false);
-    }
-
-    return normalizedExpressionSet;
+    return defaultExpressionSet;
   }
 
-  async function startStory() {
-    if (isPreparingSession) {
+  function startStory() {
+    const resolvedProfessor = resolveProfessorForGeneration(professor);
+    prepareSessionPack(resolvedProfessor);
+    const firstEpisodeId = "ep01_commute";
+    const firstSceneId = getFirstSceneId(firstEpisodeId);
+    if (!firstSceneId) {
       return;
     }
-
-    const resolvedProfessor = resolveProfessorForGeneration(professor);
-    const runChapters = pickSixChaptersForRun();
-
-    await prepareSessionPack(resolvedProfessor, runChapters);
-    setChapterStepIndex(0);
+    setStoryCursor({ episodeId: firstEpisodeId, sceneId: firstSceneId, lineIndex: 0 });
+    setPendingChoice(null);
+    setChoiceHistory([]);
+    setRawScore(0);
+    setMaxScore(0);
     setPhase("screen4_8_chapter");
   }
 
   async function makeProfessorAndStartStory() {
-    if (isGeneratingImage || isPreparingSession) {
+    if (isGeneratingImage) {
       return;
     }
 
     const resolvedProfessor = resolveProfessorForGeneration(professor);
-    const runChapters = pickSixChaptersForRun();
 
-    const expressionSetFromSession = await prepareSessionPack(resolvedProfessor, runChapters);
+    const expressionSetFromSession = prepareSessionPack(resolvedProfessor);
     await generateProfessorImage({
       resolvedProfessor,
       expressionSet: expressionSetFromSession,
     });
-    setChapterStepIndex(0);
+    const firstEpisodeId = "ep01_commute";
+    const firstSceneId = getFirstSceneId(firstEpisodeId);
+    if (!firstSceneId) {
+      return;
+    }
+    setStoryCursor({ episodeId: firstEpisodeId, sceneId: firstSceneId, lineIndex: 0 });
+    setPendingChoice(null);
+    setChoiceHistory([]);
+    setRawScore(0);
+    setMaxScore(0);
     setPhase("screen4_8_chapter");
   }
 
+  function moveToEpisode(episodeId: string) {
+    const firstSceneId = getFirstSceneId(episodeId);
+    if (!firstSceneId) {
+      return;
+    }
+
+    setStoryCursor({
+      episodeId,
+      sceneId: firstSceneId,
+      lineIndex: 0,
+    });
+  }
+
+  function moveToScene(episodeId: string, sceneId: string) {
+    setStoryCursor({
+      episodeId,
+      sceneId,
+      lineIndex: 0,
+    });
+  }
+
   function chooseOption(choiceIndex: number) {
-    if (!currentDialogue || !hasCurrentChoices || selectedChoiceIndex !== null) {
+    if (!hasCurrentChoices || pendingChoice) {
       return;
     }
 
@@ -1615,10 +1950,11 @@ export default function Home() {
       return;
     }
 
-    const gainedScore = choiceScore(choice);
-    setSelectedChoiceIndex(choiceIndex);
+    setPendingChoice(choice);
+    const gainedScore = getChoiceAffinity(choice.id);
+    setChoiceHistory((current) => [...current, choice.id]);
     setRawScore((current) => current + gainedScore);
-
+    setMaxScore((current) => current + 2);
     if (gainedScore > 0) {
       setAffinityDelta({ value: gainedScore, id: Date.now() });
       if (affinityDeltaTimerRef.current) {
@@ -1627,74 +1963,87 @@ export default function Home() {
       affinityDeltaTimerRef.current = setTimeout(() => {
         setAffinityDelta(null);
       }, 1200);
-    }
-
-    if (currentChapterId === "MORNING_CLASSROOM" && chapterStepIndex === 2) {
-      const lunchEpisode = morningLunchBranchByChoice[choiceIndex as 0 | 1 | 2];
-      setSelectedChapterIds((current) => {
-        if (current.length < 3) {
-          return current;
-        }
-
-        const next = [...current];
-        next[2] = lunchEpisode;
-        return next;
-      });
-    }
-
-    if (currentChapterId === "LIGHT_DINNER" && chapterStepIndex === 0) {
-      const nightEpisode = dinnerNightBranchByChoice[choiceIndex as 0 | 1 | 2];
-      setSelectedChapterIds((current) => {
-        if (current.length < 6) {
-          return current;
-        }
-
-        const next = [...current];
-        next[5] = nightEpisode;
-        return next;
-      });
+    } else {
+      setAffinityDelta(null);
     }
 
     setStoryLog((current) => [
       ...current,
-      `[${chapterIndex + 1}에피소드-${chapterStepIndex + 1}단계] ${choice.text}`,
-      choice.reaction,
+      `[${currentEpisodeNumber}에피소드] ${replaceStoryPlaceholders(choice.text, playerName, professorName)}`,
     ]);
   }
 
   function moveNextChapter() {
-    if (!currentDialogue || !canAdvanceCurrentStep) {
+    if (!storyCursor || !currentScene || !canAdvanceCurrentStep) {
       return;
     }
 
-    const nextStepIndex = chapterStepIndex + 1;
-    if (nextStepIndex < currentChapterSteps.length) {
-      setChapterStepIndex(nextStepIndex);
-      setSelectedChoiceIndex(null);
+    if (pendingChoice) {
+      setPendingChoice(null);
+
+      if (pendingChoice.next_scene) {
+        moveToScene(storyCursor.episodeId, pendingChoice.next_scene);
+        return;
+      }
+
+      if (pendingChoice.next_episode) {
+        moveToEpisode(pendingChoice.next_episode);
+        return;
+      }
+
       return;
     }
 
-    const nextIndex = chapterIndex + 1;
-
-    if (nextIndex < selectedChapterIds.length) {
-      setChapterIndex(nextIndex);
-      setChapterStepIndex(0);
-      setSelectedChoiceIndex(null);
+    const nextLineIndex = storyCursor.lineIndex + 1;
+    if (nextLineIndex < currentSceneLines.length) {
+      setStoryCursor((current) =>
+        current
+          ? {
+              ...current,
+              lineIndex: nextLineIndex,
+            }
+          : current,
+      );
       return;
     }
 
-    const score100 = clampScore100(rawScore, selectedChapterIds.length);
-    const rank = getEndingRank(score100);
-    const endingTemplate = endingMeta[rank];
-    const polishedEnding = sessionEndingPolish[rank];
+    if (currentScene.choices && currentScene.choices.length > 0) {
+      return;
+    }
 
-    setEnding({
-      rank,
-      title: polishedEnding?.title || endingTemplate.title,
-      description: polishedEnding?.description || endingTemplate.description,
-      score100,
-    });
-    setPhase("screen9_ending");
+    if (currentScene.next_scene) {
+      moveToScene(storyCursor.episodeId, currentScene.next_scene);
+      return;
+    }
+
+    if (currentScene.next_episode) {
+      moveToEpisode(currentScene.next_episode);
+      return;
+    }
+
+    if (currentScene.terminal) {
+      const score100 = maxScore > 0 ? Math.round((Math.max(0, rawScore) / maxScore) * 100) : 0;
+      const rank = getEndingRank(score100);
+      const variant = pickEndingVariant(rank, choiceHistory, storyCursor.episodeId);
+      const rankTitle = endingMeta[rank].title;
+
+      setEnding({
+        rank,
+        title: `${rankTitle} · ${variant.title}`,
+        description: buildVariantSummary(variant, rank),
+        score100,
+        variantId: variant.id,
+        variantSubtype: variant.subtype,
+        variantLines: buildVariantLines(
+          variant,
+          playerName,
+          professorName,
+          professor.speakingStyle,
+        ),
+        expressionKey: getEndingExpressionKey(rank, variant),
+      });
+      setPhase("screen9_ending");
+    }
   }
 
   function goRealityScreen() {
@@ -1713,11 +2062,11 @@ export default function Home() {
     setGeneratedImageUrl("");
     setGeneratedExpressionImageUrls({});
     setImageMessage("");
-    setSelectedChapterIds([]);
-    setChapterIndex(0);
-    setChapterStepIndex(0);
-    setSelectedChoiceIndex(null);
+    setStoryCursor(null);
+    setPendingChoice(null);
+    setChoiceHistory([]);
     setRawScore(0);
+    setMaxScore(0);
     setAffinityDelta(null);
     if (affinityDeltaTimerRef.current) {
       clearTimeout(affinityDeltaTimerRef.current);
@@ -1726,13 +2075,8 @@ export default function Home() {
     setStoryLog([]);
     setEnding(null);
     setIsCreditFinished(false);
-    setIsPreparingSession(false);
-    setSessionPackMessage("");
-    setSessionDialogues({});
-    setSessionStepDialogues({});
-    setSessionExpressionSet([]);
-    setSessionSpriteCues({});
-    setSessionEndingPolish({});
+    setSessionExpressionSet(defaultExpressionSet);
+    setSessionSpriteCues(normalizeSpriteCueMap(defaultSpriteCues));
   }
 
   return (
@@ -1835,8 +2179,15 @@ export default function Home() {
               화면: <span className="font-bold">{phase}</span>
             </p>
             <p className="text-sm">
+              에피소드: <span className="font-bold">{currentEpisode?.id ?? "-"}</span>
+            </p>
+            <p className="text-sm">
+              씬: <span className="font-bold">{currentScene?.id ?? "-"}</span>
+            </p>
+            <p className="text-sm">
               호감도: <span className="font-bold">{affinityPercent}%</span> / Raw Score:{" "}
-              <span className="font-bold">{rawScore}</span>
+              <span className="font-bold">{rawScore}</span> / Max Score:{" "}
+              <span className="font-bold">{maxScore}</span>
             </p>
           </div>
 
@@ -1865,13 +2216,39 @@ export default function Home() {
                   type="button"
                   onClick={() => {
                     setDebugEndingSelect(rank);
-                    previewEndingByRank(rank);
+                    setDebugEndingVariantIndex(0);
+                    previewEndingByRank(rank, 0);
                   }}
                   className="rounded-lg border border-[#cfa4b8] bg-white px-2 py-2 text-xs font-semibold hover:bg-[#fff4fa]"
                 >
                   {endingMeta[rank].title}
                 </button>
               ))}
+            </div>
+            <div className="mt-3 rounded-lg border border-[#d9b2c4] bg-white/85 p-3">
+              <p className="mb-2 text-xs font-black text-[#7c3457]">
+                {endingMeta[debugEndingSelect].title} Variant
+              </p>
+              <div className="grid grid-cols-1 gap-2">
+                {debugEndingVariants.map((variant, index) => (
+                  <button
+                    key={variant.id}
+                    type="button"
+                    onClick={() => {
+                      setDebugEndingVariantIndex(index);
+                      previewEndingByRank(debugEndingSelect, index);
+                    }}
+                    className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+                      debugEndingVariantIndex === index
+                        ? "border-[#b45f84] bg-[#ffe2ef] text-[#5d2140]"
+                        : "border-[#cfa4b8] bg-white text-[#6b3a54] hover:bg-[#fff4fa]"
+                    }`}
+                  >
+                    <span className="block font-black">{variant.subtype}</span>
+                    <span className="mt-1 block text-[11px] opacity-80">{variant.title}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -1905,39 +2282,40 @@ export default function Home() {
           </div>
 
           <div className="mt-3 rounded-lg border border-[#d9b2c4] bg-white/85 p-3">
-            <p className="mb-2 text-sm font-black text-[#5e2341]">챕터/스텝 점프</p>
+            <p className="mb-2 text-sm font-black text-[#5e2341]">스토리 점프</p>
             <select
-              value={debugChapterSelect}
-              onChange={(event) => setDebugChapterSelect(event.target.value as ChapterId)}
+              value={debugEpisodeSelect}
+              onChange={(event) => setDebugEpisodeSelect(event.target.value)}
               className="h-9 w-full rounded-md border border-[#caa3b6] px-2 text-sm"
             >
-              {(Object.keys(chapterInfoMap) as ChapterId[]).map((chapterId) => (
-                <option key={chapterId} value={chapterId}>
-                  {chapterInfoMap[chapterId].title}
+              {storyEpisodes.map((episode) => (
+                <option key={episode.id} value={episode.id}>
+                  {episode.title}
                 </option>
               ))}
             </select>
+            <select
+              value={debugSceneSelect}
+              onChange={(event) => setDebugSceneSelect(event.target.value)}
+              className="mt-2 h-9 w-full rounded-md border border-[#caa3b6] px-2 text-sm"
+            >
+              {(getStoryEpisode(debugEpisodeSelect)?.scenes ?? []).map((scene) => (
+                <option key={scene.id} value={scene.id}>
+                  {scene.id}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => openStoryDebugContext(debugEpisodeSelect, debugSceneSelect)}
+              className="mt-2 rounded-md border border-[#b45f84] bg-[#ffd9ea] px-3 py-1.5 text-xs font-black text-[#5d2140]"
+            >
+              이 씬으로 이동
+            </button>
             <div className="mt-2 flex items-center gap-2">
-              <input
-                type="number"
-                min={0}
-                max={Math.max(0, (chapterStepScripts[debugChapterSelect]?.length ?? 1) - 1)}
-                value={debugStepSelect}
-                onChange={(event) => setDebugStepSelect(Number(event.target.value))}
-                className="h-9 w-20 rounded-md border border-[#caa3b6] px-2 text-sm"
-              />
               <button
                 type="button"
-                onClick={() => openStoryDebugContext(debugChapterSelect, debugStepSelect)}
-                className="rounded-md border border-[#b45f84] bg-[#ffd9ea] px-3 py-1.5 text-xs font-black text-[#5d2140]"
-              >
-                이동
-              </button>
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedChoiceIndex(null)}
+                onClick={() => setPendingChoice(null)}
                 className="rounded-md border border-[#c29aad] bg-white px-2 py-1 text-xs font-semibold"
               >
                 선택 전 상태
@@ -1946,7 +2324,7 @@ export default function Home() {
                 type="button"
                 onClick={() => {
                   if (currentChoiceList.length > 0) {
-                    setSelectedChoiceIndex(0);
+                    setPendingChoice(currentChoiceList[0] ?? null);
                     setPhase("screen4_8_chapter");
                   }
                 }}
@@ -2253,7 +2631,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={makeProfessorAndStartStory}
-                  disabled={isGeneratingImage || isPreparingSession}
+                  disabled={isGeneratingImage}
                   className="screen2-confirm-btn screen3-create-btn disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <span className="screen2-confirm-gloss" aria-hidden />
@@ -2269,7 +2647,7 @@ export default function Home() {
                     ♡
                   </span>
                   <span className="screen2-confirm-label">
-                    {isGeneratingImage || isPreparingSession ? "생성중..." : "만들기"}
+                    {isGeneratingImage ? "생성중..." : "만들기"}
                   </span>
                   <span className="screen2-confirm-heart screen2-confirm-heart-right" aria-hidden>
                     ♡
@@ -2278,10 +2656,10 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={startStory}
-                  disabled={isPreparingSession || isGeneratingImage}
+                  disabled={isGeneratingImage}
                   className="rounded-full border-2 border-[#b87995] bg-white/80 px-7 py-2 text-xl font-semibold text-[#5c223e] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {isPreparingSession || isGeneratingImage ? "준비 중..." : "스토리만 바로 시작"}
+                  {isGeneratingImage ? "준비 중..." : "스토리만 바로 시작"}
                 </button>
               </div>
 
@@ -2316,17 +2694,13 @@ export default function Home() {
                   )}
                 </div>
               )}
-
               {imageMessage && <p className="mt-2 text-lg text-[#612842]">{imageMessage}</p>}
-              {sessionPackMessage && (
-                <p className="mt-1 text-base text-[#67314a]">{sessionPackMessage}</p>
-              )}
             </article>
           </div>
         </section>
       )}
 
-      {phase === "screen4_8_chapter" && currentChapterInfo && currentDialogue && (
+      {phase === "screen4_8_chapter" && currentChapterInfo && storyCursor && (
         <section className="relative min-h-screen overflow-hidden">
           <div
             className="absolute inset-0 bg-cover bg-center"
@@ -2398,7 +2772,7 @@ export default function Home() {
             </div>
 
             <div className="mt-3 rounded bg-black/45 px-4 py-2 text-sm text-white">
-              EPISODE {chapterIndex + 1} / 6 · STEP {chapterStepIndex + 1} / {Math.max(1, currentChapterSteps.length)} · {currentChapterInfo.title} · {currentChapterInfo.location}
+              EPISODE {currentEpisodeNumber} / 6 · SCENE {currentSceneIndex} / {Math.max(1, currentEpisode?.scenes.length ?? 1)} · {currentChapterInfo.title} · {currentChapterInfo.location}
             </div>
 
             <div className="relative mt-4 flex flex-1 items-end justify-center pb-[260px] md:pb-[300px]">
@@ -2424,7 +2798,7 @@ export default function Home() {
                       key={`${choice.text}-${index}`}
                       type="button"
                       onClick={() => chooseOption(index)}
-                      className="block w-full rounded-[12px] border border-[#b7b7b7] bg-[rgba(255,255,255,0.94)] px-6 py-4 text-center text-[clamp(22px,2.4vw,52px)] font-medium leading-[1.2] text-[#2f2f2f] shadow-[0_10px_28px_rgba(0,0,0,0.18)] transition duration-150 hover:translate-y-[-1px] hover:brightness-[1.01] active:translate-y-0"
+                      className="font-story block w-full rounded-[12px] border border-[#b7b7b7] bg-[rgba(255,255,255,0.94)] px-6 py-4 text-center text-[clamp(22px,2.4vw,52px)] font-medium leading-[1.2] text-[#2f2f2f] shadow-[0_10px_28px_rgba(0,0,0,0.18)] transition duration-150 hover:translate-y-[-1px] hover:brightness-[1.01] active:translate-y-0"
                     >
                       {choice.text}
                     </button>
@@ -2447,14 +2821,14 @@ export default function Home() {
                   aria-hidden
                 />
                 <div className="border-x-2 border-b-2 border-[#a8a8a8] bg-[#f4f4f4] px-[clamp(16px,1.8vw,28px)] py-[clamp(16px,1.8vw,28px)]">
-                  <p className="m-0 flex items-start gap-[clamp(18px,2vw,36px)] text-[clamp(24px,2.5vw,50px)] font-medium leading-[1.24] text-[#242424]">
+                  <p className="font-story m-0 flex items-start gap-[clamp(18px,2vw,36px)] text-[clamp(24px,2.5vw,50px)] font-medium leading-[1.24] text-[#242424]">
                     <span className="min-w-[clamp(60px,5vw,120px)] font-black">{activeSpeakerLabel}</span>
                     <span>{typedProfessorLine || "\u00A0"}</span>
                   </p>
                 </div>
                 {canAdvanceCurrentStep && (
-                  <div className="mt-[-1px] flex items-center justify-between gap-4 border-x-2 border-b-2 border-[#a8a8a8] bg-[#f4f4f4] px-[clamp(16px,1.8vw,28px)] pb-[clamp(14px,1.5vw,22px)]">
-                    <p className="text-base text-[#2d2d2d]">
+                  <div className="flex items-center justify-between gap-4 border-x-2 border-b-2 border-t border-[#a8a8a8] bg-[#f4f4f4] px-[clamp(16px,1.8vw,28px)] py-[clamp(14px,1.5vw,20px)]">
+                    <p className="text-base text-[#2d2d2d] md:text-lg">
                       {hasCurrentChoices
                         ? "선택 완료. 다음 단계로 이동하세요."
                         : "다음 단계로 이동하세요."}
@@ -2462,9 +2836,14 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={moveNextChapter}
-                      className="rounded-md border border-[#484848] bg-white px-5 py-2 text-lg font-semibold text-black transition hover:bg-[#f6f6f6]"
+                      className="vn-next-button group shrink-0 px-7 py-3 text-lg font-black text-[#23131c] transition"
                     >
-                      다음
+                      <span className="relative z-[2] flex items-center gap-3">
+                        <span className="tracking-[0.08em]">다음</span>
+                        <span className="text-xl transition-transform duration-150 group-hover:translate-x-[2px]">
+                          ▶
+                        </span>
+                      </span>
                     </button>
                   </div>
                 )}
@@ -2481,17 +2860,84 @@ export default function Home() {
             style={{ backgroundImage: `url(${endingBackdrop})` }}
           />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,12,20,0.35),rgba(8,12,20,0.75))]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,221,235,0.18),transparent_38%),radial-gradient(circle_at_82%_22%,rgba(255,196,220,0.16),transparent_34%),radial-gradient(circle_at_50%_100%,rgba(255,161,196,0.18),transparent_44%)]" />
 
           <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-end px-4 pb-6 md:px-8">
-            <div className="rounded border border-[#8b8b8b] bg-[rgba(30,30,30,0.62)] p-4 text-white">
-              <p className="text-xl">엔딩 내용</p>
-              <p className="font-sans mt-2 text-3xl font-semibold">{ending.title}</p>
-              <p className="mt-3 text-2xl leading-relaxed">{ending.description}</p>
-              <p className="mt-3 text-lg">최종 점수: {ending.score100}점</p>
+            <div className="ending-card rounded-[22px] border border-[rgba(255,255,255,0.28)] bg-[linear-gradient(180deg,rgba(39,24,38,0.78),rgba(18,14,22,0.86))] p-5 text-white md:p-7">
+              <p className="text-sm font-bold tracking-[0.24em] text-[#ffd8eb]">ENDING RESULT</p>
+              {ending.variantSubtype && (
+                <p className="mt-3 inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-semibold text-[#ffe5f2]">
+                  {ending.variantSubtype}
+                </p>
+              )}
+              <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
+                <div>
+                  <p className="text-[clamp(32px,3.6vw,52px)] font-black leading-[1.08] text-white">
+                    {ending.title}
+                  </p>
+                  <p className="mt-4 max-w-4xl text-[clamp(18px,1.7vw,28px)] leading-[1.72] text-white/88">
+                    {ending.description}
+                  </p>
+                </div>
+                {endingProfessorImageUrl && (
+                  <div className="ending-portrait-panel mx-auto w-full max-w-[280px] overflow-hidden rounded-[22px] border border-white/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.04))] p-3">
+                    <div className="rounded-[16px] bg-[radial-gradient(circle_at_50%_18%,rgba(255,234,243,0.32),rgba(255,255,255,0.02)_62%),linear-gradient(180deg,rgba(29,17,27,0.28),rgba(12,10,18,0.36))]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={endingProfessorImageUrl}
+                        alt={`${professorName} 엔딩 표정`}
+                        className="h-[320px] w-full object-contain drop-shadow-[0_18px_26px_rgba(0,0,0,0.38)]"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+              {ending.variantLines && ending.variantLines.length > 0 && (
+                <div className="mt-5 rounded-[18px] border border-white/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] p-4 md:p-5">
+                  <p className="mb-3 text-sm font-bold tracking-[0.22em] text-[#ffd9ea]">
+                    VARIANT SCRIPT
+                  </p>
+                  <div className="space-y-3 text-left">
+                    {ending.variantLines.map((line, index) => {
+                      const parsedLine = parseVariantDisplayLine(line);
+
+                      return (
+                        <div
+                          key={`${line}-${index}`}
+                          className="rounded-[14px] border border-white/10 bg-black/10 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                        >
+                          <div className="flex items-start gap-3">
+                            <span
+                              className={`mt-1 inline-flex min-w-[72px] justify-center rounded-full px-3 py-1 text-xs font-black tracking-[0.16em] ${
+                                parsedLine.speaker === "교수"
+                                  ? "bg-[#ffd7ea] text-[#59233f]"
+                                  : parsedLine.speaker === "나레이션"
+                                    ? "bg-white/12 text-[#ffe7f2]"
+                                    : "bg-[#f8f3ff] text-[#403050]"
+                              }`}
+                            >
+                              {parsedLine.speaker}
+                            </span>
+                            <p className="font-story text-[clamp(18px,1.5vw,24px)] leading-[1.75] text-white/94">
+                              {parsedLine.text}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {typeof ending.score100 === "number" && (
+                <div className="mt-5 flex items-center justify-between gap-4 rounded-[16px] border border-white/15 bg-black/15 px-4 py-3">
+                  <p className="text-sm font-bold tracking-[0.18em] text-[#ffd9ea]">FINAL SCORE</p>
+                  <p className="text-xl font-black text-white">{ending.score100}점</p>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={goRealityScreen}
-                className="mt-5 border border-white bg-white px-6 py-2 text-lg font-semibold text-black hover:bg-neutral-100"
+                className="mt-6 rounded-full border border-white/70 bg-white px-7 py-3 text-lg font-black text-[#25131c] shadow-[0_10px_24px_rgba(0,0,0,0.24)] transition hover:bg-[#fff5fa]"
               >
                 다음
               </button>
