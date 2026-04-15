@@ -1642,3 +1642,20 @@
 
 - `npm run lint` 통과
 - `npm run build` 통과
+
+## 2026-04-15 추가 로그 (중복 폰트 자산 정리)
+
+### 요청 배경
+
+- `public/fonts/OwnglyphMeetme.ttf`를 실제 로딩 경로로 사용 중인데
+- `src/app/온글잎 밑미.ttf` 중복 파일이 `dev/main`에 남아 있어 혼선을 줄 수 있었음
+
+### 구현/수정 내용
+
+- [src/app/globals.css](/Users/jeongin/ssu-simulation/src/app/globals.css) 기준 실제 사용 경로를 유지
+- 사용되지 않는 `src/app/온글잎 밑미.ttf` 중복 자산 제거
+- 폰트 로딩 기준을 `public/fonts/OwnglyphMeetme.ttf` 단일 경로로 정리
+
+### 검증
+
+- 코드 검색 기준 `src/app/온글잎 밑미.ttf` 참조 없음 확인

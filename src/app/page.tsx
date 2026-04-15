@@ -2622,7 +2622,7 @@ export default function Home() {
           }}
         >
           <div className="w-full max-w-[980px] text-center">
-            <h2 className="text-[clamp(56px,8vw,112px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8b3a60,_0_12px_30px_rgba(0,0,0,0.45)]">
+            <h2 className="font-sans text-[clamp(56px,8vw,112px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8b3a60,_0_12px_30px_rgba(0,0,0,0.45)]">
               당신의 이름과 성별은?
             </h2>
 
@@ -2695,7 +2695,7 @@ export default function Home() {
           }}
         >
           <div className="w-full max-w-[1240px] text-center">
-            <h2 className="text-[clamp(56px,8vw,108px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8a3a5f,_0_12px_30px_rgba(0,0,0,0.45)]">
+            <h2 className="font-sans text-[clamp(56px,8vw,108px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8a3a5f,_0_12px_30px_rgba(0,0,0,0.45)]">
               교수님 생성
             </h2>
 
@@ -3260,7 +3260,7 @@ export default function Home() {
             <button
               type="button"
               onClick={goCreditScreen}
-              className="mt-10 border-[3px] border-black bg-white px-7 py-3 text-[clamp(34px,8vw,76px)] font-semibold leading-none text-black hover:bg-[#f8f8f8] sm:mt-16 sm:px-14 sm:py-4"
+              className="font-sans mt-10 border-[3px] border-black bg-white px-7 py-3 text-[clamp(34px,8vw,76px)] font-semibold leading-none text-black hover:bg-[#f8f8f8] sm:mt-16 sm:px-14 sm:py-4"
             >
               크레딧 보기
             </button>
@@ -3304,8 +3304,8 @@ export default function Home() {
                   "두근두근 교수님과 시험기간 시뮬레이션"
                 )}
               </p>
-              <p className="mt-10 text-[clamp(28px,6.5vw,48px)] sm:mt-14">Credit</p>
-              <p className="mt-8 text-[clamp(28px,6.5vw,48px)] sm:mt-12">숭멋사 14기</p>
+              <p className="font-sans mt-10 text-[clamp(28px,6.5vw,48px)] sm:mt-14">Credit</p>
+              <p className="font-sans mt-8 text-[clamp(28px,6.5vw,48px)] sm:mt-12">숭멋사 14기</p>
               <p className="mt-10 text-[clamp(28px,6.5vw,48px)] leading-[1.35] sm:mt-14">
                 PM 최영환
                 <br />
