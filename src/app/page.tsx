@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useId, useMemo, useState, useRef } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import { heartParticle } from "@/lib/heart-particle";
 import {
@@ -36,7 +36,6 @@ type Phase =
   | "screen3_professor"
   | "screen4_8_chapter"
   | "screen9_ending"
-  | "screen10_reality"
   | "screen11_credit";
 
 type EndingState = {
@@ -877,7 +876,7 @@ function resolveBgmUrlByContext(phase: Phase, episodeId: string | null) {
     return STORY_BGM_URLS.introSetup;
   }
 
-  if (phase === "screen9_ending" || phase === "screen10_reality" || phase === "screen11_credit") {
+  if (phase === "screen9_ending" || phase === "screen11_credit") {
     return STORY_BGM_URLS.endingCredit;
   }
 
@@ -1136,6 +1135,24 @@ function pickEndingVariant(
   return hiddenVariants[randomIndex];
 }
 
+function getEndingScreenImagePath(rank: EndingRank | undefined, professorGender: string) {
+  const genderPrefix = professorGender === "여자" ? "female" : "male";
+
+  if (rank === "ENDING_A_PLUS") {
+    return `/ui/ending-screen/${genderPrefix}A+.webp`;
+  }
+
+  if (rank === "ENDING_B_PLUS") {
+    return `/ui/ending-screen/${genderPrefix}B+.webp`;
+  }
+
+  if (rank === "ENDING_C_PLUS") {
+    return `/ui/ending-screen/${genderPrefix}C+.webp`;
+  }
+
+  return null;
+}
+
 
 const HANGUL_BASE = 0xac00;
 const HANGUL_LAST = 0xd7a3;
@@ -1250,12 +1267,14 @@ export default function Home() {
   const particleImageRef = useRef<HTMLImageElement | null>(null);
   const particleFrameRef = useRef<number | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const endingTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moveNextChapterRef = useRef<() => void>(() => {});
   const revealCurrentDialogueImmediatelyRef = useRef<() => void>(() => {});
   const isDialogueLineTypingRef = useRef(false);
   const canAdvanceCurrentStepRef = useRef(false);
 
   const [ending, setEnding] = useState<EndingState | null>(null);
+  const [isEndingTransition, setIsEndingTransition] = useState(false);
   const [isCreditFinished, setIsCreditFinished] = useState(false);
   const [typedProfessorLine, setTypedProfessorLine] = useState("");
   const [isAutoPlayOn, setIsAutoPlayOn] = useState(false);
@@ -1269,6 +1288,10 @@ export default function Home() {
   const [debugSceneSelect, setDebugSceneSelect] = useState("ep01_scene01");
   const [debugEndingSelect, setDebugEndingSelect] = useState<EndingRank>("ENDING_A_PLUS");
   const [debugEndingVariantIndex, setDebugEndingVariantIndex] = useState(0);
+  const [debugPlayerGender, setDebugPlayerGender] = useState<PlayerFormState["gender"]>(initialPlayerState.gender);
+  const [debugProfessorGender, setDebugProfessorGender] = useState<ProfessorFormState["gender"]>(initialProfessorState.gender);
+  const [debugProfessorSpeakingStyle, setDebugProfessorSpeakingStyle] = useState<ProfessorFormState["speakingStyle"]>("TONE_30S");
+  const eyeBlinkMaskId = useId();
 
   const debugPhaseButtons: Array<{ phase: Phase; label: string }> = [
     { phase: "screen1_title", label: "화면1 타이틀" },
@@ -1276,7 +1299,6 @@ export default function Home() {
     { phase: "screen3_professor", label: "화면3 교수 설정" },
     { phase: "screen4_8_chapter", label: "화면4~8 스토리" },
     { phase: "screen9_ending", label: "화면9 엔딩" },
-    { phase: "screen10_reality", label: "화면10 현실" },
     { phase: "screen11_credit", label: "화면11 크레딧" },
   ];
 
@@ -1343,14 +1365,20 @@ export default function Home() {
     typeof currentLine?.professorLineIndex === "number"
       ? buildProfessorVoiceSlotPath(activeProfessorScriptProfileKey, currentLine.professorLineIndex)
       : "";
+  const isNightEpisodeEndingTransition =
+    phase === "screen4_8_chapter" &&
+    isEndingTransition &&
+    Boolean(storyCursor?.episodeId?.startsWith("ep06_"));
   const isDialogueLineTyping =
     phase === "screen4_8_chapter" &&
     activeDialogueLine.length > 0 &&
     typedProfessorLine !== activeDialogueLine;
   const shouldShowChoiceOverlay =
-    hasCurrentChoices && !isDialogueLineTyping;
+    hasCurrentChoices && !isDialogueLineTyping && !isNightEpisodeEndingTransition;
   const canAdvanceCurrentStep =
-    (!hasCurrentChoices || Boolean(pendingChoice) || currentLine !== null) && !isDialogueLineTyping;
+    (!hasCurrentChoices || Boolean(pendingChoice) || currentLine !== null) &&
+    !isDialogueLineTyping &&
+    !isNightEpisodeEndingTransition;
 
   function revealCurrentDialogueImmediately() {
     const line = activeDialogueLine.trim();
@@ -1376,6 +1404,10 @@ export default function Home() {
   const affinityKnobPercent = Math.max(3, Math.min(97, visibleAffinityPercent));
   const affinityMood = getAffinityMood(affinityPercent);
   const debugEndingCatalog = storyEndingCatalog[storyEndingKeyByRank(debugEndingSelect)];
+  const endingScreenImagePath = useMemo(
+    () => getEndingScreenImagePath(ending?.rank, professor.gender),
+    [ending?.rank, professor.gender],
+  );
   const debugEndingVariants = useMemo(
     () =>
       debugEndingSelect === "ENDING_F"
@@ -1441,6 +1473,10 @@ export default function Home() {
       if (typingTimerRef.current) {
         clearTimeout(typingTimerRef.current);
         typingTimerRef.current = null;
+      }
+      if (endingTransitionTimerRef.current) {
+        clearTimeout(endingTransitionTimerRef.current);
+        endingTransitionTimerRef.current = null;
       }
       if (particleFrameRef.current) {
         cancelAnimationFrame(particleFrameRef.current);
@@ -1689,6 +1725,15 @@ export default function Home() {
     }
   }, [debugEpisodeSelect, debugSceneSelect]);
 
+  useEffect(() => {
+    setDebugPlayerGender(player.gender);
+  }, [player.gender]);
+
+  useEffect(() => {
+    setDebugProfessorGender(professor.gender);
+    setDebugProfessorSpeakingStyle(professor.speakingStyle || "TONE_30S");
+  }, [professor.gender, professor.speakingStyle]);
+
   function updatePlayer<K extends keyof PlayerFormState>(
     key: K,
     value: PlayerFormState[K],
@@ -1756,10 +1801,6 @@ export default function Home() {
       return;
     }
 
-    if (targetPhase === "screen10_reality" && !ending) {
-      previewEndingByRank(debugEndingSelect, debugEndingVariantIndex);
-    }
-
     if (targetPhase === "screen11_credit") {
       setIsCreditFinished(false);
     }
@@ -1811,6 +1852,22 @@ export default function Home() {
 
   function goScreen2() {
     setPhase("screen2_player");
+  }
+
+  async function applyDebugCharacterSettings() {
+    const nextPlayerGender = debugPlayerGender;
+    const nextProfessor = resolveProfessorForGeneration({
+      ...professor,
+      gender: debugProfessorGender,
+      speakingStyle: debugProfessorSpeakingStyle || "TONE_30S",
+    });
+
+    setPlayer((current) => ({
+      ...current,
+      gender: nextPlayerGender,
+    }));
+    setProfessor(nextProfessor);
+    await loadProfessorScriptLines(nextProfessor);
   }
 
   function confirmPlayerInfo() {
@@ -1894,6 +1951,20 @@ export default function Home() {
     });
   }
 
+  function queueEndingTransition(nextEnding: EndingState) {
+    if (endingTransitionTimerRef.current) {
+      clearTimeout(endingTransitionTimerRef.current);
+    }
+
+    setIsEndingTransition(true);
+    endingTransitionTimerRef.current = setTimeout(() => {
+      setEnding(nextEnding);
+      setPhase("screen9_ending");
+      setIsEndingTransition(false);
+      endingTransitionTimerRef.current = null;
+    }, 1800);
+  }
+
   function chooseOption(choiceIndex: number) {
     if (!hasCurrentChoices || pendingChoice) {
       return;
@@ -1937,7 +2008,7 @@ export default function Home() {
   }
 
   function moveNextChapter() {
-    if (!storyCursor || !currentScene || !canAdvanceCurrentStep) {
+    if (!storyCursor || !currentScene || !canAdvanceCurrentStep || isEndingTransition) {
       return;
     }
 
@@ -1990,7 +2061,7 @@ export default function Home() {
       const variant = pickEndingVariant(rank);
       const rankTitle = endingMeta[rank].title;
 
-      setEnding({
+      const nextEndingState: EndingState = {
         rank,
         title: `${rankTitle} · ${variant.title}`,
         description: buildVariantSummary(variant, rank),
@@ -1998,13 +2069,16 @@ export default function Home() {
         variantId: variant.id,
         variantSubtype: variant.subtype,
         variantLines: buildVariantLines(variant, playerName, professorName, professor.gender),
-      });
+      };
+
+      if (storyCursor.episodeId.startsWith("ep06_")) {
+        queueEndingTransition(nextEndingState);
+        return;
+      }
+
+      setEnding(nextEndingState);
       setPhase("screen9_ending");
     }
-  }
-
-  function goRealityScreen() {
-    setPhase("screen10_reality");
   }
 
   function goCreditScreen() {
@@ -2029,8 +2103,13 @@ export default function Home() {
     }
     setStoryLog([]);
     setEnding(null);
+    setIsEndingTransition(false);
     setIsCreditFinished(false);
     setIsAutoPlayOn(false);
+    if (endingTransitionTimerRef.current) {
+      clearTimeout(endingTransitionTimerRef.current);
+      endingTransitionTimerRef.current = null;
+    }
     lastSfxTriggerRef.current = "";
   }
 
@@ -2041,10 +2120,9 @@ export default function Home() {
         <button
           type="button"
           onClick={handleDebugButtonClick}
-          className={`top-hud-button ${isDebugUnlocked ? "is-active" : ""}`}
+          className={`top-hud-button top-hud-secret-button ${isDebugUnlocked ? "is-active" : ""}`}
         >
-          <span className="top-hud-button-label">Debug</span>
-          <span className="top-hud-button-value">{isDebugUnlocked ? "열림" : "잠금"}</span>
+          <span className="top-hud-button-label">♡교수님의 비밀 에피소드를 발견해!♡</span>
         </button>
         <button
           type="button"
@@ -2065,9 +2143,9 @@ export default function Home() {
       {isDebugPasswordModalOpen && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-sm rounded-2xl border-2 border-[#d59ab5] bg-white p-5 shadow-2xl">
-            <p className="text-lg font-black text-[#5a2240]">디버그 잠금 해제</p>
+            <p className="text-lg font-black text-[#5a2240]">비밀 에피소드 잠금 해제</p>
             <p className="mt-1 text-sm text-[#6a3951]">
-              비밀번호를 입력하면 디버그 패널을 사용할 수 있어요.
+              비밀번호를 입력하면 운영진 패널을 열 수 있어요.
             </p>
             <input
               type="password"
@@ -2132,6 +2210,15 @@ export default function Home() {
               화면: <span className="font-bold">{phase}</span>
             </p>
             <p className="text-sm">
+              내 성별: <span className="font-bold">{player.gender}</span>
+            </p>
+            <p className="text-sm">
+              교수 설정: <span className="font-bold">{professor.gender}</span> /{" "}
+              <span className="font-bold">
+                {professorSpeakingStyleOptions.find((option) => option.value === (professor.speakingStyle || "TONE_30S"))?.label ?? "30대"}
+              </span>
+            </p>
+            <p className="text-sm">
               에피소드: <span className="font-bold">{currentEpisode?.id ?? "-"}</span>
             </p>
             <p className="text-sm">
@@ -2149,6 +2236,64 @@ export default function Home() {
             <p className="text-sm break-all">
               현재 BGM: <span className="font-bold">{currentBgmUrl}</span>
             </p>
+          </div>
+
+          <div className="mt-3 rounded-lg border border-[#d9b2c4] bg-white/85 p-3">
+            <p className="mb-2 text-sm font-black text-[#5e2341]">캐릭터 디버그 설정</p>
+            <label className="block text-[11px] font-bold tracking-[0.08em] text-[#7c3457]">
+              내 성별
+            </label>
+            <select
+              value={debugPlayerGender}
+              onChange={(event) => setDebugPlayerGender(event.target.value as PlayerFormState["gender"])}
+              className="mt-1 h-9 w-full rounded-md border border-[#caa3b6] px-2 text-sm"
+            >
+              {playerGenderOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <label className="mt-3 block text-[11px] font-bold tracking-[0.08em] text-[#7c3457]">
+              교수 성별
+            </label>
+            <select
+              value={debugProfessorGender}
+              onChange={(event) => setDebugProfessorGender(event.target.value as ProfessorFormState["gender"])}
+              className="mt-1 h-9 w-full rounded-md border border-[#caa3b6] px-2 text-sm"
+            >
+              {professorGenderOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <label className="mt-3 block text-[11px] font-bold tracking-[0.08em] text-[#7c3457]">
+              교수 말투
+            </label>
+            <select
+              value={debugProfessorSpeakingStyle}
+              onChange={(event) => setDebugProfessorSpeakingStyle(event.target.value as ProfessorFormState["speakingStyle"])}
+              className="mt-1 h-9 w-full rounded-md border border-[#caa3b6] px-2 text-sm"
+            >
+              {professorSpeakingStyleOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={() => {
+                void applyDebugCharacterSettings();
+              }}
+              className="mt-3 rounded-md border border-[#b45f84] bg-[#ffd9ea] px-3 py-1.5 text-xs font-black text-[#5d2140]"
+            >
+              캐릭터 설정 적용
+            </button>
           </div>
 
           <div className="mt-3">
@@ -2304,7 +2449,7 @@ export default function Home() {
 
       {phase === "screen1_title" && (
         <section
-          className="relative flex min-h-screen cursor-pointer items-end justify-center overflow-hidden px-4 py-8 md:px-8 md:py-10"
+          className="relative flex min-h-screen cursor-pointer items-center justify-center overflow-hidden px-4 py-6 md:px-8 md:py-8"
           onClick={goScreen2}
           role="button"
           tabIndex={0}
@@ -2314,19 +2459,32 @@ export default function Home() {
             }
           }}
         >
-          <div className="absolute inset-0 bg-[linear-gradient(145deg,#d892b0_0%,#f6d2e3_56%,#cb7fa4_100%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_16%,rgba(255,199,226,0.58),rgba(255,199,226,0)_52%),radial-gradient(circle_at_14%_84%,rgba(255,193,221,0.56),rgba(255,193,221,0)_56%)]" />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,208,227,0.08),rgba(64,20,42,0.52))]" />
+          <div
+            className="absolute inset-0 bg-center bg-cover bg-no-repeat"
+            style={{ backgroundImage: "url('/ui/title-screen/intro-background.webp')" }}
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,235,242,0.05),rgba(88,34,55,0.22))]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_14%,rgba(255,244,247,0.16),rgba(255,244,247,0)_26%),radial-gradient(circle_at_16%_82%,rgba(255,213,226,0.1),rgba(255,213,226,0)_30%),radial-gradient(circle_at_84%_18%,rgba(255,213,226,0.1),rgba(255,213,226,0)_28%)]" />
+          <div
+            className="screen1-title-full absolute inset-0 z-[1]"
+            style={{ backgroundImage: "url('/ui/title-screen/title-logo.webp')" }}
+            aria-hidden
+          />
 
-          <div className="relative z-10 mx-auto w-full max-w-[1120px] px-2 text-center md:px-4">
-            <h1 className="text-[clamp(42px,6.6vw,110px)] font-black leading-[1.01] tracking-[-0.04em] text-[#ffd6e7] [text-shadow:_0_4px_0_#8c3f64,_0_9px_26px_rgba(38,10,24,0.5)]">
-              ♡교수님과 두근두근♡
-              <br />
-              시험기간 시뮬레이션
-            </h1>
-            <p className="screen1-touch-guide mt-4 text-[clamp(18px,2.2vw,34px)] font-bold leading-none text-white [text-shadow:_0_2px_10px_rgba(0,0,0,0.82)]">
-              화면을 클릭하여 게임을 시작해 주세요
-            </p>
+          <div className="screen1-stage relative z-10 mx-auto flex w-full max-w-[1360px] flex-col items-center justify-center">
+            <div className="screen1-hero-frame">
+              <div className="screen1-title-wrap">
+                <h1 className="sr-only">교수님과 두근두근 시험기간 시뮬레이션</h1>
+              </div>
+
+              <div className="screen1-start-wrap">
+                <div
+                  className="screen1-start-art"
+                  style={{ backgroundImage: "url('/ui/title-screen/start-button.webp')" }}
+                  aria-hidden
+                />
+              </div>
+            </div>
           </div>
         </section>
       )}
@@ -2336,6 +2494,8 @@ export default function Home() {
           className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-8"
           style={{
             backgroundImage: [
+              "linear-gradient(180deg, rgba(69,20,44,0.24), rgba(61,18,40,0.4))",
+              "url('/ui/title-screen/player-customize-background.webp')",
               "linear-gradient(180deg, rgba(69,20,44,0.28), rgba(61,18,40,0.44))",
               "radial-gradient(circle at 82% 16%, rgba(255,176,212,0.58), rgba(255,176,212,0) 52%)",
               "radial-gradient(circle at 16% 82%, rgba(255,188,217,0.55), rgba(255,188,217,0) 55%)",
@@ -2408,6 +2568,8 @@ export default function Home() {
           className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-6 md:px-8 md:py-8"
           style={{
             backgroundImage: [
+              "linear-gradient(180deg, rgba(67,20,42,0.24), rgba(69,16,41,0.42))",
+              "url('/ui/title-screen/professor-customize-background.webp')",
               "linear-gradient(180deg, rgba(67,20,42,0.3), rgba(69,16,41,0.48))",
               "radial-gradient(circle at 80% 18%, rgba(255,188,219,0.56), rgba(255,188,219,0) 54%)",
               "radial-gradient(circle at 14% 82%, rgba(255,194,219,0.53), rgba(255,194,219,0) 56%)",
@@ -2547,6 +2709,58 @@ export default function Home() {
           />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(44,14,33,0.22),rgba(34,10,27,0.58))]" />
           <div className="episode-soft-pink-tint absolute inset-0" />
+          {isNightEpisodeEndingTransition && (
+            <div className="episode-eye-blink-overlay absolute inset-0 z-40" aria-hidden>
+              <svg
+                className="episode-eye-blink-svg"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+              >
+                <defs>
+                  <mask id={eyeBlinkMaskId} maskUnits="userSpaceOnUse">
+                    <rect width="100" height="100" fill="white" />
+                    <ellipse
+                      className="episode-eye-blink-ellipse"
+                      cx="50"
+                      cy="50"
+                      rx="47"
+                      ry="27"
+                      fill="black"
+                    />
+                  </mask>
+                  <radialGradient id={`${eyeBlinkMaskId}-iris-glow`} cx="50%" cy="50%" r="62%">
+                    <stop offset="0%" stopColor="rgba(255,255,255,0.12)" />
+                    <stop offset="58%" stopColor="rgba(255,255,255,0.04)" />
+                    <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+                  </radialGradient>
+                </defs>
+                <rect
+                  width="100"
+                  height="100"
+                  fill="rgba(0,0,0,0.992)"
+                  mask={`url(#${eyeBlinkMaskId})`}
+                />
+                <ellipse
+                  className="episode-eye-blink-ellipse episode-eye-blink-ellipse-texture"
+                  cx="50"
+                  cy="50"
+                  rx="47"
+                  ry="27"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.12)"
+                  strokeWidth="0.45"
+                />
+                <ellipse
+                  className="episode-eye-blink-ellipse episode-eye-blink-ellipse-soft"
+                  cx="50"
+                  cy="50"
+                  rx="45.5"
+                  ry="24"
+                  fill={`url(#${eyeBlinkMaskId}-iris-glow)`}
+                />
+              </svg>
+            </div>
+          )}
           {shouldShowChoiceOverlay && (
             <div
               className="absolute inset-0 z-10 bg-[rgba(32,8,21,0.36)] backdrop-blur-[2.4px]"
@@ -2755,103 +2969,42 @@ export default function Home() {
 
       {phase === "screen9_ending" && ending && (
         <section className="relative min-h-screen overflow-hidden">
-          <div
-            className="absolute inset-0"
-            style={{ backgroundImage: `${DUMMY_DARK_LAYER}, ${DUMMY_SOLID_LAYER}` }}
-          />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,12,20,0.35),rgba(8,12,20,0.75))]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,221,235,0.18),transparent_38%),radial-gradient(circle_at_82%_22%,rgba(255,196,220,0.16),transparent_34%),radial-gradient(circle_at_50%_100%,rgba(255,161,196,0.18),transparent_44%)]" />
-
-          <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-end px-4 pb-6 md:px-8">
-            <div className="ending-card rounded-[22px] border border-[rgba(255,255,255,0.28)] bg-[linear-gradient(180deg,rgba(39,24,38,0.78),rgba(18,14,22,0.86))] p-5 text-white md:p-7">
-              <p className="text-sm font-bold tracking-[0.24em] text-[#ffd8eb]">ENDING RESULT</p>
-              {ending.variantSubtype && (
-                <p className="mt-3 inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-semibold text-[#ffe5f2]">
-                  {ending.variantSubtype}
-                </p>
-              )}
-              <div className="mt-4 grid gap-5 lg:grid-cols-1 lg:items-end">
-                <div>
+          {endingScreenImagePath ? (
+            <div
+              className="absolute inset-0 bg-center bg-cover bg-no-repeat"
+              style={{ backgroundImage: `url('${endingScreenImagePath}')` }}
+            />
+          ) : (
+            <>
+              <div
+                className="absolute inset-0"
+                style={{ backgroundImage: `${DUMMY_DARK_LAYER}, ${DUMMY_SOLID_LAYER}` }}
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,12,20,0.35),rgba(8,12,20,0.75))]" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,221,235,0.18),transparent_38%),radial-gradient(circle_at_82%_22%,rgba(255,196,220,0.16),transparent_34%),radial-gradient(circle_at_50%_100%,rgba(255,161,196,0.18),transparent_44%)]" />
+              <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl items-center px-6 py-8">
+                <div className="rounded-[22px] border border-[rgba(255,255,255,0.28)] bg-[linear-gradient(180deg,rgba(39,24,38,0.78),rgba(18,14,22,0.86))] p-6 text-white md:p-8">
                   <p className="text-[clamp(32px,3.6vw,52px)] font-black leading-[1.08] text-white">
                     {ending.title}
                   </p>
-                  <p className="mt-4 max-w-4xl text-[clamp(18px,1.7vw,28px)] leading-[1.72] text-white/88">
+                  <p className="mt-4 text-[clamp(18px,1.7vw,28px)] leading-[1.72] text-white/88">
                     {ending.description}
                   </p>
                 </div>
               </div>
-              {ending.variantLines && ending.variantLines.length > 0 && (
-                <div className="mt-5 rounded-[18px] border border-white/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] p-4 md:p-5">
-                  <p className="mb-3 text-sm font-bold tracking-[0.22em] text-[#ffd9ea]">
-                    VARIANT SCRIPT
-                  </p>
-                  <div className="space-y-3 text-left">
-                    {ending.variantLines.map((line, index) => {
-                      const parsedLine = parseVariantDisplayLine(line);
+            </>
+          )}
 
-                      return (
-                        <div
-                          key={`${line}-${index}`}
-                          className="rounded-[14px] border border-white/10 bg-black/10 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-                        >
-                          <div className="flex items-start gap-3">
-                            <span
-                              className={`mt-1 inline-flex min-w-[72px] justify-center rounded-full px-3 py-1 text-xs font-black tracking-[0.16em] ${
-                                parsedLine.speaker === "교수"
-                                  ? "bg-[#ffd7ea] text-[#59233f]"
-                                  : parsedLine.speaker === "나레이션"
-                                    ? "bg-white/12 text-[#ffe7f2]"
-                                    : "bg-[#f8f3ff] text-[#403050]"
-                              }`}
-                            >
-                              {parsedLine.speaker}
-                            </span>
-                            <p className="font-story text-[clamp(18px,1.5vw,24px)] leading-[1.75] text-white/94">
-                              {parsedLine.text}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {typeof ending.score100 === "number" && (
-                <div className="mt-5 flex flex-col items-start gap-2 rounded-[16px] border border-white/15 bg-black/15 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                  <p className="text-sm font-bold tracking-[0.18em] text-[#ffd9ea]">FINAL SCORE</p>
-                  <p className="text-xl font-black text-white">{ending.score100}점</p>
-                </div>
-              )}
+          <div className="pointer-events-none absolute inset-0 z-20">
+            <div className="flex min-h-screen items-end justify-end px-4 pb-6 md:px-8 md:pb-8">
               <button
                 type="button"
-                onClick={goRealityScreen}
-                className="mt-6 rounded-full border border-white/70 bg-white px-7 py-3 text-lg font-black text-[#25131c] shadow-[0_10px_24px_rgba(0,0,0,0.24)] transition hover:bg-[#fff5fa]"
+                onClick={goCreditScreen}
+                className="pointer-events-auto rounded-full border border-white/70 bg-white px-7 py-3 text-lg font-black text-[#25131c] shadow-[0_10px_24px_rgba(0,0,0,0.24)] transition hover:bg-[#fff5fa]"
               >
                 다음
               </button>
             </div>
-          </div>
-        </section>
-      )}
-
-      {phase === "screen10_reality" && (
-        <section className="flex min-h-screen items-center justify-center bg-[#e6e6e6] px-4 py-8">
-          <div className="w-full max-w-[1240px] text-center text-[clamp(54px,5.8vw,96px)] leading-[1.36] text-black">
-            <p>
-              {playerName}!<br />
-              {finalRealityLine}
-              <br />
-              오늘 {realityProfessorName}과 함께 한 하루를 잊지 말고
-              <br />
-              시험 잘 보길 바랄게.
-            </p>
-            <button
-              type="button"
-              onClick={goCreditScreen}
-              className="font-sans mt-10 border-[3px] border-black bg-white px-7 py-3 text-[clamp(34px,8vw,76px)] font-semibold leading-none text-black hover:bg-[#f8f8f8] sm:mt-16 sm:px-14 sm:py-4"
-            >
-              크레딧 보기
-            </button>
           </div>
         </section>
       )}
@@ -2877,9 +3030,12 @@ export default function Home() {
               className="credit-roll-content"
               onAnimationEnd={() => setIsCreditFinished(true)}
             >
-              <p className="text-[clamp(30px,7vw,48px)] font-semibold leading-snug">
-                두근두근 교수님과 시험기간 시뮬레이션
-              </p>
+              <div
+                className="credit-title-logo mx-auto h-[clamp(280px,42vw,760px)] w-full max-w-[min(98vw,1800px)] bg-center bg-contain bg-no-repeat"
+                style={{ backgroundImage: "url('/ui/title-screen/end-logo.webp')" }}
+                aria-label="두근두근 교수님과 시험기간 시뮬레이션"
+                role="img"
+              />
               <p className="font-sans mt-10 text-[clamp(28px,6.5vw,48px)] sm:mt-14">Credit</p>
               <p className="font-sans mt-8 text-[clamp(28px,6.5vw,48px)] sm:mt-12">숭멋사 14기</p>
               <p className="mt-10 text-[clamp(28px,6.5vw,48px)] leading-[1.35] sm:mt-14">
@@ -2904,18 +3060,6 @@ export default function Home() {
         </section>
       )}
 
-      {phase === "screen9_ending" && ending && storyLog.length > 0 && (
-        <section className="mx-auto max-w-5xl px-4 pb-8">
-          <div className="rounded border border-black bg-white p-4">
-            <p className="text-lg font-semibold">플레이 로그 (내부 데모용)</p>
-            <div className="mt-3 grid gap-2 text-sm text-neutral-800">
-              {storyLog.map((line, index) => (
-                <p key={`${line}-${index}`}>{line}</p>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
     </main>
   );
 }

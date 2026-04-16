@@ -218,6 +218,59 @@
 - `npm run lint` 통과
 - `npx tsc --noEmit` 통과
 
+## 2026-04-17 엔딩/타이틀/디버그 UI 마감 정리
+
+### 요청 기준 반영
+- 밤 에피소드 종료 후 엔딩 전환에 1인칭 눈 감김 모션 추가
+- 엔딩 화면은 A+/B+/C+ 성별별 `.webp` 이미지를 풀스크린으로 노출하고 우측 하단 `다음` 버튼만 유지
+- `화면10 현실` 제거 후 엔딩에서 바로 크레딧으로 이동
+- 타이틀/크레딧 이미지 자산을 `.webp` 기준으로 교체
+- 디버그 패널에서 플레이어 성별, 교수 성별, 교수 말투까지 직접 변경 가능하도록 확장
+
+### 구현 내용
+- `src/app/page.tsx`
+  - 밤 에피소드 종료 시 엔딩 직행 대신 눈 깜빡임 전환 오버레이를 거친 뒤 `screen9_ending`으로 이동하도록 조정
+  - 눈 감김 오버레이를 SVG mask 기반 구조로 교체해 검은 오버레이 밖 누수 없이 중앙 시야만 노출되도록 수정
+  - 엔딩 이미지 매핑 함수 추가
+    - `ENDING_A_PLUS`, `ENDING_B_PLUS`, `ENDING_C_PLUS` + 교수 성별 기준으로
+    - `public/ui/ending-screen/maleA+.webp`, `femaleA+.webp` 등 성별별 엔딩 이미지 연결
+  - 엔딩 화면 UI를 단순화해 A+/B+/C+는 풀스크린 이미지 + 우측 하단 `다음` 버튼만 노출
+  - `screen10_reality` 제거, 엔딩에서 바로 `screen11_credit`로 이동
+  - 디버그 패널에 `내 성별`, `교수 성별`, `교수 말투` 선택 UI와 `캐릭터 설정 적용` 버튼 추가
+  - 크레딧 상단 타이틀을 이미지 로고로 교체
+    - 최종적으로 `public/ui/title-screen/end-logo.webp` 사용
+  - 타이틀 화면 자산 경로를 `.webp`로 교체
+    - `intro-background.webp`
+    - `title-logo.webp`
+    - `start-button.webp`
+- `src/app/globals.css`
+  - 눈 감김/깜빡임 연출 CSS를 여러 차례 보정해
+    - 중앙이 아니라 위아래에서 닫히는 가로형 시야
+    - 검은 영역은 유지하고 시야 내부만 게임 화면이 보이도록 개선
+    - 텍스처/그림자를 추가해 도형 느낌을 줄이고 눈꺼풀 틈처럼 보이도록 조정
+    - 최종적으로 깜빡임 1회 + 완전 닫힘 구조로 정리
+  - 타이틀 `게임 시작` 이미지 위치를 사용자 피드백에 맞춰 세밀 조정
+
+### 자산 반영
+- `public/ui/title-screen`
+  - `intro-background.webp`
+  - `title-logo.webp`
+  - `start-button.webp`
+  - `end-logo.webp`
+- `public/ui/ending-screen`
+  - `maleA+.webp`
+  - `maleB+.webp`
+  - `maleC+.webp`
+  - `femaleA+.webp`
+  - `femaleB+.webp`
+  - `femaleC+.webp`
+
+### 검증
+- 여러 차례 `npm run build` 통과
+- Turbopack 경고 1건 유지
+  - `src/lib/professor-script-profile.ts`의 `process.cwd()` 기반 파일 읽기로 인한 NFT trace 경고
+  - 빌드 자체는 정상 성공
+
 ## 2026-04-17 백업 파일 정리 + 대사창 UI 선택 반영
 
 ### 요청 기준 반영
@@ -232,6 +285,32 @@
   - `PR #37` 스타일의 이름표/컨트롤 바 구조를 반영
   - 현재 프로젝트의 음성 슬롯 영역과 한국어 진행 문구는 유지
   - 버튼 클릭 시 부모 대사창 클릭 이벤트가 섞이지 않도록 `stopPropagation` 적용
+
+### 검증
+- `npm run lint` 통과
+- `npx tsc --noEmit` 통과
+
+## 2026-04-17 초기 화면 풀배경 개편 + 비밀 버튼 전환
+
+### 요청 기준 반영
+- 초기 화면 배경을 프레임형이 아니라 전체 화면 배경 이미지 중심으로 전환
+- 제목 이미지는 크게, 게임 시작 버튼 이미지는 더 크게 배치하고 깜빡이도록 조정
+- `화면을 클릭하여 게임을 시작해 주세요` 문구 제거
+- 디버그 버튼은 운영진용 숨김 진입 버튼 문구로 변경
+- 화면2/화면3 배경 이미지를 바로 연결할 수 있도록 경로 반영
+
+### 구현 내용
+- `src/app/page.tsx`
+  - 초기 화면 배경을 `/ui/title-screen/intro-background.png` 풀스크린 기준으로 변경
+  - 제목 이미지(`/ui/title-screen/title-logo.png`)와 시작 버튼 이미지(`/ui/title-screen/start-button.png`) 배치 확대
+  - 상단 디버그 버튼을 `♡교수님의 비밀 에피소드를 발견해!♡` 문구로 변경
+  - 디버그 잠금 모달 문구를 운영진용 표현으로 조정
+  - 화면2 배경 경로 `/ui/title-screen/player-customize-background.webp` 추가
+  - 화면3 배경 경로 `/ui/title-screen/professor-customize-background.webp` 추가
+- `src/app/globals.css`
+  - 초기 화면 풀배경 레이아웃에 맞게 제목/버튼 크기 재조정
+  - 시작 버튼 깜빡임 애니메이션 추가
+  - 비밀 버튼 전용 스타일 추가
 
 ### 검증
 - `npm run lint` 통과
