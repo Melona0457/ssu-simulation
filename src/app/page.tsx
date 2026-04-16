@@ -3142,69 +3142,70 @@ export default function Home() {
 
           </div>
 
-          <div className="pointer-events-none fixed inset-x-3 bottom-3 z-[70] md:inset-x-6 md:bottom-6">
-            <div className="mx-auto w-full max-w-6xl pointer-events-auto">
-              <div className="episode-dialog-box">
-                <div className="episode-dialog-perforation" aria-hidden />
-                <div
-                  className="episode-dialog-paper"
-                  onClick={() => {
-                    if (isDialogueLineTyping) {
-                      revealCurrentDialogueImmediately();
-                    }
-                  }}
-                >
-                  <div className="episode-dialog-content">
-                  <p className="font-story m-0 flex flex-col items-start gap-1 text-[clamp(24px,2.5vw,50px)] font-medium leading-[1.24] text-[#242424] sm:flex-row sm:gap-[clamp(18px,2vw,36px)]">
-                    <span className="episode-dialog-speaker-badge font-black sm:min-w-[clamp(60px,5vw,120px)]">
-                      {activeSpeakerLabel}
-                    </span>
-                    <span>{typedProfessorLine || "\u00A0"}</span>
-                  </p>
-                  </div>
-                  {canAdvanceCurrentStep && (
-                    <div className="episode-dialog-action flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                    <p className="episode-dialog-note">
-                      <span className="episode-dialog-note-mark" aria-hidden>
-                        N
-                      </span>
-                      {isAutoPlayOn
-                        ? "자동 진행 중입니다."
-                        : hasCurrentChoices
-                        ? "선택 완료. 다음 단계로 이동하세요."
-                        : "다음 단계로 이동하세요."}
-                    </p>
-                    <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setIsAutoPlayOn((current) => !current)}
-                        className={`w-full rounded-[14px] border-2 px-4 py-3 text-sm font-black transition sm:w-auto ${
-                          isAutoPlayOn
-                            ? "border-[#3f2f39] bg-[#23131c] text-white shadow-[0_8px_18px_rgba(0,0,0,0.28)]"
-                            : "border-[#7f727a] bg-white/90 text-[#26141e] hover:bg-white"
-                        }`}
-                      >
-                        자동 {isAutoPlayOn ? "ON" : "OFF"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={moveNextChapter}
-                        className="vn-next-button group w-full px-7 py-3 text-base font-black text-[#23131c] transition sm:w-auto sm:shrink-0 sm:text-lg"
-                      >
-                        <span className="relative z-[2] flex items-center gap-3">
-                          <span className="tracking-[0.08em]">다음</span>
-                          <span className="text-xl transition-transform duration-150 group-hover:translate-x-[2px]">
-                            ▶
-                          </span>
-                        </span>
-                      </button>
-                    </div>
-                    </div>
-                  )}
-                </div>
+          <div className="pointer-events-none fixed inset-x-4 bottom-8 z-[70] flex justify-center">
+            <div
+              className="pointer-events-auto relative flex h-[280px] w-full max-w-[1400px] flex-col rounded-[32px] border border-white/20 bg-black/10 p-8 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] backdrop-blur-md md:p-10"
+              onClick={() => {
+                if (isDialogueLineTyping) {
+                  revealCurrentDialogueImmediately();
+                }
+              }}
+            >
+              {/* 이름표 UI: 좌측 상단에 반쯤 걸친 디자인 */}
+              <div className="absolute -top-6 left-10 flex h-12 items-center rounded-2xl border border-white/30 bg-gradient-to-r from-[#ff4f81] to-[#ff7b9e] px-8 shadow-lg">
+                <span className="text-xl font-black tracking-tight text-white md:text-2xl">
+                  {activeSpeakerLabel}
+                </span>
               </div>
+
+              {/* 대사 내용 영역 */}
+              <div className="flex-1 overflow-y-auto pt-4 md:pt-6">
+                <p className="font-story text-[clamp(22px,2.2vw,44px)] font-medium leading-[1.4] text-white/95">
+                  {typedProfessorLine || "\u00A0"}
+                </p>
+              </div>
+
+              {/* 하단 컨트롤 영역 */}
+              {canAdvanceCurrentStep && (
+                <div className="mt-4 flex flex-col items-stretch justify-between gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center">
+                  <p className="text-sm font-bold tracking-wide text-white/50">
+                    {isAutoPlayOn
+                      ? "AUTO-PLAYING..."
+                      : hasCurrentChoices
+                      ? "CHOICE MADE. PROCEED TO NEXT."
+                      : "PROCEED TO NEXT STEP."}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsAutoPlayOn((current) => !current);
+                      }}
+                      className={`rounded-xl border-2 px-5 py-2 text-sm font-black transition-all ${
+                        isAutoPlayOn
+                          ? "border-[#ff4f81] bg-[#ff4f81] text-white shadow-[0_0_15px_rgba(255,79,129,0.4)]"
+                          : "border-white/20 bg-white/5 text-white hover:bg-white/10"
+                      }`}
+                    >
+                      자동 {isAutoPlayOn ? "ON" : "OFF"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveNextChapter();
+                      }}
+                      className="flex items-center gap-2 rounded-xl bg-white px-8 py-2 text-lg font-black text-[#1a1a1a] transition-transform hover:scale-105 active:scale-95"
+                    >
+                      다음
+                      <span className="text-sm">▶</span>
+                    </button>
+                  </div>
+                </div>
+               )}
+              </div>    
             </div>
-          </div>
         </section>
       )}
 
