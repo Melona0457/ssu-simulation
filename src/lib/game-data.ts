@@ -7,7 +7,7 @@ export const initialProfessorState: ProfessorFormState = {
   name: "",
   gender: "남자",
   age: "",
-  speakingStyle: "차분하고 이성적인 말투",
+  speakingStyle: "TONE_30S",
   illustrationStyle: "DESIGN_1_ROMANCE_FANTASY",
   feature1: "",
   feature2: "",
@@ -105,11 +105,15 @@ export const professorGenderOptions: Array<{ label: string; value: ProfessorGend
   { label: "여자", value: "여자" },
 ];
 
-export const professorSpeakingStyleOptions = [
-  "차분하고 이성적인 말투",
-  "무심한 츤데레 말투",
-  "유머 섞인 직설 말투",
-  "다정하지만 단호한 말투",
+export type ProfessorAgeTone = "TONE_20S" | "TONE_30S" | "TONE_40S";
+
+export const professorSpeakingStyleOptions: Array<{
+  label: string;
+  value: ProfessorAgeTone;
+}> = [
+  { label: "20대의 젊은 교수님", value: "TONE_20S" },
+  { label: "30대의 중년 교수님", value: "TONE_30S" },
+  { label: "40대의 꽃중년 교수님", value: "TONE_40S" },
 ];
 
 export const illustrationStyleOptions: Array<{
@@ -629,27 +633,27 @@ export const chapterSequence: ChapterId[] = pickSixChaptersForRun();
 export const endingMeta: Record<EndingRank, { key: string; title: string; description: string }> = {
   ENDING_A_PLUS: {
     key: "ending-a-plus",
-    title: "A+ 엔딩: 대학원 진학 제안",
+    title: "A+ 엔딩: 자네를 놓치고 싶지 않군",
     description:
-      "시험을 완벽에 가깝게 마친 학생에게 교수님은 대학원 동행을 제안한다. 칭찬, 유혹, 집착이 뒤섞인 제안은 농담처럼 들리지만 이상할 만큼 진심에 가깝다.",
+      "최고 성적의 끝에서 교수는 학생을 연구실 곁으로 끌어들이려 한다. 졸업 이후까지 이어질 진득한 제안이 남는다.",
   },
   ENDING_B_PLUS: {
     key: "ending-b-plus",
-    title: "B+ 엔딩: 애매한 점수의 대가",
+    title: "B+ 엔딩: 그저 스쳐갈 인연으로 두지",
     description:
-      "아슬아슬한 B권 점수. 교수님은 \"애매한 점수엔 애매한 형벌\"이라며 채점 노동 같은 기묘한 보충 과제를 던지거나, 냉정하게 학생을 평범한 군중으로 돌려보낸다.",
+      "결정적이지 못한 성적은 관계를 냉정하게 밀어낸다. 특별했던 하루는 평범한 기억으로 정리된다.",
   },
   ENDING_C_PLUS: {
     key: "ending-c-plus",
-    title: "C+ 엔딩: 재수강 선언",
+    title: "C+ 엔딩: 이건 끝이 아니라 시작이겠지",
     description:
-      "C+는 통과이자 경고다. 교수님은 방학 계획을 접고 계절학기로 다시 오라며, 두 번째 기회는 주되 세 번째는 없다는 선언으로 관계를 다음 학기로 연장한다.",
+      "합격도 탈락도 아닌 경계선에서 교수는 재수강을 선언한다. 끝난 듯한 인연은 다음 학기로 이어진다.",
   },
   ENDING_F: {
     key: "ending-f",
-    title: "히든 F 엔딩: 장르 붕괴",
+    title: "히든 S+ 엔딩",
     description:
-      "F 루트는 현실을 이탈한다. 사자 변신, 스릴러급 봉쇄, 답안지 환생 같은 장르 급전개가 연속으로 터지며 캠퍼스 로맨스가 블랙코미디로 붕괴한다.",
+      "호감도 100에서만 열리는 히든 루트. 현실 붕괴형 급전개와 스릴러형 로그아웃 처리 중 하나가 랜덤으로 펼쳐진다.",
   },
 };
 
@@ -668,7 +672,7 @@ export function getEndingRank(totalScore100: number): EndingRank {
     return "ENDING_C_PLUS";
   }
 
-  return "ENDING_F";
+  return "ENDING_C_PLUS";
 }
 
 export const professorSpriteStylePreset = [
@@ -708,10 +712,7 @@ export function resolveProfessorForGeneration(form: ProfessorFormState): Profess
     name: normalizeWithFallback(form.name, "이름 미정 교수"),
     gender: form.gender,
     age: normalizeWithFallback(form.age, "30"),
-    speakingStyle: normalizeWithFallback(
-      form.speakingStyle,
-      pickOne(professorSpeakingStyleOptions),
-    ),
+    speakingStyle: normalizeWithFallback(form.speakingStyle, "TONE_30S"),
     illustrationStyle: form.illustrationStyle || "DESIGN_3_CAMPUS_VISUAL_NOVEL",
     feature1: normalizeWithFallback(form.feature1, pickFeature("feature1")),
     feature2: normalizeWithFallback(form.feature2, pickFeature("feature2")),
@@ -727,7 +728,6 @@ export function resolveProfessorForGeneration(form: ProfessorFormState): Profess
 export function buildProfessorSummary(form: ProfessorFormState) {
   const professorName = normalizeWithFallback(form.name, "이름 미정 교수");
   const ageText = normalizeWithFallback(form.age, "30");
-  const styleText = normalizeWithFallback(form.speakingStyle, "차분한 말투");
   const featureList = [form.feature1, form.feature2, form.feature3, form.feature4]
     .map((feature) => feature.trim())
     .filter((feature) => feature.length > 0)
@@ -737,7 +737,7 @@ export function buildProfessorSummary(form: ProfessorFormState) {
     "무심해 보이지만 학생의 성장을 챙긴다",
   );
 
-  return `${professorName}은(는) ${ageText}대 ${form.gender} 교수다. 말투는 ${styleText}이고, 외형/분위기 키워드는 ${featureList || "미정"}이다. 일러스트 무드는 ${fusedIllustrationReferenceProfile.name} 기준으로 고정한다. 성격 메모: ${customPrompt}.`;
+  return `${professorName}은(는) ${ageText}대 ${form.gender} 교수다. 외형/분위기 키워드는 ${featureList || "미정"}이다. 일러스트 무드는 ${fusedIllustrationReferenceProfile.name} 기준으로 고정한다. 성격 메모: ${customPrompt}.`;
 }
 
 export function buildIllustrationPrompt(form: ProfessorFormState) {
@@ -756,7 +756,6 @@ export function buildIllustrationPrompt(form: ProfessorFormState) {
     `character: ${professorName}`,
     `gender presentation: ${form.gender}`,
     `age decade: ${normalizeWithFallback(form.age, "30")}s`,
-    `speaking impression: ${normalizeWithFallback(form.speakingStyle, "차분한 말투")}`,
     `visual features: ${features.length > 0 ? features.join(", ") : "clean, professional, attractive"}`,
     `personality note: ${normalizeWithFallback(form.customPrompt, "겉으로는 무심하지만 학생을 챙김")}`,
   ];
