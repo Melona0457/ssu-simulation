@@ -2676,77 +2676,77 @@ export default function Home() {
 
           </div>
 
-          <div className="pointer-events-none fixed inset-x-3 bottom-3 z-[70] md:inset-x-6 md:bottom-6">
-            <div className="mx-auto w-full max-w-6xl pointer-events-auto">
-              <div className="episode-dialog-box">
-                <div className="episode-dialog-perforation" aria-hidden />
-                <div
-                  className="episode-dialog-paper"
-                  onClick={() => {
-                    if (isDialogueLineTyping) {
-                      revealCurrentDialogueImmediately();
-                    }
-                  }}
-                >
-                  <div className="episode-dialog-content">
-                  <p className="font-story m-0 flex flex-col items-start gap-1 text-[clamp(24px,2.5vw,50px)] font-medium leading-[1.24] text-[#242424] sm:flex-row sm:gap-[clamp(18px,2vw,36px)]">
-                    <span className="episode-dialog-speaker-badge font-black sm:min-w-[clamp(60px,5vw,120px)]">
-                      {activeSpeakerLabel}
-                    </span>
-                    <span>{typedProfessorLine || "\u00A0"}</span>
+          <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[70] md:bottom-8">
+            <div className="mx-auto flex w-full max-w-6xl justify-center pointer-events-auto">
+              <div
+                className="relative flex min-h-[220px] w-full flex-col rounded-[30px] border border-white/20 bg-[linear-gradient(180deg,rgba(22,20,28,0.74),rgba(12,10,18,0.88))] p-5 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] backdrop-blur-md md:min-h-[260px] md:p-8"
+                onClick={() => {
+                  if (isDialogueLineTyping) {
+                    revealCurrentDialogueImmediately();
+                  }
+                }}
+              >
+                <div className="absolute -top-5 left-4 inline-flex min-h-11 items-center rounded-2xl border border-white/25 bg-[linear-gradient(90deg,#ff4f81,#ff7b9e)] px-5 shadow-lg md:left-8 md:px-8">
+                  <span className="font-gothic text-base font-black tracking-tight text-white md:text-xl">
+                    {activeSpeakerLabel}
+                  </span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto pt-7 md:pt-8">
+                  <p className="font-story text-[clamp(24px,2.2vw,44px)] font-medium leading-[1.4] text-white/95">
+                    {typedProfessorLine || "\u00A0"}
                   </p>
                   {currentProfessorVoiceSlotPath && (
-                    <div className="mt-3 flex flex-col gap-2">
-                      <p className="font-gothic text-xs font-bold tracking-[0.08em] text-[#5f213f]">
+                    <div className="mt-4 rounded-2xl border border-white/12 bg-white/8 p-3 md:p-4">
+                      <p className="font-gothic text-xs font-bold tracking-[0.08em] text-white/70">
                         교수 음성 슬롯
                       </p>
-                      <audio controls preload="none" src={currentProfessorVoiceSlotPath} />
-                      <p className="font-gothic break-all text-[11px] text-[#5a3d4d]">
+                      <audio className="mt-2 w-full" controls preload="none" src={currentProfessorVoiceSlotPath} />
+                      <p className="font-gothic mt-2 break-all text-[11px] text-white/55">
                         {currentProfessorVoiceSlotPath}
                       </p>
                     </div>
                   )}
-                  </div>
-                  {canAdvanceCurrentStep && (
-                    <div className="episode-dialog-action flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                    <p className="episode-dialog-note">
-                      <span className="episode-dialog-note-mark" aria-hidden>
-                        N
-                      </span>
+                </div>
+
+                {canAdvanceCurrentStep && (
+                  <div className="mt-4 flex flex-col items-stretch justify-between gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center">
+                    <p className="text-sm font-bold tracking-wide text-white/55">
                       {isAutoPlayOn
                         ? "자동 진행 중입니다."
                         : hasCurrentChoices
                         ? "선택 완료. 다음 단계로 이동하세요."
                         : "다음 단계로 이동하세요."}
                     </p>
-                    <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-3">
+                    <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
                       <button
                         type="button"
-                        onClick={() => setIsAutoPlayOn((current) => !current)}
-                        className={`w-full rounded-[14px] border-2 px-4 py-3 text-sm font-black transition sm:w-auto ${
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setIsAutoPlayOn((current) => !current);
+                        }}
+                        className={`rounded-xl border-2 px-5 py-3 text-sm font-black transition-all sm:min-w-[126px] ${
                           isAutoPlayOn
-                            ? "border-[#3f2f39] bg-[#23131c] text-white shadow-[0_8px_18px_rgba(0,0,0,0.28)]"
-                            : "border-[#7f727a] bg-white/90 text-[#26141e] hover:bg-white"
+                            ? "border-[#ff4f81] bg-[#ff4f81] text-white shadow-[0_0_15px_rgba(255,79,129,0.4)]"
+                            : "border-white/20 bg-white/5 text-white hover:bg-white/10"
                         }`}
                       >
                         자동 {isAutoPlayOn ? "ON" : "OFF"}
                       </button>
                       <button
                         type="button"
-                        onClick={moveNextChapter}
-                        className="vn-next-button group w-full px-7 py-3 text-base font-black text-[#23131c] transition sm:w-auto sm:shrink-0 sm:text-lg"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          moveNextChapter();
+                        }}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-white px-8 py-3 text-base font-black text-[#1a1a1a] transition-transform hover:scale-[1.02] active:scale-[0.98] sm:text-lg"
                       >
-                        <span className="relative z-[2] flex items-center gap-3">
-                          <span className="tracking-[0.08em]">다음</span>
-                          <span className="text-xl transition-transform duration-150 group-hover:translate-x-[2px]">
-                            ▶
-                          </span>
-                        </span>
+                        다음
+                        <span className="text-sm">▶</span>
                       </button>
                     </div>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
