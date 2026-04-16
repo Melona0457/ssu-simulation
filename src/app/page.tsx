@@ -6,7 +6,6 @@ import { heartParticle } from "@/lib/heart-particle";
 import {
   professorRouteStory,
   storyEndingCatalog,
-  storyEpisodeBackdropMap,
   type StoryEndingRankKey,
   type StoryEndingVariant,
   type StoryChoice,
@@ -15,15 +14,11 @@ import {
   type StoryScene,
 } from "@/lib/professor-route-story";
 import {
-  buildIllustrationPrompt,
-  buildProfessorSummary,
   chapterFallbackDialogues,
   endingMeta,
   finalRealityLine,
   getEndingRank,
-  MAIN_BGM_URL,
   playerGenderOptions,
-  professorFeatureSuggestions,
   professorGenderOptions,
   professorSpeakingStyleOptions,
   resolveProfessorForGeneration,
@@ -52,29 +47,6 @@ type EndingState = {
   variantId?: string;
   variantSubtype?: string;
   variantLines?: string[];
-  expressionKey?: string;
-};
-
-type SessionExpressionDefinition = {
-  key: string;
-  label: string;
-  direction: string;
-  reason: string;
-};
-
-type ChapterSpriteCue = {
-  dialogueExpressionKey: string;
-  choiceReactionExpressionKeys: [string, string, string];
-};
-
-type ProfessorExpressionMap = Record<string, string>;
-
-type GenerateProfessorImageResponse = {
-  imageDataUrl?: string;
-  expressionSet?: SessionExpressionDefinition[];
-  expressionImageDataUrls?: ProfessorExpressionMap;
-  promptUsed?: string;
-  message?: string;
 };
 
 type ChapterStep = {
@@ -95,6 +67,12 @@ type SessionPackStepPayload = {
     emotion: ChapterChoice["emotion"];
     effects: ChapterChoice["effects"];
   }>;
+};
+
+type DialogueLine = {
+  speaker: DialogueSpeakerLabel;
+  text: string;
+  professorLineIndex: number | null;
 };
 
 const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
@@ -599,93 +577,78 @@ const initialProfessorState: ProfessorFormState = {
   customPrompt: "",
 };
 
-const preGameBackgroundImageUrl = "/backgrounds/pre-game-bg.webp";
-const mainCoverImageUrl = "/backgrounds/screen1-cover.webp";
-const ep03BathroomSinkBackdropImageUrl = "/backgrounds/scenes/ep03-bathroom-sink.webp";
-const ep03SteakHouseBackdropImageUrl = "/backgrounds/scenes/ep03-steak-house.webp";
-const ep03AfterMealCampusBackdropImageUrl = "/backgrounds/scenes/ep03-after-meal-campus.webp";
-const ep04LibraryDeskPenBackdropImageUrl = "/backgrounds/scenes/ep04-library-desk-pen.webp";
-const ep04LibraryReadingHallBackdropImageUrl = "/backgrounds/scenes/ep04-library-reading-hall.webp";
-const ep04LibraryShelfBackdropImageUrl = "/backgrounds/scenes/ep04-library-shelf.webp";
-const ep06oCampusNightBackdropImageUrl = "/backgrounds/scenes/ep06o-campus-night.webp";
-const ep06oOfficeDoorCorridorBackdropImageUrl =
-  "/backgrounds/scenes/ep06o-office-door-corridor.webp";
-const ep06oOfficeInteriorBackdropImageUrl = "/backgrounds/scenes/ep06o-office-interior.webp";
-const ep06oRainGateRollsBackdropImageUrl = "/backgrounds/scenes/ep06o-rain-gate-rolls.webp";
-const ep06oRollsInteriorBackdropImageUrl = "/backgrounds/scenes/ep06o-rolls-interior.webp";
-const ep06oHomeRoomBackdropImageUrl = "/backgrounds/scenes/ep06o-home-room.webp";
-const ep06cClassroomNightReturnBackdropImageUrl =
-  "/backgrounds/scenes/ep06c-classroom-night-return.webp";
-const ep02PenGiftCutinImageUrl = "/cutins/ep02/ep02-scene06-pen-gift.webp";
-const ep02CanCoffeeCutinImageUrl = "/cutins/ep02/ep02-scene03-can-coffee.webp";
-const ep03cYogurtCutinImageUrl = "/cutins/ep03/ep03c-scene04-yogurt.webp";
-const ep03cTissueHandkerchiefCutinImageUrl =
-  "/cutins/ep03/ep03c-scene06-tissue-handkerchief.webp";
-const ep04PenCloseupCutinImageUrl = "/cutins/ep04/ep04-scene01-pen-closeup.webp";
-const ep06oUmbrellaCutinImageUrl = "/cutins/ep06/ep06o-scene05-umbrella.webp";
-const ep06oRollsFrontCutinImageUrl = "/cutins/ep06/ep06o-scene06-rolls-front.webp";
-const ep06cEnergyBagCutinImageUrl = "/cutins/ep06/ep06c-scene04-energy-bag.webp";
-const screen1TitleImageUrl = "/ui/title-logo.webp";
-const screen11CreditTitleImageUrl = "/ui/title-logo.webp";
+const DUMMY_SOLID_LAYER = "linear-gradient(145deg, #d892b0 0%, #f6d2e3 56%, #cb7fa4 100%)";
+const DUMMY_DARK_LAYER = "linear-gradient(140deg, rgba(80,24,48,0.76), rgba(35,12,28,0.72))";
 const DEBUG_PASSWORD = "ssulikelion";
+const BGM_BASE_URL = process.env.NEXT_PUBLIC_SUPABASE_BGM_BASE_URL?.replace(/\/+$/, "") || "/bgm";
 const debugEndingScoreMap: Record<EndingRank, number> = {
   ENDING_A_PLUS: 95,
   ENDING_B_PLUS: 78,
   ENDING_C_PLUS: 58,
-  ENDING_F: 22,
+  ENDING_F: 100,
 };
 
-const storySceneBackdropMap: Partial<Record<string, string>> = {
-  ep03b_scene05_sink: ep03BathroomSinkBackdropImageUrl,
-  ep03b_scene06_steak_1: ep03SteakHouseBackdropImageUrl,
-  ep03b_scene07_steak_2: ep03SteakHouseBackdropImageUrl,
-  ep03b_scene08_steak_3: ep03SteakHouseBackdropImageUrl,
-  ep03b_scene09_outro: ep03AfterMealCampusBackdropImageUrl,
-  ep04_scene01_intro: ep04LibraryDeskPenBackdropImageUrl,
-  ep04_scene02_stacks: ep04LibraryReadingHallBackdropImageUrl,
-  ep04_scene03_meet_professor: ep04LibraryShelfBackdropImageUrl,
-  ep04_choice01: ep04LibraryShelfBackdropImageUrl,
-  ep04_scene04_opt01: ep04LibraryShelfBackdropImageUrl,
-  ep04_scene05_opt02: ep04LibraryShelfBackdropImageUrl,
-  ep04_scene06_opt03: ep04LibraryShelfBackdropImageUrl,
-  ep04_scene07_shelf_talk: ep04LibraryShelfBackdropImageUrl,
-  ep04_choice02: ep04LibraryShelfBackdropImageUrl,
-  ep04_scene08_opt01: ep04LibraryShelfBackdropImageUrl,
-  ep04_scene09_opt02: ep04LibraryShelfBackdropImageUrl,
-  ep04_scene10_outro: ep04LibraryShelfBackdropImageUrl,
-  ep06o_scene01_intro: ep06oCampusNightBackdropImageUrl,
-  ep06o_scene02_route_a: ep06oOfficeDoorCorridorBackdropImageUrl,
-  ep06o_scene03_route_b: ep06oOfficeDoorCorridorBackdropImageUrl,
-  ep06o_scene04_common_office: ep06oOfficeInteriorBackdropImageUrl,
-  ep06o_scene05_umbrella: ep06oOfficeInteriorBackdropImageUrl,
-  ep06o_scene06_rolls_intro: ep06oRainGateRollsBackdropImageUrl,
-  ep06o_scene07_umbrella_keep: ep06oRainGateRollsBackdropImageUrl,
-  ep06o_scene08_romance_ride: ep06oRollsInteriorBackdropImageUrl,
-  ep06o_scene09_distance: ep06oRainGateRollsBackdropImageUrl,
-  ep06o_scene10_home_final: ep06oHomeRoomBackdropImageUrl,
-  ep06c_scene04_opt02: ep06cClassroomNightReturnBackdropImageUrl,
-};
+const STORY_BGM_URLS = {
+  introSetup: `${BGM_BASE_URL}/intro_professor_setup.ogg`,
+  morningClassroom: `${BGM_BASE_URL}/morning_classroom.ogg`,
+  commuteEpisode: `${BGM_BASE_URL}/commute_episode.ogg`,
+  cafeteriaRestaurantEpisode: `${BGM_BASE_URL}/cafeteria_restaurant_episode.ogg`,
+  restroomEpisode: `${BGM_BASE_URL}/restroom_episode.ogg`,
+  afternoonLibraryEpisode: `${BGM_BASE_URL}/afternoon_library_episode.ogg`,
+  dinnerEpisode: `${BGM_BASE_URL}/dinner_episode.ogg`,
+  nightEpisode: `${BGM_BASE_URL}/night_episode.ogg`,
+  endingCredit: `${BGM_BASE_URL}/ending_credit.ogg`,
+} as const;
 
-const storySceneCutinMap: Partial<Record<string, string>> = {
-  ep02_scene06_pen_gift: ep02PenGiftCutinImageUrl,
-  ep02_scene03_after_choice02: ep02CanCoffeeCutinImageUrl,
-  ep03c_scene04_opt03: ep03cYogurtCutinImageUrl,
-  ep03c_scene06_outro: ep03cTissueHandkerchiefCutinImageUrl,
-  ep04_scene01_intro: ep04PenCloseupCutinImageUrl,
-  ep06o_scene05_umbrella: ep06oUmbrellaCutinImageUrl,
-  ep06o_scene06_rolls_intro: ep06oRollsFrontCutinImageUrl,
-  ep06c_scene04_opt02: ep06cEnergyBagCutinImageUrl,
-};
+const STORY_SFX_URLS = {
+  heartbeat: "/sfx/story/heartbeat.ogg",
+  footsteps: "/sfx/story/footsteps.ogg",
+  doorOpen: "/sfx/story/door_open.ogg",
+  pageTurn: "/sfx/story/page_turn.ogg",
+  restaurantBell: "/sfx/story/restaurant_bell.ogg",
+  doorKnock: "/sfx/story/door_knock.ogg",
+  thunder: "/sfx/story/thunder.ogg",
+  coffeeMachine: "/sfx/story/coffee_machine.ogg",
+  clockTick: "/sfx/story/clock_tick.ogg",
+} as const;
 
-const storySceneCutinTriggerPatternMap: Partial<Record<string, RegExp>> = {
-  ep02_scene06_pen_gift: /(볼펜|펜|잉크|반납)/,
-  ep02_scene03_after_choice02: /캔커피/,
-  ep03c_scene04_opt03: /요구르트/,
-  ep03c_scene06_outro: /(휴지|손수건)/,
-  ep04_scene01_intro: /(볼펜|펜|잉크)/,
-  ep06o_scene05_umbrella: /우산/,
-  ep06o_scene06_rolls_intro: /롤스로이스/,
-  ep06c_scene04_opt02: /(에너지\s*음료|봉투)/,
+type StorySfxKey = keyof typeof STORY_SFX_URLS;
+type EndingProfessorGender = "남자" | "여자";
+
+const GENDERED_ENDING_PROFESSOR_LINES: Record<
+  string,
+  Record<EndingProfessorGender, string>
+> = {
+  ending_aplus_main: {
+    남자:
+      "자네의 사고방식은... 딱 내 연구실에 필요한 수준이야. 졸업장? 그게 무슨 의미가 있나. 내 옆에서 나와 함께 인류의 지성을 한 단계 높여보지 않겠나? 자네 자리는 이미 내 방 바로 옆에 마련해 두었네. 자, 도망갈 생각은 말고.",
+    여자:
+      "당신의 사고방식… 정말 마음에 드네요. 딱 제 연구실에 필요한 수준이에요. 졸업장요? 그게 그렇게 중요한가요. 제 옆에서, 저와 함께 인류의 지성을 한 단계 끌어올려보지 않겠어요? 당신 자리는 이미 제 방 바로 옆에 마련해 두었답니다. 그러니까… 도망칠 생각은 하지 않는 게 좋겠어요.",
+  },
+  ending_b_main: {
+    남자:
+      "아아… 자네였군. B+라, 나쁘진 않지만 결정적이진 않았어. 유감이지만… 자네는 내 기억에 남지 않는 수준이네. 결국 자네는, 내게 그저 스쳐간 학생일 뿐이지. 자, 돌아가게. 자네에게 어울리는 평범한 삶으로.",
+    여자:
+      "아아… 당신이었군요. B+라, 나쁘진 않지만 결정적이진 않았어요. 유감이지만… 당신은 제 기억에 남지 않는 수준이에요. 결국 당신은, 제게 그저 스쳐간 학생일 뿐이죠. 이제 그만 돌아가세요. 당신에게 어울리는 평범한 삶으로.",
+  },
+  ending_cplus_main: {
+    남자:
+      "C+… C+이라. 자네, 이 점수가 뭘 의미하는지 아나? 합격도 탈락도 아닌… 내가 아직 자네에게 할 말이 남았다는 뜻일세. 학점은 거짓말을 하지 않거든. 자네, 아직 다 보여주지 않았어. 이번 학기 인연은 여기까지지만… 걱정 말게. 우린 곧, 재수강이라는 이름으로 다시 만나게 될 테니까.",
+    여자:
+      "C+… C+이라. 당신, 이 점수가 뭘 의미하는지 아나요? 합격도 탈락도 아닌… 제가 아직 당신에게 할 말이 남았다는 뜻이에요. 학점은 거짓말을 하지 않거든요. 당신, 아직 다 보여주지 않았어요. 이번 학기 인연은 여기까지지만… 걱정 마세요. 우린 곧, 재수강이라는 이름으로 다시 만나게 될 테니까요.",
+  },
+  hidden_splus_01: {
+    남자:
+      "답안지… 아주 인상 깊었네. 정답은 하나도 맞지 않았지만, 이 빽빽한 글씨… 자네의 열정과 집요함은 충분히 전해졌어. 그래서 말인데— 자네 같은 인재라면… 멋쟁이사자처럼 활동도 문제없겠어. 애니멀리그, 여름 연합 해커톤, 겨울 해커톤, 실리콘밸리 체험까지— 단 하루 만에 전부 경험하게 해주지. 자, 선택은 하나야. 지금 따라올 건가… 아니면 여기서 평범하게 남을 건가.",
+    여자:
+      "답안지… 아주 인상 깊었어요. 정답은 하나도 맞지 않았지만, 이 빽빽한 글씨… 당신의 열정과 집요함은 충분히 전해졌어요. 그래서 말인데— 이런 방식으로 밀어붙이는 사람, 저는 꽤 마음에 들어요. 당신 같은 인재라면… 멋쟁이사자처럼 활동도 문제없겠죠. 애니멀리그, 여름 연합 해커톤, 겨울 해커톤, 실리콘밸리 체험까지— 단 하루 만에 전부 경험하게 해줄게요. 자, 선택은 하나예요. 지금 저랑 같이 갈래요? 아니면 여기서 평범하게 남을래요?",
+  },
+  hidden_splus_02: {
+    남자:
+      "그… 자네 답안지의 마지막 서술형 답안 말이야. 이걸 도대체 어디서 본 거지? 그건 내가 아무에게도 공개하지 않은… 미발표 논문의 1급 기밀인데. 이런, 똑똑한 제자를 두는 건 언제나 위험이 따르는 법이지. 자네는… 너무 많은 걸 알아버렸어. …어쩔 수 없군. 여기서 정리해야겠네. 잠깐이면 끝나네. 너무 걱정하진 말게. 이건… 자네를 위한 선택이기도 하니까.",
+    여자:
+      "그… 당신 답안지의 마지막 서술형 답안 말이에요. 이걸 도대체 어디서 본 거죠? 그건 제가 아무에게도 공개하지 않은… 미발표 논문의 1급 기밀인데요. 이런, 똑똑한 제자를 두는 건 언제나 위험이 따르는 법이네요. 당신은… 너무 많은 걸 알아버렸어요. …어쩔 수 없겠네요. 여기서 정리해야겠어요. 잠깐이면 끝나요. 너무 걱정하진 마세요. 이건… 당신을 위한 선택이기도 하니까요.",
+  },
 };
 
 function toDisplayPlayerName(name: string) {
@@ -763,93 +726,11 @@ function getAffinityMood(percent: number) {
   return "어색한 시작";
 }
 
-function normalizeExpressionSet(
-  raw: SessionExpressionDefinition[] | undefined,
-): SessionExpressionDefinition[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  const seen = new Set<string>();
-  const normalized: SessionExpressionDefinition[] = [];
-
-  raw.forEach((item) => {
-    const key = typeof item?.key === "string" ? item.key.trim() : "";
-    if (!key || seen.has(key)) {
-      return;
-    }
-
-    seen.add(key);
-    normalized.push({
-      key,
-      label: typeof item?.label === "string" && item.label.trim().length > 0 ? item.label.trim() : key,
-      direction: typeof item?.direction === "string" ? item.direction.trim() : "",
-      reason: typeof item?.reason === "string" ? item.reason.trim() : "",
-    });
-  });
-
-  return normalized;
-}
-
-function normalizeSpriteCueMap(
-  raw: Partial<Record<ChapterId, ChapterSpriteCue>> | undefined,
-): Partial<Record<ChapterId, ChapterSpriteCue>> {
-  if (!raw) {
-    return {};
-  }
-
-  return (Object.keys(raw) as ChapterId[]).reduce(
-    (acc, chapterId) => {
-      const source = raw[chapterId];
-      const dialogueExpressionKey =
-        typeof source?.dialogueExpressionKey === "string"
-          ? source.dialogueExpressionKey.trim()
-          : "";
-      const sourceChoices = Array.isArray(source?.choiceReactionExpressionKeys)
-        ? source.choiceReactionExpressionKeys
-        : [];
-
-      const choiceReactionExpressionKeys = [0, 1, 2].map((index) => {
-        const candidate = sourceChoices[index];
-        if (typeof candidate === "string" && candidate.trim().length > 0) {
-          return candidate.trim();
-        }
-
-        return dialogueExpressionKey;
-      }) as [string, string, string];
-
-      if (!dialogueExpressionKey || choiceReactionExpressionKeys.some((key) => !key)) {
-        return acc;
-      }
-
-      acc[chapterId] = {
-        dialogueExpressionKey,
-        choiceReactionExpressionKeys,
-      };
-      return acc;
-    },
-    {} as Partial<Record<ChapterId, ChapterSpriteCue>>,
-  );
-}
-
 const storyEpisodes = professorRouteStory.episodes as readonly StoryEpisode[];
 
 const storyEpisodeMap = new Map<string, StoryEpisode>(
   storyEpisodes.map((episode) => [episode.id, episode] as const),
 );
-
-const storyEpisodeToChapterIdMap: Record<string, ChapterId> = {
-  ep01_commute: "COMMUTE_CAMPUS",
-  ep02_morning_classroom: "MORNING_CLASSROOM",
-  ep03_lunch_student_cafeteria: "LUNCH_STUDENT_CAFETERIA",
-  ep03_lunch_off_campus_restaurant: "LUNCH_OFFCAMPUS_RESTAURANT",
-  ep03_lunch_bathroom_stall: "LUNCH_RESTROOM_STALL",
-  ep04_library: "AFTERNOON_LIBRARY",
-  ep05_simple_dinner: "LIGHT_DINNER",
-  ep06_night_professor_office: "NIGHT_LAB_VISIT",
-  ep06_night_bench: "NIGHT_CAMPUS_WALK",
-  ep06_night_classroom: "NIGHT_SELF_STUDY",
-};
 
 function getStoryEpisode(episodeId: string) {
   return storyEpisodeMap.get(episodeId) ?? null;
@@ -904,94 +785,79 @@ function buildStoryLineText(
   const resolvedText = replaceStoryPlaceholders(text, playerName, professorName);
   return prefix ? `${prefix} ${resolvedText}` : resolvedText;
 }
+const professorLineKeyToIndexMap = (() => {
+  const map = new Map<string, number>();
+  let currentIndex = 0;
 
-function applyProfessorSpeakingStyle(text: string, speakingStyle: string) {
-  const trimmed = text.trim();
-  if (!trimmed) return text;
-
-  const applyRules = (base: string, rules: Array<[RegExp, string]>) =>
-    rules.reduce((acc, [pattern, replacement]) => acc.replace(pattern, replacement), base);
-
-  if (speakingStyle.includes("차분하고 이성적인")) {
-    return applyRules(trimmed, [
-      [/허\.\.\./g, "흠..."],
-      [/아니, /g, "아니, 우선 "],
-      [/좋아,/g, "좋아. 우선"],
-      [/기대하겠네/g, "기대하고 있겠네"],
-      [/조심하게/g, "조심하는 편이 좋겠네"],
-      [/자, /g, "자, 차분히 "],
-    ]);
+  for (const episode of storyEpisodes) {
+    for (const scene of episode.scenes) {
+      (scene.lines ?? []).forEach((line, lineIndex) => {
+        if (line.role !== "professor") {
+          return;
+        }
+        map.set(`${episode.id}::${scene.id}::${lineIndex}`, currentIndex);
+        currentIndex += 1;
+      });
+    }
   }
 
-  if (speakingStyle.includes("무심한 츤데레")) {
-    return applyRules(trimmed, [
-      [/좋아\./g, "흥, 좋아."],
-      [/좋아,/g, "흥, 좋아."],
-      [/자, /g, "자, 얼른 "],
-      [/고맙네/g, "고맙긴 하군"],
-      [/걱정 말게/g, "쓸데없는 걱정은 말게"],
-      [/기대하겠네/g, "기대는 하겠네, 뭐"],
-      [/그럼/g, "그럼, 흥"],
-      [/괜찮/g, "나쁘지 않"],
-      [/정말/g, "꽤"],
-      [/따뜻/g, "의외로 나쁘지 않"],
-      [/아쉽게도/g, "안됐지만"],
-    ]);
-  }
+  return map;
+})();
 
-  if (speakingStyle.includes("유머 섞인 직설")) {
-    return applyRules(trimmed, [
-      [/좋아\./g, "좋아. 아주 솔직해서 좋군."],
-      [/자, /g, "자, 어디 한 번 "],
-      [/곤란하군/g, "곤란하군. 아주 제대로 곤란해"],
-      [/기대하겠네/g, "기대하겠네. 웃기게도 말이야"],
-      [/조심하게/g, "조심하게. 안 그러면 바로 티 나니까"],
-      [/허\.\.\./g, "하, 이런"],
-      [/그렇네\./g, "그렇네. 뻔하지만 사실이지."],
-      [/좋군\./g, "좋군. 아주 선명해서 좋네."],
-      [/정말/g, "진짜"],
-      [/아쉽게도/g, "유감스럽지만"],
-    ]);
-  }
+function resolveProfessorScriptProfileKey(gender: string, speakingStyle: string) {
+  const genderPrefix = gender === "여자" ? "female" : "male";
+  const ageSuffix =
+    speakingStyle === "TONE_20S"
+      ? "20s"
+      : speakingStyle === "TONE_40S"
+        ? "40s"
+        : "30s";
+  return `${genderPrefix}_${ageSuffix}`;
+}
 
-  if (speakingStyle.includes("다정하지만 단호한")) {
-    return applyRules(trimmed, [
-      [/좋아\./g, "좋아. 다만 선은 지키게."],
-      [/자, /g, "자, 천천히 "],
-      [/걱정 말게/g, "걱정하지 말게"],
-      [/조심하게/g, "조심하게. 그건 분명히 말해 두지"],
-      [/기대하겠네/g, "기대하겠네. 그러니 실망시키진 말게"],
-      [/괜찮아?/g, "괜찮나?"],
-      [/기억하게/g, "기억해 두게"],
-      [/괜찮/g, "괜찮네"],
-      [/허\.\.\./g, "음..."],
-    ]);
-  }
-
-  return trimmed;
+function buildProfessorVoiceSlotPath(profileKey: string, professorLineIndex: number) {
+  return `/voice/${profileKey}/${String(professorLineIndex + 1).padStart(3, "0")}.wav`;
 }
 
 function resolveSceneLines(
+  episodeId: string,
   scene: StoryScene,
   playerName: string,
   professorName: string,
-  professorSpeakingStyle: string,
-): Array<{ speaker: DialogueSpeakerLabel; text: string }> {
-  const stageLines = (scene.stage_direction ?? []).map((direction) => ({
-    speaker: "나레이션" as const,
+  professorScriptLines: string[],
+): DialogueLine[] {
+  const stageLines: DialogueLine[] = (scene.stage_direction ?? []).map((direction) => ({
+    speaker: "나레이션",
     text: `(${replaceStoryPlaceholders(direction, playerName, professorName)})`,
+    professorLineIndex: null,
   }));
 
-  const contentLines = (scene.lines ?? []).map((line) => ({
-    speaker: storyRoleToSpeaker(line.role),
-    text:
-      line.role === "professor"
-        ? applyProfessorSpeakingStyle(
-            buildStoryLineText(line.text, playerName, professorName, [line.expression, line.action]),
-            professorSpeakingStyle,
-          )
-        : buildStoryLineText(line.text, playerName, professorName, [line.expression, line.action]),
-  }));
+  const contentLines: DialogueLine[] = (scene.lines ?? []).map((line, lineIndex) => {
+    const speaker = storyRoleToSpeaker(line.role);
+    const fallbackText = buildStoryLineText(line.text, playerName, professorName, [
+      line.expression,
+      line.action,
+    ]);
+
+    if (line.role !== "professor") {
+      return {
+        speaker,
+        text: fallbackText,
+        professorLineIndex: null,
+      };
+    }
+
+    const key = `${episodeId}::${scene.id}::${lineIndex}`;
+    const professorLineIndex = professorLineKeyToIndexMap.get(key) ?? null;
+    const overriddenProfessorLine =
+      professorLineIndex !== null ? professorScriptLines[professorLineIndex] : undefined;
+
+    return {
+      speaker,
+      text: overriddenProfessorLine?.trim() ? overriddenProfessorLine.trim() : fallbackText,
+      professorLineIndex,
+    };
+  });
 
   return [...stageLines, ...contentLines];
 }
@@ -1004,6 +870,142 @@ function getStoryEpisodeNumber(episodeId: string) {
   if (episodeId.startsWith("ep05")) return 5;
   if (episodeId.startsWith("ep06")) return 6;
   return 1;
+}
+
+function resolveBgmUrlByContext(phase: Phase, episodeId: string | null) {
+  if (phase === "screen1_title" || phase === "screen2_player" || phase === "screen3_professor") {
+    return STORY_BGM_URLS.introSetup;
+  }
+
+  if (phase === "screen9_ending" || phase === "screen10_reality" || phase === "screen11_credit") {
+    return STORY_BGM_URLS.endingCredit;
+  }
+
+  if (phase !== "screen4_8_chapter" || !episodeId) {
+    return STORY_BGM_URLS.introSetup;
+  }
+
+  if (episodeId === "ep01_commute") {
+    return STORY_BGM_URLS.commuteEpisode;
+  }
+
+  if (episodeId === "ep02_morning_classroom") {
+    return STORY_BGM_URLS.morningClassroom;
+  }
+
+  if (
+    episodeId === "ep03_lunch_student_cafeteria" ||
+    episodeId === "ep03_lunch_off_campus_restaurant"
+  ) {
+    return STORY_BGM_URLS.cafeteriaRestaurantEpisode;
+  }
+
+  if (episodeId === "ep03_lunch_bathroom_stall") {
+    return STORY_BGM_URLS.restroomEpisode;
+  }
+
+  if (episodeId === "ep04_library") {
+    return STORY_BGM_URLS.afternoonLibraryEpisode;
+  }
+
+  if (episodeId === "ep05_simple_dinner") {
+    return STORY_BGM_URLS.dinnerEpisode;
+  }
+
+  if (episodeId.startsWith("ep06_")) {
+    return STORY_BGM_URLS.nightEpisode;
+  }
+
+  return STORY_BGM_URLS.introSetup;
+}
+
+function resolveSfxKeysByContext(
+  episodeId: string,
+  sceneId: string,
+  lineText: string,
+): StorySfxKey[] {
+  if (sceneId === "ep02_scene01_intro" && lineText.includes("터벅터벅... 강의실 문을 열자마자")) {
+    return ["footsteps", "doorOpen"];
+  }
+
+  if (sceneId === "ep02_scene02_after_choice01" && lineText.includes("책 페이지를 넘겨")) {
+    return ["pageTurn"];
+  }
+
+  if (sceneId === "ep02_scene04_after_choice03" && lineText.includes("긴장감 때문에 심장이")) {
+    return ["heartbeat"];
+  }
+
+  if (sceneId === "ep03b_scene01_intro" && lineText.includes("그때, 달칵")) {
+    return ["doorOpen"];
+  }
+
+  if (sceneId === "ep03r_scene06_outro" && lineText.includes("딸랑— 문이 닫힌다")) {
+    return ["restaurantBell"];
+  }
+
+  if (sceneId === "ep04_scene02_stacks" && lineText.includes("교재 3단원. 펼쳤다.")) {
+    return ["pageTurn"];
+  }
+
+  if (sceneId === "ep06o_scene02_route_a" && lineText.includes("문앞에 서자")) {
+    return ["doorKnock"];
+  }
+
+  if (sceneId === "ep06o_scene03_route_b" && lineText.includes("콰광")) {
+    return ["thunder"];
+  }
+
+  if (sceneId === "ep06o_scene04_common_office" && lineText.includes("에스프레소 머신을 작동")) {
+    return ["coffeeMachine"];
+  }
+
+  if (sceneId === "ep06o_scene05_umbrella" && lineText.includes("시계는 9시")) {
+    return ["clockTick"];
+  }
+
+  if (sceneId === "ep06o_scene05_umbrella" && lineText.includes("처음으로 내 이름을 불렀다")) {
+    return ["heartbeat"];
+  }
+
+  if (
+    episodeId === "ep06_night_bench" &&
+    (lineText.includes("가슴 한구석이 찌릿하다") ||
+      lineText.includes("심박수가 위험 수치다") ||
+      lineText.includes("더 아프게 설레기 시작한다"))
+  ) {
+    return ["heartbeat"];
+  }
+
+  if (sceneId === "ep06c_scene02_professor_enters" && lineText.includes("문이 천천히 열리고")) {
+    return ["doorOpen"];
+  }
+
+  if (sceneId === "ep06c_scene03_opt01" && lineText.includes("'마음에 든다'")) {
+    return ["heartbeat"];
+  }
+
+  if (sceneId === "ep06c_scene04_opt02" && lineText.includes("복도 발소리가 멀어진다")) {
+    return ["footsteps"];
+  }
+
+  if (sceneId === "ep06c_scene04_opt02" && lineText.includes("문이 다시 열리며")) {
+    return ["heartbeat"];
+  }
+
+  if (sceneId === "ep06c_scene04_opt02" && lineText.includes("봉투 안 에너지 음료 캔이 차갑다")) {
+    return ["heartbeat"];
+  }
+
+  if (sceneId === "ep06c_scene05_opt03" && lineText.includes("언제부터 여기 계셨던 걸까")) {
+    return ["heartbeat"];
+  }
+
+  if (sceneId === "ep06c_scene06_outro" && lineText.includes("교수님이 먼저 자리에서 일어난다")) {
+    return ["footsteps"];
+  }
+
+  return [];
 }
 
 const choiceAffinityMap: Record<string, number> = {
@@ -1070,18 +1072,11 @@ function buildVariantSummary(
   const rankSummary = endingMeta[rank].description;
 
   const subtypeSummaryMap: Record<string, string> = {
-    "집착형": "교수는 학생의 뛰어난 성과를 핑계 삼아 관계를 더 오래 붙들어 두려 한다.",
-    "유혹형": "칭찬은 달콤하지만, 그 제안은 학점 이상의 무게로 학생을 끌어당긴다.",
-    "현실 공포형": "성공의 기쁨은 곧바로 되돌릴 수 없는 운명처럼 뒤틀린다.",
-    "아련한 납치": "끝난 줄 알았던 인연은 오히려 더 길고 진하게 이어질 조짐을 보인다.",
-    "노예 계약형": "애매한 성적은 더 미묘한 대가를 부르고, 교수는 그 틈을 놓치지 않는다.",
-    "안면 몰수형": "하루의 특별함은 성적표 앞에서 냉정하게 지워지고, 관계는 다시 멀어진다.",
-    "불합격 통보형": "아슬아슬한 통과는 실패보다 더 질긴 방식으로 다음 학기를 예고한다.",
-    "미련 곰탱이형": "교수는 아직 끝나지 않았다는 듯 재수강을 새로운 인연의 연장선으로 만든다.",
-    "쿨한 재수강 환영형": "담담한 말투 아래, 다시 만나게 될 미래가 이미 예정된 것처럼 깔린다.",
-    "장르 급발진형": "낙제의 충격은 캠퍼스 로맨스를 통째로 다른 장르로 비틀어 버린다.",
-    "갑분 스릴러형": "시험 결과는 관계의 끝이 아니라, 위험한 비밀극의 입구가 되어 버린다.",
-    "환생형": "현실은 무너지고, 학생은 말도 안 되는 방식으로 교수 곁에 남겨진다.",
+    "A+ 엔딩": "최고 성적의 여운이 관계를 더 깊고 위험한 제안으로 이어진다.",
+    "B+ 엔딩": "애매한 성과는 냉정한 거리감과 함께 관계를 스쳐 지나가게 만든다.",
+    "C+ 엔딩": "끝난 듯한 인연은 재수강이라는 이름으로 다시 이어질 조짐을 남긴다.",
+    "히든 S+ - 진정한 멋사인으로 변신": "현실 규칙이 무너지며 장르가 급발진하는 히든 루트다.",
+    "히든 S+ - 로그아웃 처리": "알아선 안 될 진실이 밝혀지며 스릴러로 전환되는 히든 루트다.",
   };
 
   const subtypeSummary = subtypeSummaryMap[variant.subtype] ?? "";
@@ -1092,21 +1087,23 @@ function buildVariantLines(
   variant: StoryEndingVariant,
   playerName: string,
   professorName: string,
-  professorSpeakingStyle: string,
+  professorGender: string,
 ) {
+  const resolvedGender: EndingProfessorGender = professorGender === "여자" ? "여자" : "남자";
   const stageLines = (variant.stage_direction ?? []).map(
     (line) => `나레이션: (${replaceStoryPlaceholders(line, playerName, professorName)})`,
   );
   const contentLines = variant.lines.map((line) => {
     const speaker = storyRoleToSpeaker(line.role);
-    const baseText = buildStoryLineText(line.text, playerName, professorName, [
+    const genderedProfessorText =
+      line.role === "professor"
+        ? GENDERED_ENDING_PROFESSOR_LINES[variant.id]?.[resolvedGender]
+        : undefined;
+    const baseText = buildStoryLineText(genderedProfessorText ?? line.text, playerName, professorName, [
       line.action,
       line.expression,
     ]);
-    const text =
-      line.role === "professor"
-        ? applyProfessorSpeakingStyle(baseText, professorSpeakingStyle)
-        : baseText;
+    const text = baseText;
     return `${speaker}: ${text}`;
   });
 
@@ -1127,160 +1124,18 @@ function parseVariantDisplayLine(line: string) {
 
 function pickEndingVariant(
   rank: EndingRank,
-  choiceHistory: string[],
-  finalEpisodeId: string | null,
 ): StoryEndingVariant {
   const catalogKey = storyEndingKeyByRank(rank);
   const catalog = storyEndingCatalog[catalogKey];
-
-  if (rank === "ENDING_A_PLUS") {
-    if (choiceHistory.includes("ep06o_c02_opt02")) {
-      return catalog.variants[1];
-    }
-    if (choiceHistory.includes("ep06o_c02_opt03")) {
-      return catalog.variants[2];
-    }
-    if (finalEpisodeId === "ep06_night_bench") {
-      return catalog.variants[3];
-    }
+  if (rank !== "ENDING_F") {
     return catalog.variants[0];
   }
 
-  if (rank === "ENDING_B_PLUS") {
-    if (choiceHistory.includes("ep06o_c02_opt03") || choiceHistory.includes("ep03r_c01_opt03")) {
-      return catalog.variants[1];
-    }
-    return catalog.variants[0];
-  }
-
-  if (rank === "ENDING_C_PLUS") {
-    if (finalEpisodeId === "ep06_night_classroom") {
-      return catalog.variants[1];
-    }
-    if (finalEpisodeId === "ep06_night_bench") {
-      return catalog.variants[2];
-    }
-    return catalog.variants[0];
-  }
-
-  if (choiceHistory.includes("ep02_c03_opt03")) {
-    return catalog.variants[0];
-  }
-  if (choiceHistory.includes("ep06o_c02_opt03")) {
-    return catalog.variants[1];
-  }
-  return catalog.variants[2];
+  const hiddenVariants = catalog.variants.slice(0, 2);
+  const randomIndex = Math.floor(Math.random() * hiddenVariants.length);
+  return hiddenVariants[randomIndex];
 }
 
-function getEndingExpressionKey(rank: EndingRank, variant: StoryEndingVariant) {
-  if (rank === "ENDING_F") {
-    return "EXP_3";
-  }
-
-  if (variant.subtype.includes("집착") || variant.subtype.includes("유혹")) {
-    return "EXP_2";
-  }
-
-  if (
-    variant.subtype.includes("현실 공포") ||
-    variant.subtype.includes("안면 몰수") ||
-    variant.subtype.includes("불합격")
-  ) {
-    return "EXP_3";
-  }
-
-  return "EXP_1";
-}
-
-function inferExpressionKeyFromText(text: string) {
-  const value = text.trim();
-
-  if (!value) {
-    return "EXP_1";
-  }
-
-  if (
-    /(미소|웃|따뜻|다행|고맙|칭찬|기대|보증|좋아|괜찮|따라와|버킷리스트|따뜻하|호의|감사)/.test(
-      value,
-    )
-  ) {
-    return "EXP_2";
-  }
-
-  if (
-    /(늦었|질문|긴장|압박|실망|악랄|후회|조심|F|사각지대|못 볼|단호|거리|부담|도망|숨|들켰)/.test(
-      value,
-    )
-  ) {
-    return "EXP_3";
-  }
-
-  return "EXP_1";
-}
-
-const defaultExpressionSet: SessionExpressionDefinition[] = [
-  {
-    key: "EXP_1",
-    label: "차분한 기본",
-    direction: "calm neutral expression, gentle eye contact, composed professor vibe",
-    reason: "전체 에피소드의 기본 대사와 안정 구간을 담당",
-  },
-  {
-    key: "EXP_2",
-    label: "미소/호감",
-    direction: "warm subtle smile, softened eyes, approachable and affectionate tone",
-    reason: "호감 상승, 장난기, 친밀한 반응 구간에 사용",
-  },
-  {
-    key: "EXP_3",
-    label: "단호/긴장",
-    direction: "stern focused expression, tighter brows, disciplined professor authority",
-    reason: "긴장, 압박, 당황 반응 구간을 담당",
-  },
-];
-
-const defaultSpriteCues: Partial<Record<ChapterId, ChapterSpriteCue>> = {
-  COMMUTE_CAMPUS: {
-    dialogueExpressionKey: "EXP_1",
-    choiceReactionExpressionKeys: ["EXP_1", "EXP_1", "EXP_1"],
-  },
-  MORNING_CLASSROOM: {
-    dialogueExpressionKey: "EXP_3",
-    choiceReactionExpressionKeys: ["EXP_2", "EXP_2", "EXP_3"],
-  },
-  LUNCH_STUDENT_CAFETERIA: {
-    dialogueExpressionKey: "EXP_1",
-    choiceReactionExpressionKeys: ["EXP_2", "EXP_1", "EXP_2"],
-  },
-  LUNCH_OFFCAMPUS_RESTAURANT: {
-    dialogueExpressionKey: "EXP_1",
-    choiceReactionExpressionKeys: ["EXP_1", "EXP_2", "EXP_1"],
-  },
-  LUNCH_RESTROOM_STALL: {
-    dialogueExpressionKey: "EXP_3",
-    choiceReactionExpressionKeys: ["EXP_1", "EXP_3", "EXP_3"],
-  },
-  AFTERNOON_LIBRARY: {
-    dialogueExpressionKey: "EXP_1",
-    choiceReactionExpressionKeys: ["EXP_1", "EXP_2", "EXP_3"],
-  },
-  LIGHT_DINNER: {
-    dialogueExpressionKey: "EXP_1",
-    choiceReactionExpressionKeys: ["EXP_1", "EXP_1", "EXP_1"],
-  },
-  NIGHT_LAB_VISIT: {
-    dialogueExpressionKey: "EXP_2",
-    choiceReactionExpressionKeys: ["EXP_2", "EXP_2", "EXP_3"],
-  },
-  NIGHT_CAMPUS_WALK: {
-    dialogueExpressionKey: "EXP_2",
-    choiceReactionExpressionKeys: ["EXP_2", "EXP_2", "EXP_1"],
-  },
-  NIGHT_SELF_STUDY: {
-    dialogueExpressionKey: "EXP_1",
-    choiceReactionExpressionKeys: ["EXP_1", "EXP_2", "EXP_1"],
-  },
-};
 
 const HANGUL_BASE = 0xac00;
 const HANGUL_LAST = 0xd7a3;
@@ -1362,8 +1217,9 @@ export default function Home() {
   const [player, setPlayer] = useState<PlayerFormState>(initialPlayerState);
   const [professor, setProfessor] = useState<ProfessorFormState>(initialProfessorState);
 
-  const [isBgmOn, setIsBgmOn] = useState(false);
+  const [isBgmOn, setIsBgmOn] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastSfxTriggerRef = useRef<string>("");
 
   const toggleBgm = () => {
     if (!audioRef.current) return;
@@ -1375,18 +1231,14 @@ export default function Home() {
     setIsBgmOn(!isBgmOn);
   };
 
-  const [generatedImageUrl, setGeneratedImageUrl] = useState("");
-  const [generatedExpressionImageUrls, setGeneratedExpressionImageUrls] =
-    useState<ProfessorExpressionMap>({});
-  const [imageMessage, setImageMessage] = useState("");
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [activeProfessorScriptProfileKey, setActiveProfessorScriptProfileKey] = useState("male_30s");
+  const [activeProfessorScriptLines, setActiveProfessorScriptLines] = useState<string[]>([]);
   const [storyCursor, setStoryCursor] = useState<{
     episodeId: string;
     sceneId: string;
     lineIndex: number;
   } | null>(null);
   const [pendingChoice, setPendingChoice] = useState<StoryChoice | null>(null);
-  const [choiceHistory, setChoiceHistory] = useState<string[]>([]);
   const [maxScore, setMaxScore] = useState(0);
   const [rawScore, setRawScore] = useState(0);
   const [storyLog, setStoryLog] = useState<string[]>([]);
@@ -1405,18 +1257,8 @@ export default function Home() {
 
   const [ending, setEnding] = useState<EndingState | null>(null);
   const [isCreditFinished, setIsCreditFinished] = useState(false);
-  const [isScreen1TitleImageErrored, setIsScreen1TitleImageErrored] = useState(false);
-  const [isScreen11TitleImageErrored, setIsScreen11TitleImageErrored] = useState(false);
-  const [sessionExpressionSet, setSessionExpressionSet] = useState<
-    SessionExpressionDefinition[]
-  >(defaultExpressionSet);
-  const [sessionSpriteCues, setSessionSpriteCues] = useState<
-    Partial<Record<ChapterId, ChapterSpriteCue>>
-  >(normalizeSpriteCueMap(defaultSpriteCues));
   const [typedProfessorLine, setTypedProfessorLine] = useState("");
   const [isAutoPlayOn, setIsAutoPlayOn] = useState(false);
-  const [visibleSceneCutinUrl, setVisibleSceneCutinUrl] = useState<string | null>(null);
-  const [isSceneCutinVisible, setIsSceneCutinVisible] = useState(false);
   const [isDebugUnlocked, setIsDebugUnlocked] = useState(false);
   const [isDebugPanelOpen, setIsDebugPanelOpen] = useState(false);
   const [isDebugPasswordModalOpen, setIsDebugPasswordModalOpen] = useState(false);
@@ -1431,8 +1273,9 @@ export default function Home() {
   const debugPhaseButtons: Array<{ phase: Phase; label: string }> = [
     { phase: "screen1_title", label: "화면1 타이틀" },
     { phase: "screen2_player", label: "화면2 플레이어" },
-    { phase: "screen3_professor", label: "화면3 교수 생성" },
-    { phase: "screen4_8_chapter", label: "화면4~8 플레이" },
+    { phase: "screen3_professor", label: "화면3 교수 설정" },
+    { phase: "screen4_8_chapter", label: "화면4~8 스토리" },
+    { phase: "screen9_ending", label: "화면9 엔딩" },
     { phase: "screen10_reality", label: "화면10 현실" },
     { phase: "screen11_credit", label: "화면11 크레딧" },
   ];
@@ -1445,14 +1288,24 @@ export default function Home() {
   );
 
   const currentEpisode = storyCursor ? getStoryEpisode(storyCursor.episodeId) : null;
+  const currentBgmUrl = useMemo(
+    () => resolveBgmUrlByContext(phase, currentEpisode?.id ?? null),
+    [currentEpisode?.id, phase],
+  );
   const currentScene = storyCursor ? getStoryScene(storyCursor.episodeId, storyCursor.sceneId) : null;
   const currentSceneLines = useMemo(() => {
-    if (!currentEpisode || !currentScene) {
+    if (!currentEpisode || !currentScene || !storyCursor) {
       return [];
     }
 
-    return resolveSceneLines(currentScene, playerName, professorName, professor.speakingStyle);
-  }, [currentEpisode, currentScene, playerName, professor.speakingStyle, professorName]);
+    return resolveSceneLines(
+      storyCursor.episodeId,
+      currentScene,
+      playerName,
+      professorName,
+      activeProfessorScriptLines,
+    );
+  }, [activeProfessorScriptLines, currentEpisode, currentScene, playerName, professorName, storyCursor]);
   const currentLine =
     !pendingChoice && storyCursor && storyCursor.lineIndex < currentSceneLines.length
       ? currentSceneLines[storyCursor.lineIndex]
@@ -1476,28 +1329,20 @@ export default function Home() {
     ? {
         title: currentEpisode.title,
         location: currentEpisode.location,
-        backdrop: storyEpisodeBackdropMap[currentEpisode.id] ?? preGameBackgroundImageUrl,
+        backdrop: DUMMY_SOLID_LAYER,
       }
     : null;
-  const currentLegacyChapterId = currentEpisode
-    ? storyEpisodeToChapterIdMap[currentEpisode.id]
-    : null;
-  const currentSceneBackdropUrl = currentScene ? storySceneBackdropMap[currentScene.id] : undefined;
-  const currentSceneCutinUrl = currentScene ? storySceneCutinMap[currentScene.id] : undefined;
-  const currentSceneCutinTriggerPattern = currentScene
-    ? storySceneCutinTriggerPatternMap[currentScene.id]
-    : undefined;
-  const currentBackdropLayers = [
-    currentSceneBackdropUrl,
-    currentChapterInfo?.backdrop ?? preGameBackgroundImageUrl,
-  ].filter((value): value is string => Boolean(value));
-  const endingBackdrop =
-    currentChapterInfo?.backdrop ?? generatedImageUrl ?? preGameBackgroundImageUrl;
+  const currentBackdropLayers = [DUMMY_DARK_LAYER, currentChapterInfo?.backdrop ?? DUMMY_SOLID_LAYER];
   const activeSpeakerLabel = pendingChoice ? "나" : currentLine?.speaker ?? "나레이션";
   const activeDialogueLine = pendingChoice
     ? replaceStoryPlaceholders(pendingChoice.text, playerName, professorName)
     : currentLine?.text ?? "";
-  const currentStoryLineText = currentLine?.text ?? "";
+  const currentProfessorVoiceSlotPath =
+    !pendingChoice &&
+    currentLine?.speaker === "교수" &&
+    typeof currentLine?.professorLineIndex === "number"
+      ? buildProfessorVoiceSlotPath(activeProfessorScriptProfileKey, currentLine.professorLineIndex)
+      : "";
   const isDialogueLineTyping =
     phase === "screen4_8_chapter" &&
     activeDialogueLine.length > 0 &&
@@ -1506,18 +1351,6 @@ export default function Home() {
     hasCurrentChoices && !isDialogueLineTyping;
   const canAdvanceCurrentStep =
     (!hasCurrentChoices || Boolean(pendingChoice) || currentLine !== null) && !isDialogueLineTyping;
-  const shouldDimProfessorSprite = !pendingChoice && currentLine?.speaker === "교수" ? false : true;
-  const shouldShowSceneCutin = useMemo(() => {
-    if (!currentSceneCutinUrl || !currentStoryLineText.trim()) {
-      return false;
-    }
-
-    if (!currentSceneCutinTriggerPattern) {
-      return true;
-    }
-
-    return currentSceneCutinTriggerPattern.test(currentStoryLineText);
-  }, [currentSceneCutinTriggerPattern, currentSceneCutinUrl, currentStoryLineText]);
 
   function revealCurrentDialogueImmediately() {
     const line = activeDialogueLine.trim();
@@ -1537,123 +1370,59 @@ export default function Home() {
   revealCurrentDialogueImmediatelyRef.current = revealCurrentDialogueImmediately;
   moveNextChapterRef.current = moveNextChapter;
 
-  useEffect(() => {
-    if (phase !== "screen4_8_chapter") {
-      setIsSceneCutinVisible(false);
-      setVisibleSceneCutinUrl(null);
-      return;
-    }
-
-    if (shouldShowSceneCutin && currentSceneCutinUrl) {
-      setVisibleSceneCutinUrl(currentSceneCutinUrl);
-      requestAnimationFrame(() => {
-        setIsSceneCutinVisible(true);
-      });
-      return;
-    }
-
-    setIsSceneCutinVisible(false);
-  }, [currentSceneCutinUrl, phase, shouldShowSceneCutin]);
-
-  useEffect(() => {
-    if (isSceneCutinVisible || !visibleSceneCutinUrl) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setVisibleSceneCutinUrl(null);
-    }, 260);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [isSceneCutinVisible, visibleSceneCutinUrl]);
-
-  const activeProfessorImageUrl = useMemo(() => {
-    if (!generatedImageUrl) {
-      return "";
-    }
-
-    const chapterCue = currentLegacyChapterId ? sessionSpriteCues[currentLegacyChapterId] : undefined;
-    const choiceIndex = pendingChoice
-      ? currentChoiceList.findIndex((choice) => choice.id === pendingChoice.id)
-      : -1;
-    const cueKey =
-      choiceIndex >= 0
-        ? chapterCue?.choiceReactionExpressionKeys?.[choiceIndex]
-        : chapterCue?.dialogueExpressionKey;
-    const inferredKey = inferExpressionKeyFromText(activeDialogueLine);
-    const preferredKey = cueKey || inferredKey;
-    const mappedImage = generatedExpressionImageUrls[preferredKey];
-
-    if (typeof mappedImage === "string" && mappedImage.length > 0) {
-      return mappedImage;
-    }
-
-    return generatedImageUrl;
-  }, [
-    activeDialogueLine,
-    currentChoiceList,
-    currentLegacyChapterId,
-    generatedExpressionImageUrls,
-    generatedImageUrl,
-    pendingChoice,
-    sessionSpriteCues,
-  ]);
-  const endingProfessorImageUrl = useMemo(() => {
-    if (!generatedImageUrl) {
-      return "";
-    }
-
-    if (ending?.expressionKey) {
-      const mapped = generatedExpressionImageUrls[ending.expressionKey];
-      if (typeof mapped === "string" && mapped.length > 0) {
-        return mapped;
-      }
-    }
-
-    return generatedImageUrl;
-  }, [ending?.expressionKey, generatedExpressionImageUrls, generatedImageUrl]);
-  const expressionPreviewEntries = useMemo(() => {
-    const ordered = sessionExpressionSet
-      .map((expression) => ({
-        key: expression.key,
-        label: expression.label,
-        src: generatedExpressionImageUrls[expression.key],
-      }))
-      .filter(
-        (
-          entry,
-        ): entry is {
-          key: string;
-          label: string;
-          src: string;
-        } => typeof entry.src === "string" && entry.src.length > 0,
-      );
-
-    if (ordered.length > 0) {
-      return ordered;
-    }
-
-    return Object.entries(generatedExpressionImageUrls)
-      .filter(
-        (entry): entry is [string, string] =>
-          typeof entry[1] === "string" && entry[1].length > 0,
-      )
-      .map(([key, src]) => ({
-        key,
-        label: key,
-        src,
-      }));
-  }, [generatedExpressionImageUrls, sessionExpressionSet]);
-
   const affinityPercent =
     maxScore > 0 ? Math.min(100, Math.round((Math.max(0, rawScore) / maxScore) * 100)) : 0;
   const visibleAffinityPercent = affinityPercent > 0 ? Math.max(6, affinityPercent) : 0;
   const affinityKnobPercent = Math.max(3, Math.min(97, visibleAffinityPercent));
   const affinityMood = getAffinityMood(affinityPercent);
   const debugEndingCatalog = storyEndingCatalog[storyEndingKeyByRank(debugEndingSelect)];
-  const debugEndingVariants = debugEndingCatalog.variants;
+  const debugEndingVariants = useMemo(
+    () =>
+      debugEndingSelect === "ENDING_F"
+        ? debugEndingCatalog.variants.slice(0, 2)
+        : debugEndingCatalog.variants,
+    [debugEndingCatalog.variants, debugEndingSelect],
+  );
+
+  useEffect(() => {
+    if (!audioRef.current || !isBgmOn) {
+      return;
+    }
+
+    audioRef.current.currentTime = 0;
+    audioRef.current.play().catch((err) => console.error("BGM 재생 실패:", err));
+  }, [currentBgmUrl, isBgmOn]);
+
+  useEffect(() => {
+    if (phase !== "screen4_8_chapter" || !storyCursor || !currentLine || pendingChoice) {
+      return;
+    }
+
+    const triggerKey = `${storyCursor.episodeId}:${storyCursor.sceneId}:${storyCursor.lineIndex}`;
+    if (lastSfxTriggerRef.current === triggerKey) {
+      return;
+    }
+
+    const sfxKeys = resolveSfxKeysByContext(
+      storyCursor.episodeId,
+      storyCursor.sceneId,
+      currentLine.text,
+    );
+    if (sfxKeys.length === 0) {
+      return;
+    }
+
+    lastSfxTriggerRef.current = triggerKey;
+    if (!isBgmOn) {
+      return;
+    }
+
+    sfxKeys.forEach((key) => {
+      const sfx = new Audio(STORY_SFX_URLS[key]);
+      sfx.preload = "auto";
+      void sfx.play().catch(() => undefined);
+    });
+  }, [currentLine, isBgmOn, pendingChoice, phase, storyCursor]);
 
   useEffect(() => {
     const image = new Image();
@@ -1952,11 +1721,16 @@ export default function Home() {
       lineIndex: 0,
     });
     setPendingChoice(null);
+    lastSfxTriggerRef.current = "";
     setPhase("screen4_8_chapter");
   }
 
   function previewEndingByRank(rank: EndingRank, variantIndex = 0) {
-    const variants = storyEndingCatalog[storyEndingKeyByRank(rank)].variants;
+    const catalogVariants = storyEndingCatalog[storyEndingKeyByRank(rank)].variants;
+    const variants = rank === "ENDING_F" ? catalogVariants.slice(0, 2) : catalogVariants;
+    if (variants.length === 0) {
+      return;
+    }
     const safeVariantIndex = Math.min(Math.max(variantIndex, 0), variants.length - 1);
     const variant = variants[safeVariantIndex];
     setEnding({
@@ -1966,8 +1740,7 @@ export default function Home() {
       score100: debugEndingScoreMap[rank],
       variantId: variant.id,
       variantSubtype: variant.subtype,
-      variantLines: buildVariantLines(variant, playerName, professorName, professor.speakingStyle),
-      expressionKey: getEndingExpressionKey(rank, variant),
+      variantLines: buildVariantLines(variant, playerName, professorName, professor.gender),
     });
     setPhase("screen9_ending");
   }
@@ -2046,64 +1819,24 @@ export default function Home() {
     setPhase("screen3_professor");
   }
 
-  async function generateProfessorImage(options?: {
-    resolvedProfessor?: ProfessorFormState;
-    expressionSet?: SessionExpressionDefinition[];
-  }) {
-    const resolvedProfessor = options?.resolvedProfessor ?? resolveProfessorForGeneration(professor);
-    const resolvedProfessorName = toDisplayProfessorName(resolvedProfessor.name);
-    const normalizedExpressionSet = normalizeExpressionSet(options?.expressionSet);
-
-    setProfessor(resolvedProfessor);
-    setImageMessage("");
-    setGeneratedExpressionImageUrls({});
-    setIsGeneratingImage(true);
+  async function loadProfessorScriptLines(resolvedProfessor: ProfessorFormState) {
+    const profileKey = resolveProfessorScriptProfileKey(
+      resolvedProfessor.gender,
+      resolvedProfessor.speakingStyle,
+    );
+    setActiveProfessorScriptProfileKey(profileKey);
 
     try {
-      const response = await fetch("/api/generate-professor-image", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          professorName: resolvedProfessorName,
-          professorSummary: buildProfessorSummary(resolvedProfessor),
-          illustrationPrompt: buildIllustrationPrompt(resolvedProfessor),
-          expressionSet: normalizedExpressionSet.length > 0 ? normalizedExpressionSet : undefined,
-        }),
-      });
-
-      const data = (await response.json()) as GenerateProfessorImageResponse;
-
-      if (!response.ok || !data.imageDataUrl) {
-        throw new Error(data.message || "교수 이미지 생성 실패");
-      }
-
-      setGeneratedImageUrl(data.imageDataUrl);
-      setGeneratedExpressionImageUrls(data.expressionImageDataUrls ?? {});
-      const returnedExpressionSet = normalizeExpressionSet(data.expressionSet);
-      if (returnedExpressionSet.length > 0) {
-        setSessionExpressionSet(returnedExpressionSet);
-      } else if (normalizedExpressionSet.length > 0) {
-        setSessionExpressionSet(normalizedExpressionSet);
-      }
-      const expressionCount = Object.values(data.expressionImageDataUrls ?? {}).filter(
-        (value) => typeof value === "string" && value.length > 0,
-      ).length;
-      setImageMessage(
-        data.message ||
-          `교수님 생성이 완료되었습니다. (${expressionCount > 0 ? `표정 ${expressionCount}종 포함` : "기본 이미지"})`,
+      const response = await fetch(
+        `/api/professor-script-profile?gender=${encodeURIComponent(resolvedProfessor.gender)}&ageTone=${encodeURIComponent(resolvedProfessor.speakingStyle)}`,
       );
-    } catch (error) {
-      setGeneratedImageUrl("");
-      setGeneratedExpressionImageUrls({});
-      setImageMessage(
-        error instanceof Error
-          ? `이미지 생성 실패: ${error.message}`
-          : "이미지 생성 실패",
-      );
-    } finally {
-      setIsGeneratingImage(false);
+      if (!response.ok) {
+        throw new Error("스크립트 프로필 응답 실패");
+      }
+      const data = (await response.json()) as { professorLines?: string[] };
+      setActiveProfessorScriptLines(Array.isArray(data.professorLines) ? data.professorLines : []);
+    } catch {
+      setActiveProfessorScriptLines([]);
     }
   }
 
@@ -2118,18 +1851,16 @@ export default function Home() {
       affinityDeltaTimerRef.current = null;
     }
     setEnding(null);
-    setSessionExpressionSet(defaultExpressionSet);
-    setSessionSpriteCues(normalizeSpriteCueMap(defaultSpriteCues));
     setStoryLog([
       `${playerName}(${player.gender})의 시험기간 시뮬레이션 시작`,
       `${toDisplayProfessorName(resolvedProfessor.name)} 교수님과의 첫 만남이 시작되었다.`,
     ]);
-    return defaultExpressionSet;
   }
 
-  function startStory() {
+  async function startStory() {
     const resolvedProfessor = resolveProfessorForGeneration(professor);
     prepareSessionPack(resolvedProfessor);
+    await loadProfessorScriptLines(resolvedProfessor);
     const firstEpisodeId = "ep01_commute";
     const firstSceneId = getFirstSceneId(firstEpisodeId);
     if (!firstSceneId) {
@@ -2137,32 +1868,6 @@ export default function Home() {
     }
     setStoryCursor({ episodeId: firstEpisodeId, sceneId: firstSceneId, lineIndex: 0 });
     setPendingChoice(null);
-    setChoiceHistory([]);
-    setRawScore(0);
-    setMaxScore(0);
-    setPhase("screen4_8_chapter");
-  }
-
-  async function makeProfessorAndStartStory() {
-    if (isGeneratingImage) {
-      return;
-    }
-
-    const resolvedProfessor = resolveProfessorForGeneration(professor);
-
-    const expressionSetFromSession = prepareSessionPack(resolvedProfessor);
-    await generateProfessorImage({
-      resolvedProfessor,
-      expressionSet: expressionSetFromSession,
-    });
-    const firstEpisodeId = "ep01_commute";
-    const firstSceneId = getFirstSceneId(firstEpisodeId);
-    if (!firstSceneId) {
-      return;
-    }
-    setStoryCursor({ episodeId: firstEpisodeId, sceneId: firstSceneId, lineIndex: 0 });
-    setPendingChoice(null);
-    setChoiceHistory([]);
     setRawScore(0);
     setMaxScore(0);
     setPhase("screen4_8_chapter");
@@ -2201,7 +1906,6 @@ export default function Home() {
 
     setPendingChoice(choice);
     const gainedScore = getChoiceAffinity(choice.id);
-    setChoiceHistory((current) => [...current, choice.id]);
     setRawScore((current) => current + gainedScore);
     setMaxScore((current) => current + 2);
 
@@ -2282,8 +1986,8 @@ export default function Home() {
 
     if (currentScene.terminal) {
       const score100 = maxScore > 0 ? Math.round((Math.max(0, rawScore) / maxScore) * 100) : 0;
-      const rank = getEndingRank(score100);
-      const variant = pickEndingVariant(rank, choiceHistory, storyCursor.episodeId);
+      const rank = score100 >= 100 ? "ENDING_F" : getEndingRank(Math.min(score100, 99));
+      const variant = pickEndingVariant(rank);
       const rankTitle = endingMeta[rank].title;
 
       setEnding({
@@ -2293,13 +1997,7 @@ export default function Home() {
         score100,
         variantId: variant.id,
         variantSubtype: variant.subtype,
-        variantLines: buildVariantLines(
-          variant,
-          playerName,
-          professorName,
-          professor.speakingStyle,
-        ),
-        expressionKey: getEndingExpressionKey(rank, variant),
+        variantLines: buildVariantLines(variant, playerName, professorName, professor.gender),
       });
       setPhase("screen9_ending");
     }
@@ -2318,12 +2016,10 @@ export default function Home() {
     setPhase("screen1_title");
     setPlayer(initialPlayerState);
     setProfessor(initialProfessorState);
-    setGeneratedImageUrl("");
-    setGeneratedExpressionImageUrls({});
-    setImageMessage("");
+    setActiveProfessorScriptProfileKey("male_30s");
+    setActiveProfessorScriptLines([]);
     setStoryCursor(null);
     setPendingChoice(null);
-    setChoiceHistory([]);
     setRawScore(0);
     setMaxScore(0);
     setAffinityDelta(null);
@@ -2334,13 +2030,8 @@ export default function Home() {
     setStoryLog([]);
     setEnding(null);
     setIsCreditFinished(false);
-    setIsScreen1TitleImageErrored(false);
-    setIsScreen11TitleImageErrored(false);
     setIsAutoPlayOn(false);
-    setIsSceneCutinVisible(false);
-    setVisibleSceneCutinUrl(null);
-    setSessionExpressionSet(defaultExpressionSet);
-    setSessionSpriteCues(normalizeSpriteCueMap(defaultSpriteCues));
+    lastSfxTriggerRef.current = "";
   }
 
   return (
@@ -2368,7 +2059,7 @@ export default function Home() {
           <span className="top-hud-button-value">{isBgmOn ? "On" : "Off"}</span>
         </button>
         {/* 실제 오디오 태그 */}
-        <audio ref={audioRef} src={MAIN_BGM_URL} loop />
+        <audio ref={audioRef} src={currentBgmUrl} loop />
       </div>
 
       {isDebugPasswordModalOpen && (
@@ -2451,6 +2142,13 @@ export default function Home() {
               <span className="font-bold">{rawScore}</span> / Max Score:{" "}
               <span className="font-bold">{maxScore}</span>
             </p>
+            <p className="text-sm">
+              교수 스크립트: <span className="font-bold">{activeProfessorScriptProfileKey}</span> /{" "}
+              <span className="font-bold">{activeProfessorScriptLines.length}</span>줄 로드
+            </p>
+            <p className="text-sm break-all">
+              현재 BGM: <span className="font-bold">{currentBgmUrl}</span>
+            </p>
           </div>
 
           <div className="mt-3">
@@ -2491,6 +2189,11 @@ export default function Home() {
               <p className="mb-2 text-xs font-black text-[#7c3457]">
                 {endingMeta[debugEndingSelect].title} Variant
               </p>
+              {debugEndingSelect === "ENDING_F" && (
+                <p className="mb-2 text-[11px] font-semibold text-[#7b3f5b]">
+                  히든 엔딩은 실제 게임과 동일하게 2개 변형만 표시됩니다. (호감도 100 트리거)
+                </p>
+              )}
               <div className="grid grid-cols-1 gap-2">
                 {debugEndingVariants.map((variant, index) => (
                   <button
@@ -2592,7 +2295,7 @@ export default function Home() {
                 }}
                 className="rounded-md border border-[#c29aad] bg-white px-2 py-1 text-xs font-semibold"
               >
-                1번 반응 보기
+                현재 선택지 1번 반응 보기
               </button>
             </div>
           </div>
@@ -2611,40 +2314,16 @@ export default function Home() {
             }
           }}
         >
-          <div className="absolute inset-0 bg-[#f1c8da]" />
-          <div
-            className="absolute inset-0 scale-[1.06] bg-cover bg-center opacity-55 blur-[8px]"
-            style={{ backgroundImage: `url(${mainCoverImageUrl})` }}
-          />
-          <div
-            className="absolute inset-0 bg-no-repeat"
-            style={{
-              backgroundImage: `url(${mainCoverImageUrl})`,
-              backgroundPosition: "center center",
-              backgroundSize: "contain",
-            }}
-          />
+          <div className="absolute inset-0 bg-[linear-gradient(145deg,#d892b0_0%,#f6d2e3_56%,#cb7fa4_100%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_16%,rgba(255,199,226,0.58),rgba(255,199,226,0)_52%),radial-gradient(circle_at_14%_84%,rgba(255,193,221,0.56),rgba(255,193,221,0)_56%)]" />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,208,227,0.08),rgba(64,20,42,0.52))]" />
 
           <div className="relative z-10 mx-auto w-full max-w-[1120px] px-2 text-center md:px-4">
-            {!isScreen1TitleImageErrored ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={screen1TitleImageUrl}
-                  alt="♡교수님과 두근두근♡ 시험기간 시뮬레이션"
-                  className="mx-auto h-auto w-full max-w-[980px] object-contain drop-shadow-[0_9px_26px_rgba(38,10,24,0.5)]"
-                  onError={() => setIsScreen1TitleImageErrored(true)}
-                />
-              </>
-            ) : (
-              <h1 className="text-[clamp(42px,6.6vw,110px)] font-black leading-[1.01] tracking-[-0.04em] text-[#ffd6e7] [text-shadow:_0_4px_0_#8c3f64,_0_9px_26px_rgba(38,10,24,0.5)]">
-                ♡교수님과 두근두근♡
-                <br />
-                시험기간 시뮬레이션
-              </h1>
-            )}
+            <h1 className="text-[clamp(42px,6.6vw,110px)] font-black leading-[1.01] tracking-[-0.04em] text-[#ffd6e7] [text-shadow:_0_4px_0_#8c3f64,_0_9px_26px_rgba(38,10,24,0.5)]">
+              ♡교수님과 두근두근♡
+              <br />
+              시험기간 시뮬레이션
+            </h1>
             <p className="screen1-touch-guide mt-4 text-[clamp(18px,2.2vw,34px)] font-bold leading-none text-white [text-shadow:_0_2px_10px_rgba(0,0,0,0.82)]">
               화면을 클릭하여 게임을 시작해 주세요
             </p>
@@ -2658,7 +2337,6 @@ export default function Home() {
           style={{
             backgroundImage: [
               "linear-gradient(180deg, rgba(69,20,44,0.28), rgba(61,18,40,0.44))",
-              `url(${preGameBackgroundImageUrl})`,
               "radial-gradient(circle at 82% 16%, rgba(255,176,212,0.58), rgba(255,176,212,0) 52%)",
               "radial-gradient(circle at 16% 82%, rgba(255,188,217,0.55), rgba(255,188,217,0) 55%)",
               "linear-gradient(135deg, #d98baa 0%, #e9a9c2 28%, #f6c6d8 54%, #e1a1bf 100%)",
@@ -2731,7 +2409,6 @@ export default function Home() {
           style={{
             backgroundImage: [
               "linear-gradient(180deg, rgba(67,20,42,0.3), rgba(69,16,41,0.48))",
-              `url(${preGameBackgroundImageUrl})`,
               "radial-gradient(circle at 80% 18%, rgba(255,188,219,0.56), rgba(255,188,219,0) 54%)",
               "radial-gradient(circle at 14% 82%, rgba(255,194,219,0.53), rgba(255,194,219,0) 56%)",
               "linear-gradient(145deg, #d892b0 0%, #e5aac3 34%, #f8d4e4 58%, #d895b5 100%)",
@@ -2803,118 +2480,39 @@ export default function Home() {
                       onChange={(event) => updateProfessor("speakingStyle", event.target.value)}
                       className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
                     >
-                      <option value="">선택</option>
+                      <option value="TONE_30S">선택</option>
                       {professorSpeakingStyleOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
                   </div>
                 </div>
 
-                <div className="space-y-3 text-left">
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[132px_1fr] sm:items-center sm:gap-3">
-                    <label className="whitespace-nowrap text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
-                      요소1
-                    </label>
-                    <input
-                      value={professor.feature1}
-                      onChange={(event) => updateProfessor("feature1", event.target.value)}
-                      list="feature1-options"
-                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
-                      placeholder="헤어스타일"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[132px_1fr] sm:items-center sm:gap-3">
-                    <label className="whitespace-nowrap text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
-                      요소2
-                    </label>
-                    <input
-                      value={professor.feature2}
-                      onChange={(event) => updateProfessor("feature2", event.target.value)}
-                      list="feature2-options"
-                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
-                      placeholder="눈매"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[132px_1fr] sm:items-center sm:gap-3">
-                    <label className="whitespace-nowrap text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
-                      요소3
-                    </label>
-                    <input
-                      value={professor.feature3}
-                      onChange={(event) => updateProfessor("feature3", event.target.value)}
-                      list="feature3-options"
-                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
-                      placeholder="코/얼굴형"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[132px_1fr] sm:items-center sm:gap-3">
-                    <label className="whitespace-nowrap text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
-                      요소4
-                    </label>
-                    <input
-                      value={professor.feature4}
-                      onChange={(event) => updateProfessor("feature4", event.target.value)}
-                      list="feature4-options"
-                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
-                      placeholder="입꼬리/피부톤"
-                    />
+                <div className="flex items-center justify-center">
+                  <div className="rounded-2xl border-2 border-[#c88ca8] bg-white/70 px-6 py-5 text-left text-[#5f223f]">
+                    <p className="text-[clamp(22px,2.1vw,32px)] font-bold leading-[1.35]">
+                      더미 모드 안내
+                    </p>
+                    <p className="mt-2 text-[clamp(18px,1.5vw,24px)] leading-[1.5]">
+                      배경/교수 이미지/컷인 특수효과는 비활성화 상태로 진행됩니다.
+                      <br />
+                      스토리와 엔딩, BGM, 효과음/음성 슬롯 구조만 우선 반영됩니다.
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <datalist id="feature1-options">
-                {professorFeatureSuggestions.feature1.map((option) => (
-                  <option key={`feature1-${option}`} value={option} />
-                ))}
-              </datalist>
-              <datalist id="feature2-options">
-                {professorFeatureSuggestions.feature2.map((option) => (
-                  <option key={`feature2-${option}`} value={option} />
-                ))}
-              </datalist>
-              <datalist id="feature3-options">
-                {professorFeatureSuggestions.feature3.map((option) => (
-                  <option key={`feature3-${option}`} value={option} />
-                ))}
-              </datalist>
-              <datalist id="feature4-options">
-                {professorFeatureSuggestions.feature4.map((option) => (
-                  <option key={`feature4-${option}`} value={option} />
-                ))}
-              </datalist>
-
-              <div className="mt-5 rounded-3xl border-[3px] border-[#c186a3] bg-[rgba(255,241,247,0.6)] px-4 py-4 md:px-6">
-                <p className="text-[clamp(30px,3.2vw,46px)] font-bold leading-[1.22] text-[#5f223f]">
-                  그 외 원하는 교수님에 대한 요구사항을 작성해주세요!
-                  <br />
-                  (AI를 통해 반영해드립니다.)
-                </p>
-                <textarea
-                  value={professor.customPrompt}
-                  onChange={(event) => updateProfessor("customPrompt", event.target.value)}
-                  className="mt-3 h-28 w-full rounded-2xl border-[3px] border-[#be7898] bg-white/92 px-4 py-3 text-xl font-medium text-[#5a1f3a] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 md:h-32 md:text-2xl"
-                  placeholder="ex) 항상 무뚝뚝하고 차갑지만 나와 둘이 있을 때는 다정함, 강아지상의 초미남"
-                />
-              </div>
-
               <p className="mt-3 text-[clamp(22px,2.3vw,34px)] font-semibold leading-[1.2] text-[#5a1f39]">
-                전부 입력, 및 선택하셨으면 &apos;만들기&apos;를 눌러주세요
-                <br />
-                (최대 3번까지 생성 가능합니다.)
+                설정을 완료했으면 바로 스토리를 시작해주세요.
               </p>
 
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
+              <div className="mt-3 flex items-center justify-center">
                 <button
                   type="button"
-                  onClick={makeProfessorAndStartStory}
-                  disabled={isGeneratingImage}
-                  className="screen2-confirm-btn screen3-create-btn disabled:cursor-not-allowed disabled:opacity-70"
+                  onClick={startStory}
+                  className="screen2-confirm-btn screen3-create-btn"
                 >
                   <span className="screen2-confirm-gloss" aria-hidden />
                   <span
@@ -2928,55 +2526,12 @@ export default function Home() {
                   <span className="screen2-confirm-heart screen2-confirm-heart-left" aria-hidden>
                     ♡
                   </span>
-                  <span className="screen2-confirm-label">
-                    {isGeneratingImage ? "생성중..." : "만들기"}
-                  </span>
+                  <span className="screen2-confirm-label">스토리 시작</span>
                   <span className="screen2-confirm-heart screen2-confirm-heart-right" aria-hidden>
                     ♡
                   </span>
                 </button>
-                <button
-                  type="button"
-                  onClick={startStory}
-                  disabled={isGeneratingImage}
-                  className="rounded-full border-2 border-[#b87995] bg-white/80 px-7 py-2 text-xl font-semibold text-[#5c223e] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {isGeneratingImage ? "준비 중..." : "스토리만 바로 시작"}
-                </button>
               </div>
-
-              {generatedImageUrl && (
-                <div className="mx-auto mt-4 max-w-[420px] rounded-2xl border-[3px] border-[#bf7e9f] bg-[rgba(255,242,248,0.72)] p-3">
-                  <p className="text-[22px] font-semibold text-[#5e2240]">생성 예시 이미지</p>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={generatedImageUrl}
-                    alt="생성된 교수 이미지 예시"
-                    className="mt-2 h-auto w-full rounded-xl border-2 border-[#c78ea8] object-cover shadow-[0_8px_18px_rgba(71,22,43,0.2)]"
-                  />
-                  {expressionPreviewEntries.length > 0 && (
-                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {expressionPreviewEntries.map((entry) => (
-                        <div
-                          key={entry.key}
-                          className="rounded-lg border border-[#c78ea8] bg-white/70 p-1"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={entry.src}
-                            alt={`${entry.label} 표정`}
-                            className="h-24 w-full rounded-md object-cover"
-                          />
-                          <p className="mt-1 text-center text-sm font-semibold text-[#5e2240]">
-                            {entry.label}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              {imageMessage && <p className="mt-2 text-lg text-[#612842]">{imageMessage}</p>}
             </article>
           </div>
         </section>
@@ -2985,12 +2540,9 @@ export default function Home() {
       {phase === "screen4_8_chapter" && currentChapterInfo && storyCursor && (
         <section className="relative min-h-screen overflow-hidden">
           <div
-            className="absolute inset-0 bg-cover bg-center"
+            className="absolute inset-0"
             style={{
-              backgroundImage: currentBackdropLayers.map((url) => `url(${url})`).join(", "),
-              backgroundSize: currentBackdropLayers.map(() => "cover").join(", "),
-              backgroundPosition: currentBackdropLayers.map(() => "center").join(", "),
-              backgroundRepeat: currentBackdropLayers.map(() => "no-repeat").join(", "),
+              backgroundImage: currentBackdropLayers.join(", "),
             }}
           />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(44,14,33,0.22),rgba(34,10,27,0.58))]" />
@@ -3080,48 +2632,30 @@ export default function Home() {
                     {currentEpisodeNumber}/6
                   </span>
                 </div>
-                <div className="flex items-center">
+                <div className="flex flex-col gap-1">
                   <span className="text-lg font-black text-white truncate">
                     {currentChapterInfo.title}
                   </span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/75">
+                    <span>
+                      Scene {currentSceneIndex}/{Math.max(1, currentEpisode?.scenes.length ?? 1)}
+                    </span>
+                    <span>{currentChapterInfo.location}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div className="relative mt-4 flex flex-1 items-end justify-center pb-[260px] md:pb-[300px]">
-              {activeProfessorImageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={activeProfessorImageUrl}
-                  alt={`${professorName} 교수 스프라이트`}
-                  className={`max-h-[72vh] w-auto object-contain drop-shadow-[0_20px_36px_rgba(0,0,0,0.45)] transition-[opacity,filter] duration-300 ${
-                    shouldDimProfessorSprite
-                      ? "opacity-50 saturate-[0.45] brightness-[0.8]"
-                      : "opacity-100 saturate-100 brightness-100"
-                  }`}
-                />
-              ) : (
-                <div className="rounded-2xl border border-white/70 bg-white/30 px-6 py-10 text-center text-white">
-                  생성된 교수 이미지 없이도 플레이 가능합니다.
-                </div>
-              )}
-            </div>
-
-            {visibleSceneCutinUrl && (
-              <div
-                key={`${currentScene?.id ?? "scene"}-${storyCursor?.lineIndex ?? 0}`}
-                className={`episode-scene-cutin pointer-events-none absolute inset-x-4 top-24 z-40 flex justify-center md:top-28 md:inset-x-10 ${
-                  isSceneCutinVisible ? "is-visible" : "is-hidden"
-                }`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={visibleSceneCutinUrl}
-                  alt="장면 연출 컷인"
-                  className="h-auto w-full max-w-[460px] rounded-[18px] border-2 border-white/80 object-contain shadow-[0_20px_40px_rgba(0,0,0,0.45)]"
-                />
+              <div className="rounded-2xl border border-white/65 bg-black/30 px-8 py-16 text-center text-white">
+                <p className="font-gothic text-xs font-bold tracking-[0.12em] text-white/80">
+                  DUMMY VISUAL SLOT
+                </p>
+                <p className="mt-2 text-sm text-white/90">
+                  교수 스프라이트/특수효과(컷인)는 현재 비활성화 상태입니다.
+                </p>
               </div>
-            )}
+            </div>
 
             {shouldShowChoiceOverlay && (
               <div className="absolute inset-0 z-30 flex items-center justify-center px-4 md:px-10">
@@ -3161,6 +2695,17 @@ export default function Home() {
                     </span>
                     <span>{typedProfessorLine || "\u00A0"}</span>
                   </p>
+                  {currentProfessorVoiceSlotPath && (
+                    <div className="mt-3 flex flex-col gap-2">
+                      <p className="font-gothic text-xs font-bold tracking-[0.08em] text-[#5f213f]">
+                        교수 음성 슬롯
+                      </p>
+                      <audio controls preload="none" src={currentProfessorVoiceSlotPath} />
+                      <p className="font-gothic break-all text-[11px] text-[#5a3d4d]">
+                        {currentProfessorVoiceSlotPath}
+                      </p>
+                    </div>
+                  )}
                   </div>
                   {canAdvanceCurrentStep && (
                     <div className="episode-dialog-action flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -3211,8 +2756,8 @@ export default function Home() {
       {phase === "screen9_ending" && ending && (
         <section className="relative min-h-screen overflow-hidden">
           <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${endingBackdrop})` }}
+            className="absolute inset-0"
+            style={{ backgroundImage: `${DUMMY_DARK_LAYER}, ${DUMMY_SOLID_LAYER}` }}
           />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,12,20,0.35),rgba(8,12,20,0.75))]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,221,235,0.18),transparent_38%),radial-gradient(circle_at_82%_22%,rgba(255,196,220,0.16),transparent_34%),radial-gradient(circle_at_50%_100%,rgba(255,161,196,0.18),transparent_44%)]" />
@@ -3225,7 +2770,7 @@ export default function Home() {
                   {ending.variantSubtype}
                 </p>
               )}
-              <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
+              <div className="mt-4 grid gap-5 lg:grid-cols-1 lg:items-end">
                 <div>
                   <p className="text-[clamp(32px,3.6vw,52px)] font-black leading-[1.08] text-white">
                     {ending.title}
@@ -3234,18 +2779,6 @@ export default function Home() {
                     {ending.description}
                   </p>
                 </div>
-                {endingProfessorImageUrl && (
-                  <div className="ending-portrait-panel mx-auto w-full max-w-[280px] overflow-hidden rounded-[22px] border border-white/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.04))] p-3">
-                    <div className="rounded-[16px] bg-[radial-gradient(circle_at_50%_18%,rgba(255,234,243,0.32),rgba(255,255,255,0.02)_62%),linear-gradient(180deg,rgba(29,17,27,0.28),rgba(12,10,18,0.36))]">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={endingProfessorImageUrl}
-                        alt={`${professorName} 엔딩 표정`}
-                        className="h-[320px] w-full object-contain drop-shadow-[0_18px_26px_rgba(0,0,0,0.38)]"
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
               {ending.variantLines && ending.variantLines.length > 0 && (
                 <div className="mt-5 rounded-[18px] border border-white/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] p-4 md:p-5">
@@ -3345,19 +2878,7 @@ export default function Home() {
               onAnimationEnd={() => setIsCreditFinished(true)}
             >
               <p className="text-[clamp(30px,7vw,48px)] font-semibold leading-snug">
-                {!isScreen11TitleImageErrored ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={screen11CreditTitleImageUrl}
-                      alt="두근두근 교수님과 시험기간 시뮬레이션"
-                      className="mx-auto h-auto w-full max-w-[700px] object-contain"
-                      onError={() => setIsScreen11TitleImageErrored(true)}
-                    />
-                  </>
-                ) : (
-                  "두근두근 교수님과 시험기간 시뮬레이션"
-                )}
+                두근두근 교수님과 시험기간 시뮬레이션
               </p>
               <p className="font-sans mt-10 text-[clamp(28px,6.5vw,48px)] sm:mt-14">Credit</p>
               <p className="font-sans mt-8 text-[clamp(28px,6.5vw,48px)] sm:mt-12">숭멋사 14기</p>
