@@ -2632,10 +2632,16 @@ export default function Home() {
                     {currentEpisodeNumber}/6
                   </span>
                 </div>
-                <div className="flex items-center">
+                <div className="flex flex-col gap-1">
                   <span className="text-lg font-black text-white truncate">
                     {currentChapterInfo.title}
                   </span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/75">
+                    <span>
+                      Scene {currentSceneIndex}/{Math.max(1, currentEpisode?.scenes.length ?? 1)}
+                    </span>
+                    <span>{currentChapterInfo.location}</span>
+                  </div>
                 </div>
               </div>
             </div>

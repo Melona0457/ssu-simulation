@@ -201,3 +201,19 @@
 ### 검증
 - `npm run lint` 통과
 - `npx tsc --noEmit` 통과
+
+## 2026-04-17 dev UI 변경 병합 반영
+
+### 요청 기준 반영
+- `origin/dev`에 반영된 상단 UI 개선 및 하트 게이지 효과를 현재 스토리 오버홀 작업본에 병합
+- 새 UI를 반영하되 현재 스토리 진행 정보(Scene/장소)는 유지
+
+### 구현 내용
+- `src/app/page.tsx`
+  - `origin/dev` 머지로 하트 게이지 pulse 효과 및 100% 도달 시 강조 연출 반영
+  - 상단 Episode 카드 형태 UI 반영
+  - Scene 진행도와 현재 장소 텍스트를 새 상단 카드 안에 재배치
+
+### 검증
+- `npm run lint` 통과
+- `npx tsc --noEmit` 통과
