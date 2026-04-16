@@ -1392,6 +1392,8 @@ export default function Home() {
   const [storyLog, setStoryLog] = useState<string[]>([]);
   const [affinityDelta, setAffinityDelta] = useState<{ value: number; id: number } | null>(null);
   const affinityDeltaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [heartPulse, setHeartPulse] = useState<"increase" | "decrease" | null>(null);
+  const heartPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const particleCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const particleImageRef = useRef<HTMLImageElement | null>(null);
   const particleFrameRef = useRef<number | null>(null);
@@ -1663,6 +1665,9 @@ export default function Home() {
     return () => {
       if (affinityDeltaTimerRef.current) {
         clearTimeout(affinityDeltaTimerRef.current);
+      }
+      if (heartPulseTimerRef.current) {
+        clearTimeout(heartPulseTimerRef.current);
       }
       if (typingTimerRef.current) {
         clearTimeout(typingTimerRef.current);
@@ -1991,12 +1996,23 @@ export default function Home() {
 
   function applyDebugAffinity() {
     const nextPercent = Math.max(0, Math.min(100, Math.round(debugAffinityInput)));
+    const prevPercent = affinityPercent;
     const scoreBase = Math.max(maxScore, 20);
     const nextRawScore = Math.round((nextPercent / 100) * scoreBase);
+    
     setDebugAffinityInput(nextPercent);
     setRawScore(nextRawScore);
     setMaxScore(scoreBase);
     setAffinityDelta(null);
+
+    if (nextPercent !== prevPercent) {
+      setHeartPulse(nextPercent > prevPercent ? "increase" : "decrease");
+      if (heartPulseTimerRef.current) clearTimeout(heartPulseTimerRef.current);
+      heartPulseTimerRef.current = setTimeout(() => {
+        setHeartPulse(null);
+        heartPulseTimerRef.current = null;
+      }, 400);
+    }
   }
 
   function handleDebugButtonClick() {
@@ -2188,6 +2204,16 @@ export default function Home() {
     setChoiceHistory((current) => [...current, choice.id]);
     setRawScore((current) => current + gainedScore);
     setMaxScore((current) => current + 2);
+
+    if (gainedScore !== 0) {
+      setHeartPulse(gainedScore > 0 ? "increase" : "decrease");
+      if (heartPulseTimerRef.current) clearTimeout(heartPulseTimerRef.current);
+      heartPulseTimerRef.current = setTimeout(() => {
+        setHeartPulse(null);
+        heartPulseTimerRef.current = null;
+      }, 400);
+    }
+
     if (gainedScore > 0) {
       setAffinityDelta({ value: gainedScore, id: Date.now() });
       if (affinityDeltaTimerRef.current) {
@@ -2977,16 +3003,23 @@ export default function Home() {
           )}
 
           <div className="relative z-20 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-4 pt-8 md:px-8">
-            <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="w-full max-w-[340px] rounded-xl border border-white/40 bg-black/45 px-4 py-3 text-white relative shadow-lg heart-gauge-container">
+            <div className="flex flex-col items-start gap-3">
+              <div className={`w-full max-w-[1040px] rounded-xl border px-4 py-3 text-white relative shadow-lg heart-gauge-container transition-all duration-700 ${
+                affinityPercent >= 100 
+                  ? "border-[#ff4f81] bg-black/60 shadow-[0_0_30px_rgba(255,79,129,0.7)]" 
+                  : "border-white/40 bg-black/45"
+              }`}>
+                {affinityPercent >= 100 && (
+                  <div className="pointer-events-none absolute inset-0 z-0 animate-pulse rounded-xl bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                )}
                 <canvas
                   ref={particleCanvasRef}
-                  width={180}
+                  width={450}
                   height={44}
-                  className="pointer-events-none absolute left-8 top-4 z-10"
-                  style={{ width: 180, height: 44 }}
+                  className="pointer-events-none absolute left-12 top-4 z-10"
+                  style={{ width: 450, height: 44 }}
                 />
-                <div className="mb-1 flex items-center justify-between">
+                <div className="relative z-10 mb-1 flex items-center justify-between">
                   <span className="font-gothic text-xs font-bold tracking-wide text-[#ff4f81]">
                     {affinityMood}
                   </span>
@@ -2999,18 +3032,26 @@ export default function Home() {
                   <img
                     src="/ui/heart-gauge.svg"
                     alt="호감도"
-                    className="drop-shadow-heart mr-2 h-7 w-7"
+                    className={`drop-shadow-heart mr-2 h-7 w-7 transition-transform duration-300 ease-out origin-center ${
+                      heartPulse === "increase"
+                        ? "scale-[7]"
+                        : heartPulse === "decrease"
+                        ? "scale-[0.65]"
+                        : "scale-100"
+                    }`}
                     draggable={false}
                   />
                   <div className="relative h-7 flex-1 overflow-visible">
                     <div className="shadow-gauge-glow absolute left-0 top-1/2 h-4 w-full -translate-y-1/2 rounded-full bg-[#2a1a22] opacity-70" />
                     <div
-                      className="heart-gauge-bar absolute left-0 top-1/2 h-4 -translate-y-1/2 rounded-full transition-[width] duration-700 ease-out"
+                      className={`heart-gauge-bar absolute left-0 top-1/2 h-4 -translate-y-1/2 rounded-full transition-[width] duration-700 ease-out ${
+                        affinityPercent >= 100 ? "animate-pulse" : ""
+                      }`}
                       style={{
                         width: `${visibleAffinityPercent}%`,
                         background:
                           "linear-gradient(90deg, #ffb6c1 0%, #ff4f81 50%, #c80032 100%)",
-                        boxShadow: "0 0 16px 2px #ff4f81cc, 0 2px 8px #c8003233",
+                        boxShadow: affinityPercent >= 100 ? "0 0 25px 5px #ff4f81" : "0 0 16px 2px #ff4f81cc, 0 2px 8px #c8003233",
                       }}
                     />
                     <div
@@ -3030,25 +3071,19 @@ export default function Home() {
                   )}
                 </div>
               </div>
-            </div>
-
-            <div className="episode-meta-panel mt-3">
-              <div className="episode-meta-chip episode-meta-chip-main">
-                <div className="episode-meta-pill">
-                  <span className="episode-meta-label">Episode</span>
-                  <span className="episode-meta-value">{currentEpisodeNumber}/6</span>
-                </div>
-                <div className="episode-meta-pill">
-                  <span className="episode-meta-label">Scene</span>
-                  <span className="episode-meta-value">
-                    {currentSceneIndex}/{Math.max(1, currentEpisode?.scenes.length ?? 1)}
+              <div className="w-full max-w-[520px] rounded-xl border border-white/40 bg-black/45 px-4 py-3 text-white relative shadow-lg">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="font-gothic text-xs font-bold tracking-wide text-[#ffb8d5]">
+                    EPISODE
+                  </span>
+                  <span className="font-gothic text-xs font-bold text-white/80">
+                    {currentEpisodeNumber}/6
                   </span>
                 </div>
-              </div>
-              <div className="episode-meta-chip episode-meta-chip-place">
-                <div className="episode-meta-place">
-                  <span className="episode-meta-title">{currentChapterInfo.title}</span>
-                  <span className="episode-meta-location">{currentChapterInfo.location}</span>
+                <div className="flex items-center">
+                  <span className="text-lg font-black text-white truncate">
+                    {currentChapterInfo.title}
+                  </span>
                 </div>
               </div>
             </div>
@@ -3333,7 +3368,7 @@ export default function Home() {
                 <br />
                 FE 최정인
                 <br />
-                FE 김하빈
+                FE 신하빈
                 <br />
                 FE 차민상
               </p>
