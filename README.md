@@ -38,6 +38,8 @@ npm run dev
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=your_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+NEXT_PUBLIC_SUPABASE_BGM_BASE_URL=https://your-project-ref.supabase.co/storage/v1/object/public/bgm
+NEXT_PUBLIC_SUPABASE_VOICE_BASE_URL=https://your-project-ref.supabase.co/storage/v1/object/public/voice
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 OPENAI_API_KEY=your_openai_api_key
 GEMINI_API_KEY=your_gemini_api_key
@@ -54,6 +56,8 @@ BG_API_TIMEOUT_MS=45000
 - `SUPABASE_SERVICE_ROLE_KEY` 는 서버 전용입니다.
 - 현재 MVP에서는 `/api/play-session` 에서만 사용합니다.
 - 이 키는 절대 클라이언트 컴포넌트에 노출하면 안 됩니다.
+- `NEXT_PUBLIC_SUPABASE_VOICE_BASE_URL` 은 `voice` public bucket 기준 URL입니다.
+- 예시: `https://your-project-ref.supabase.co/storage/v1/object/public/voice`
 
 ## 배포
 
