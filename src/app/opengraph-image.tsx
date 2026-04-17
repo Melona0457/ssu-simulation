@@ -10,6 +10,9 @@ export const size = {
 export const contentType = "image/png";
 
 export default function OpengraphImage() {
+  const baseUrl = "https://ssu-simulation.vercel.app";
+  const thumbnailUrl = `${baseUrl}/ui/opengraph/professor-thumbnail.webp`;
+
   return new ImageResponse(
     (
       <div
@@ -201,16 +204,24 @@ export default function OpengraphImage() {
                 borderRadius: 999,
                 alignItems: "center",
                 justifyContent: "center",
+                overflow: "hidden",
                 background:
                   "radial-gradient(circle at 50% 38%, rgba(255,255,255,0.92), rgba(255,219,232,0.9) 58%, rgba(235,161,191,0.92) 100%)",
-                color: "#9d4f73",
-                fontSize: 120,
-                fontWeight: 800,
                 boxShadow:
                   "inset 0 8px 18px rgba(255,255,255,0.7), 0 14px 24px rgba(120, 46, 78, 0.18)",
               }}
             >
-              ?
+              <img
+                src={thumbnailUrl}
+                alt="교수님 썸네일"
+                width={232}
+                height={232}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
             </div>
             <div
               style={{
