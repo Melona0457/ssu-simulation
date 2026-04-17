@@ -505,7 +505,7 @@ textarea {
   min-width: clamp(280px, 24vw, 360px);
   min-height: clamp(78px, 6.8vw, 102px);
   padding: 0.75rem 4rem;
-  font-size: clamp(44px, 5vw, 72px);
+  font-size: clamp(44px, 5vw, 55px);
   white-space: nowrap;
 }
 
