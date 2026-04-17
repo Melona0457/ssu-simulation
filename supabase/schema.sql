@@ -20,3 +20,20 @@ on public.play_sessions
 for all
 using (auth.role() = 'service_role')
 with check (auth.role() = 'service_role');
+
+create table if not exists public.credit_messages (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  player_name text not null,
+  message_text text not null check (char_length(message_text) between 1 and 80),
+  ending_key text,
+  ending_title text
+);
+
+alter table public.credit_messages enable row level security;
+
+create policy "service role can manage credit messages"
+on public.credit_messages
+for all
+using (auth.role() = 'service_role')
+with check (auth.role() = 'service_role');
