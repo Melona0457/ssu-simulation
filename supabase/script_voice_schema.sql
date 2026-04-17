@@ -54,3 +54,24 @@ set
   gender = excluded.gender,
   age_tone = excluded.age_tone,
   source_file = excluded.source_file;
+
+insert into public.professor_voice_slots (profile_key, line_index, slot_path, mime_type)
+select
+  profile_key,
+  slot_index,
+  format('%s/%s.wav', profile_key, lpad((slot_index + 1)::text, 3, '0')),
+  'audio/wav'
+from (
+  values
+    ('male_20s'),
+    ('male_30s'),
+    ('male_40s'),
+    ('female_20s'),
+    ('female_30s'),
+    ('female_40s')
+) as profiles(profile_key)
+cross join generate_series(0, 85) as slot_index
+on conflict (profile_key, line_index) do update
+set
+  slot_path = excluded.slot_path,
+  mime_type = excluded.mime_type;

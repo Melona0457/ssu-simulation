@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState, useRef } from "react";
-import { Volume2, VolumeX } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { heartParticle } from "@/lib/heart-particle";
 import {
   professorRouteStory,
@@ -44,6 +44,13 @@ type EndingState = {
   variantId?: string;
   variantSubtype?: string;
   variantLines?: string[];
+};
+
+type AudioLevels = {
+  master: number;
+  bgm: number;
+  voice: number;
+  sfx: number;
 };
 
 type ChapterStep = {
@@ -551,6 +558,14 @@ const DUMMY_SOLID_LAYER = "linear-gradient(145deg, #d892b0 0%, #f6d2e3 56%, #cb7
 const DUMMY_DARK_LAYER = "linear-gradient(140deg, rgba(80,24,48,0.76), rgba(35,12,28,0.72))";
 const DEBUG_PASSWORD = "ssulikelion";
 const BGM_BASE_URL = process.env.NEXT_PUBLIC_SUPABASE_BGM_BASE_URL?.replace(/\/+$/, "") || "/bgm";
+const VOICE_BASE_URL = process.env.NEXT_PUBLIC_SUPABASE_VOICE_BASE_URL?.replace(/\/+$/, "") || "/voice";
+const AUDIO_LEVEL_STORAGE_KEY = "ssu-simulation-audio-levels-v1";
+const DEFAULT_AUDIO_LEVELS: AudioLevels = {
+  master: 80,
+  bgm: 70,
+  voice: 85,
+  sfx: 72,
+};
 const debugEndingScoreMap: Record<EndingRank, number> = {
   ENDING_A_PLUS: 95,
   ENDING_B_PLUS: 78,
@@ -804,7 +819,7 @@ function resolveProfessorScriptProfileKey(gender: string, speakingStyle: string)
 }
 
 function buildProfessorVoiceSlotPath(profileKey: string, professorLineIndex: number) {
-  return `/voice/${profileKey}/${String(professorLineIndex + 1).padStart(3, "0")}.wav`;
+  return `${VOICE_BASE_URL}/${profileKey}/${String(professorLineIndex + 1).padStart(3, "0")}.wav`;
 }
 
 function resolveSceneLines(
@@ -1456,12 +1471,25 @@ export default function Home() {
   const [professorImageError, setProfessorImageError] = useState("");
   const [professorImagePromptSummary, setProfessorImagePromptSummary] = useState("");
 
-  const [isBgmOn, setIsBgmOn] = useState(true);
+  const [audioLevels, setAudioLevels] = useState<AudioLevels>(DEFAULT_AUDIO_LEVELS);
+  const [isSoundPanelOpen, setIsSoundPanelOpen] = useState(false);
+  const soundPanelRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const activeSfxRef = useRef<Array<{ audio: HTMLAudioElement; expiresAfterSerial: number }>>([]);
+  const professorVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const tryPlayBgmRef = useRef<() => void>(() => {});
   const lastSfxTriggerRef = useRef<string>("");
+  const lastProfessorVoiceTriggerRef = useRef<string>("");
   const [needsBgmUnlock, setNeedsBgmUnlock] = useState(false);
+  const [isProfessorVoicePlaying, setIsProfessorVoicePlaying] = useState(false);
+
+  const effectiveMasterVolume = audioLevels.master / 100;
+  const effectiveBgmVolume = effectiveMasterVolume * (audioLevels.bgm / 100);
+  const effectiveVoiceVolume = effectiveMasterVolume * (audioLevels.voice / 100);
+  const effectiveSfxVolume = effectiveMasterVolume * (audioLevels.sfx / 100);
+  const isBgmEnabled = effectiveBgmVolume > 0;
+  const isProfessorVoiceEnabled = effectiveVoiceVolume > 0;
+  const isSfxEnabled = effectiveSfxVolume > 0;
 
   const stopActiveSfx = () => {
     activeSfxRef.current.forEach(({ audio }) => {
@@ -1471,12 +1499,31 @@ export default function Home() {
     activeSfxRef.current = [];
   };
 
-  tryPlayBgmRef.current = () => {
-    if (!audioRef.current || !isBgmOn) {
+  const stopProfessorVoice = () => {
+    if (!professorVoiceAudioRef.current) {
+      setIsProfessorVoicePlaying(false);
       return;
     }
 
-    audioRef.current.currentTime = 0;
+    professorVoiceAudioRef.current.pause();
+    professorVoiceAudioRef.current.currentTime = 0;
+    professorVoiceAudioRef.current = null;
+    setIsProfessorVoicePlaying(false);
+  };
+
+  const updateAudioLevel = (key: keyof AudioLevels, nextValue: number) => {
+    const safeValue = Math.max(0, Math.min(100, nextValue));
+    setAudioLevels((current) => ({
+      ...current,
+      [key]: safeValue,
+    }));
+  };
+
+  tryPlayBgmRef.current = () => {
+    if (!audioRef.current || !isBgmEnabled) {
+      return;
+    }
+
     audioRef.current
       .play()
       .then(() => setNeedsBgmUnlock(false))
@@ -1484,17 +1531,6 @@ export default function Home() {
         console.error("BGM 재생 실패:", err);
         setNeedsBgmUnlock(true);
       });
-  };
-
-  const toggleBgm = () => {
-    if (!audioRef.current) return;
-    if (isBgmOn) {
-      audioRef.current.pause();
-      setNeedsBgmUnlock(false);
-    } else {
-      tryPlayBgmRef.current();
-    }
-    setIsBgmOn(!isBgmOn);
   };
 
   const [activeProfessorScriptProfileKey, setActiveProfessorScriptProfileKey] = useState("male_30s");
@@ -1727,12 +1763,83 @@ export default function Home() {
   );
 
   useEffect(() => {
-    if (!audioRef.current || !isBgmOn || isBgmSuppressed) {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const saved = window.localStorage.getItem(AUDIO_LEVEL_STORAGE_KEY);
+    if (!saved) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(saved) as Partial<AudioLevels>;
+      setAudioLevels({
+        master: typeof parsed.master === "number" ? Math.max(0, Math.min(100, parsed.master)) : DEFAULT_AUDIO_LEVELS.master,
+        bgm: typeof parsed.bgm === "number" ? Math.max(0, Math.min(100, parsed.bgm)) : DEFAULT_AUDIO_LEVELS.bgm,
+        voice: typeof parsed.voice === "number" ? Math.max(0, Math.min(100, parsed.voice)) : DEFAULT_AUDIO_LEVELS.voice,
+        sfx: typeof parsed.sfx === "number" ? Math.max(0, Math.min(100, parsed.sfx)) : DEFAULT_AUDIO_LEVELS.sfx,
+      });
+    } catch {
+      window.localStorage.removeItem(AUDIO_LEVEL_STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(AUDIO_LEVEL_STORAGE_KEY, JSON.stringify(audioLevels));
+  }, [audioLevels]);
+
+  useEffect(() => {
+    if (!isSoundPanelOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target || !soundPanelRef.current?.contains(target)) {
+        setIsSoundPanelOpen(false);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [isSoundPanelOpen]);
+
+  useEffect(() => {
+    if (!audioRef.current) {
+      return;
+    }
+
+    audioRef.current.volume = effectiveBgmVolume;
+    if (!isBgmEnabled) {
+      audioRef.current.pause();
+      setNeedsBgmUnlock(false);
+      return;
+    }
+  }, [effectiveBgmVolume, isBgmEnabled]);
+
+  useEffect(() => {
+    if (!audioRef.current || !isBgmEnabled || isBgmSuppressed) {
       return;
     }
 
     tryPlayBgmRef.current();
-  }, [currentBgmUrl, isBgmOn, isBgmSuppressed]);
+  }, [currentBgmUrl, isBgmEnabled, isBgmSuppressed]);
+
+  useEffect(() => {
+    if (professorVoiceAudioRef.current) {
+      professorVoiceAudioRef.current.volume = effectiveVoiceVolume;
+      if (!isProfessorVoiceEnabled) {
+        stopProfessorVoice();
+      }
+    }
+  }, [effectiveVoiceVolume, isProfessorVoiceEnabled]);
 
   useEffect(() => {
     if (!audioRef.current) {
@@ -1744,7 +1851,7 @@ export default function Home() {
       return;
     }
 
-    if (!isBgmOn || !audioRef.current.paused) {
+    if (!isBgmEnabled || !audioRef.current.paused) {
       return;
     }
 
@@ -1755,15 +1862,15 @@ export default function Home() {
         console.error("BGM 재생 실패:", err);
         setNeedsBgmUnlock(true);
       });
-  }, [isBgmOn, isBgmSuppressed]);
+  }, [isBgmEnabled, isBgmSuppressed]);
 
   useEffect(() => {
-    if (!needsBgmUnlock || !isBgmOn) {
+    if (!needsBgmUnlock || !isBgmEnabled) {
       return;
     }
 
     const retryBgmPlayback = () => {
-      if (!isBgmOn) {
+      if (!isBgmEnabled) {
         return;
       }
 
@@ -1776,7 +1883,7 @@ export default function Home() {
       window.removeEventListener("pointerdown", retryBgmPlayback);
       window.removeEventListener("keydown", retryBgmPlayback);
     };
-  }, [isBgmOn, needsBgmUnlock]);
+  }, [isBgmEnabled, needsBgmUnlock]);
 
   useEffect(() => {
     if (phase !== "screen4_8_chapter" || !storyCursor || !currentLine || pendingChoice) {
@@ -1798,7 +1905,7 @@ export default function Home() {
     }
 
     lastSfxTriggerRef.current = triggerKey;
-    if (!isBgmOn) {
+    if (!isSfxEnabled) {
       return;
     }
 
@@ -1814,16 +1921,21 @@ export default function Home() {
       const sfx = new Audio(STORY_SFX_URLS[key]);
       sfx.preload = "auto";
       sfx.loop = Boolean(STORY_SFX_BEHAVIOR[key].loop);
+      sfx.volume = effectiveSfxVolume;
       activeSfxRef.current.push({
         audio: sfx,
         expiresAfterSerial: currentSerial + 1,
       });
       void sfx.play().catch(() => undefined);
     });
-  }, [currentLine, isBgmOn, pendingChoice, phase, storyCursor]);
+  }, [currentLine, effectiveSfxVolume, isSfxEnabled, pendingChoice, phase, storyCursor]);
 
   useEffect(() => {
-    if (!isBgmOn) {
+    activeSfxRef.current.forEach(({ audio }) => {
+      audio.volume = effectiveSfxVolume;
+    });
+
+    if (!isSfxEnabled) {
       stopActiveSfx();
       return;
     }
@@ -1844,7 +1956,56 @@ export default function Home() {
       audio.currentTime = 0;
       return false;
     });
-  }, [currentLineSerial, isBgmOn, phase]);
+  }, [currentLineSerial, effectiveSfxVolume, isSfxEnabled, phase]);
+
+  useEffect(() => {
+    if (phase !== "screen4_8_chapter" || !storyCursor || pendingChoice || !isProfessorVoiceEnabled) {
+      lastProfessorVoiceTriggerRef.current = "";
+      stopProfessorVoice();
+      return;
+    }
+
+    if (currentLine?.speaker !== "교수" || !currentProfessorVoiceSlotPath) {
+      lastProfessorVoiceTriggerRef.current = "";
+      stopProfessorVoice();
+      return;
+    }
+
+    const triggerKey = `${storyCursor.episodeId}:${storyCursor.sceneId}:${storyCursor.lineIndex}:${currentProfessorVoiceSlotPath}`;
+    if (lastProfessorVoiceTriggerRef.current === triggerKey) {
+      return;
+    }
+
+    lastProfessorVoiceTriggerRef.current = triggerKey;
+    stopProfessorVoice();
+
+    const voice = new Audio(currentProfessorVoiceSlotPath);
+    voice.preload = "auto";
+    voice.volume = effectiveVoiceVolume;
+    setIsProfessorVoicePlaying(true);
+    voice.onended = () => {
+      setIsProfessorVoicePlaying(false);
+      professorVoiceAudioRef.current = null;
+    };
+    voice.onpause = () => {
+      if (voice.ended || voice.currentTime === 0) {
+        setIsProfessorVoicePlaying(false);
+      }
+    };
+    professorVoiceAudioRef.current = voice;
+    void voice.play().catch(() => {
+      setIsProfessorVoicePlaying(false);
+      professorVoiceAudioRef.current = null;
+    });
+  }, [
+    currentLine?.speaker,
+    currentProfessorVoiceSlotPath,
+    effectiveVoiceVolume,
+    isProfessorVoiceEnabled,
+    pendingChoice,
+    phase,
+    storyCursor,
+  ]);
 
   useEffect(() => {
     const image = new Image();
@@ -1869,6 +2030,7 @@ export default function Home() {
         endingTransitionTimerRef.current = null;
       }
       stopActiveSfx();
+      stopProfessorVoice();
       if (particleFrameRef.current) {
         cancelAnimationFrame(particleFrameRef.current);
       }
@@ -2071,18 +2233,32 @@ export default function Home() {
   }, [phase]);
 
   useEffect(() => {
-    if (phase !== "screen4_8_chapter" || !isAutoPlayOn || !canAdvanceCurrentStep) {
+    if (phase !== "screen4_8_chapter" || !isAutoPlayOn || !canAdvanceCurrentStep || isDialogueLineTyping) {
+      return;
+    }
+
+    const shouldWaitForProfessorVoice =
+      currentLine?.speaker === "교수" && Boolean(currentProfessorVoiceSlotPath) && isProfessorVoicePlaying;
+    if (shouldWaitForProfessorVoice) {
       return;
     }
 
     const timer = setTimeout(() => {
       moveNextChapterRef.current();
-    }, 420);
+    }, 1000);
 
     return () => {
       clearTimeout(timer);
     };
-  }, [canAdvanceCurrentStep, isAutoPlayOn, phase]);
+  }, [
+    canAdvanceCurrentStep,
+    currentLine?.speaker,
+    currentProfessorVoiceSlotPath,
+    isAutoPlayOn,
+    isDialogueLineTyping,
+    isProfessorVoicePlaying,
+    phase,
+  ]);
 
   useEffect(() => {
     if (phase !== "screen4_8_chapter") {
@@ -2243,7 +2419,7 @@ export default function Home() {
   }
 
   function goScreen2() {
-    if (isBgmOn && needsBgmUnlock) {
+    if (isBgmEnabled && needsBgmUnlock) {
       tryPlayBgmRef.current();
     }
     setPhase("screen2_player");
@@ -2521,6 +2697,7 @@ export default function Home() {
 
   function resetToMain() {
     stopActiveSfx();
+    stopProfessorVoice();
     setPhase("screen1_title");
     setPlayer(initialPlayerState);
     setProfessor(initialProfessorState);
@@ -2547,12 +2724,20 @@ export default function Home() {
       clearTimeout(endingTransitionTimerRef.current);
       endingTransitionTimerRef.current = null;
     }
+    setIsSoundPanelOpen(false);
     lastSfxTriggerRef.current = "";
   }
 
+  const soundLevelControls: Array<{ key: keyof AudioLevels; label: string; hint: string }> = [
+    { key: "master", label: "전체", hint: "전체 볼륨" },
+    { key: "bgm", label: "배경", hint: "배경음" },
+    { key: "voice", label: "대사", hint: "교수 대사" },
+    { key: "sfx", label: "효과", hint: "효과음" },
+  ];
+
   return (
     <main className="min-h-screen text-black">
-      {/* BGM 컨트롤 버튼 (우측 상단 고정) */}
+      {/* 상단 HUD 컨트롤 */}
       <div className="top-hud-controls">
         <button
           type="button"
@@ -2561,18 +2746,55 @@ export default function Home() {
         >
           <span className="top-hud-button-label">♡교수님의 비밀 에피소드를 발견해!♡</span>
         </button>
-        <button
-          type="button"
-          onClick={toggleBgm}
-          className={`top-hud-button ${isBgmOn ? "is-active" : ""}`}
-          aria-label={isBgmOn ? "BGM 끄기" : "BGM 켜기"}
-        >
-          <span className="top-hud-button-label">Sound</span>
-          <span className="top-hud-button-icon" aria-hidden>
-            {isBgmOn ? <Volume2 size={18} strokeWidth={2.5} /> : <VolumeX size={18} strokeWidth={2.5} />}
-          </span>
-          <span className="top-hud-button-value">{isBgmOn ? "On" : "Off"}</span>
-        </button>
+        <div ref={soundPanelRef} className="top-hud-sound-stack">
+          <button
+            type="button"
+            onClick={() => setIsSoundPanelOpen((current) => !current)}
+            className={`top-hud-button top-hud-sound-button ${isSoundPanelOpen ? "is-active" : ""}`}
+            aria-expanded={isSoundPanelOpen}
+            aria-label="사운드 설정 열기"
+          >
+            <span className="top-hud-button-icon" aria-hidden>
+              <SlidersHorizontal size={18} strokeWidth={2.5} />
+            </span>
+            <span className="top-hud-sound-copy">
+              <span className="top-hud-button-label">Sound</span>
+              <span className="top-hud-button-value">설정</span>
+            </span>
+            <span className="top-hud-sound-percent">{audioLevels.master}%</span>
+          </button>
+
+          {isSoundPanelOpen && (
+            <div className="top-hud-sound-panel">
+              <div className="top-hud-sound-panel-head">
+                <p>상세 사운드 설정</p>
+              </div>
+              <div className="top-hud-sound-grid">
+                {soundLevelControls.map((control) => (
+                  <div key={control.key} className="top-hud-sound-card">
+                    <span className="top-hud-sound-value">{audioLevels[control.key]}%</span>
+                    <div className="top-hud-sound-slider-wrap">
+                      <div className="top-hud-sound-rail" aria-hidden />
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={audioLevels[control.key]}
+                        onChange={(event) => updateAudioLevel(control.key, Number(event.target.value))}
+                        className="top-hud-sound-slider"
+                        aria-label={control.hint}
+                      />
+                    </div>
+                    <div className="top-hud-sound-text">
+                      <p>{control.label}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
         {/* 실제 오디오 태그 */}
         <audio ref={audioRef} src={currentBgmUrl} loop />
       </div>
@@ -2629,19 +2851,19 @@ export default function Home() {
       )}
 
       {isDebugPanelOpen && isDebugUnlocked && (
-        <aside className="fixed inset-x-3 top-20 z-[120] max-h-[calc(100dvh-6rem)] w-auto overflow-y-auto rounded-2xl border-2 border-[#b97d99] bg-[rgba(255,246,251,0.95)] p-4 text-[#2f2f2f] shadow-[0_18px_38px_rgba(55,20,37,0.3)] backdrop-blur-sm md:inset-x-auto md:right-6 md:top-24 md:max-h-[calc(100dvh-8rem)] md:w-[min(92vw,430px)]">
+        <aside className="glass-debug-panel fixed inset-x-3 top-20 z-[120] max-h-[calc(100dvh-6rem)] w-auto overflow-y-auto p-4 text-[#2f2f2f] md:inset-x-auto md:right-6 md:top-24 md:max-h-[calc(100dvh-8rem)] md:w-[min(92vw,430px)]">
           <div className="flex items-center justify-between">
             <p className="text-lg font-black text-[#5d2240]">디버그 패널</p>
             <button
               type="button"
               onClick={() => setIsDebugPanelOpen(false)}
-              className="rounded-md border border-[#b1889d] bg-white px-2 py-1 text-xs font-semibold"
+              className="glass-debug-button px-2 py-1 text-xs font-semibold"
             >
               닫기
             </button>
           </div>
 
-          <div className="mt-3 rounded-lg border border-[#d9b2c4] bg-white/80 p-3">
+          <div className="glass-debug-card mt-3 p-3">
             <p className="text-xs font-semibold text-[#70435b]">현재 상태</p>
             <p className="mt-1 text-sm">
               화면: <span className="font-bold">{phase}</span>
@@ -2675,7 +2897,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="mt-3 rounded-lg border border-[#d9b2c4] bg-white/85 p-3">
+          <div className="glass-debug-card mt-3 p-3">
             <p className="mb-2 text-sm font-black text-[#5e2341]">캐릭터 디버그 설정</p>
             <label className="block text-[11px] font-bold tracking-[0.08em] text-[#7c3457]">
               내 성별
@@ -2683,7 +2905,7 @@ export default function Home() {
             <select
               value={debugPlayerGender}
               onChange={(event) => setDebugPlayerGender(event.target.value as PlayerFormState["gender"])}
-              className="mt-1 h-9 w-full rounded-md border border-[#caa3b6] px-2 text-sm"
+              className="glass-debug-input mt-1 h-9 w-full px-2 text-sm"
             >
               {playerGenderOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -2698,7 +2920,7 @@ export default function Home() {
             <select
               value={debugProfessorGender}
               onChange={(event) => setDebugProfessorGender(event.target.value as ProfessorFormState["gender"])}
-              className="mt-1 h-9 w-full rounded-md border border-[#caa3b6] px-2 text-sm"
+              className="glass-debug-input mt-1 h-9 w-full px-2 text-sm"
             >
               {professorGenderOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -2713,7 +2935,7 @@ export default function Home() {
             <select
               value={debugProfessorSpeakingStyle}
               onChange={(event) => setDebugProfessorSpeakingStyle(event.target.value as ProfessorFormState["speakingStyle"])}
-              className="mt-1 h-9 w-full rounded-md border border-[#caa3b6] px-2 text-sm"
+              className="glass-debug-input mt-1 h-9 w-full px-2 text-sm"
             >
               {professorSpeakingStyleOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -2727,7 +2949,7 @@ export default function Home() {
               onClick={() => {
                 void applyDebugCharacterSettings();
               }}
-              className="mt-3 rounded-md border border-[#b45f84] bg-[#ffd9ea] px-3 py-1.5 text-xs font-black text-[#5d2140]"
+              className="glass-debug-button-primary mt-3 px-3 py-1.5 text-xs font-black text-[#5d2140]"
             >
               캐릭터 설정 적용
             </button>
@@ -2741,7 +2963,7 @@ export default function Home() {
                   key={item.phase}
                   type="button"
                   onClick={() => jumpToPhaseByDebug(item.phase)}
-                  className="rounded-lg border border-[#cfa4b8] bg-white px-2 py-2 text-xs font-semibold hover:bg-[#fff4fa]"
+                  className="glass-debug-button px-2 py-2 text-xs font-semibold"
                 >
                   {item.label}
                 </button>
@@ -2761,13 +2983,13 @@ export default function Home() {
                     setDebugEndingVariantIndex(0);
                     previewEndingByRank(rank, 0);
                   }}
-                  className="rounded-lg border border-[#cfa4b8] bg-white px-2 py-2 text-xs font-semibold hover:bg-[#fff4fa]"
+                  className="glass-debug-button px-2 py-2 text-xs font-semibold"
                 >
                   {endingMeta[rank].title}
                 </button>
               ))}
             </div>
-            <div className="mt-3 rounded-lg border border-[#d9b2c4] bg-white/85 p-3">
+            <div className="glass-debug-card mt-3 p-3">
               <p className="mb-2 text-xs font-black text-[#7c3457]">
                 {endingMeta[debugEndingSelect].title} Variant
               </p>
@@ -2787,8 +3009,8 @@ export default function Home() {
                     }}
                     className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
                       debugEndingVariantIndex === index
-                        ? "border-[#b45f84] bg-[#ffe2ef] text-[#5d2140]"
-                        : "border-[#cfa4b8] bg-white text-[#6b3a54] hover:bg-[#fff4fa]"
+                        ? "border-[#f4aac7] bg-[rgba(255,240,247,0.34)] text-[#5d2140]"
+                        : "border-[rgba(255,255,255,0.24)] bg-[rgba(255,255,255,0.18)] text-[#6b3a54] hover:bg-[rgba(255,255,255,0.24)]"
                     }`}
                   >
                     <span className="block font-black">{variant.subtype}</span>
@@ -2799,7 +3021,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mt-3 rounded-lg border border-[#d9b2c4] bg-white/85 p-3">
+          <div className="glass-debug-card mt-3 p-3">
             <p className="mb-2 text-sm font-black text-[#5e2341]">호감도 임의 설정</p>
             <input
               type="range"
@@ -2816,24 +3038,24 @@ export default function Home() {
                 max={100}
                 value={debugAffinityInput}
                 onChange={(event) => setDebugAffinityInput(Number(event.target.value))}
-                className="h-9 w-20 rounded-md border border-[#caa3b6] px-2 text-sm"
+              className="glass-debug-input h-9 w-20 px-2 text-sm"
               />
               <button
                 type="button"
                 onClick={applyDebugAffinity}
-                className="rounded-md border border-[#b45f84] bg-[#ffd9ea] px-3 py-1.5 text-xs font-black text-[#5d2140]"
+                className="glass-debug-button-primary px-3 py-1.5 text-xs font-black text-[#5d2140]"
               >
                 호감도 적용
               </button>
             </div>
           </div>
 
-          <div className="mt-3 rounded-lg border border-[#d9b2c4] bg-white/85 p-3">
+          <div className="glass-debug-card mt-3 p-3">
             <p className="mb-2 text-sm font-black text-[#5e2341]">스토리 점프</p>
             <select
               value={debugEpisodeSelect}
               onChange={(event) => setDebugEpisodeSelect(event.target.value)}
-              className="h-9 w-full rounded-md border border-[#caa3b6] px-2 text-sm"
+              className="glass-debug-input h-9 w-full px-2 text-sm"
             >
               {storyEpisodes.map((episode) => (
                 <option key={episode.id} value={episode.id}>
@@ -2844,7 +3066,7 @@ export default function Home() {
             <select
               value={debugSceneSelect}
               onChange={(event) => setDebugSceneSelect(event.target.value)}
-              className="mt-2 h-9 w-full rounded-md border border-[#caa3b6] px-2 text-sm"
+              className="glass-debug-input mt-2 h-9 w-full px-2 text-sm"
             >
               {(getStoryEpisode(debugEpisodeSelect)?.scenes ?? []).map((scene) => (
                 <option key={scene.id} value={scene.id}>
@@ -2855,7 +3077,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => openStoryDebugContext(debugEpisodeSelect, debugSceneSelect)}
-              className="mt-2 rounded-md border border-[#b45f84] bg-[#ffd9ea] px-3 py-1.5 text-xs font-black text-[#5d2140]"
+              className="glass-debug-button-primary mt-2 px-3 py-1.5 text-xs font-black text-[#5d2140]"
             >
               이 씬으로 이동
             </button>
@@ -2863,7 +3085,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setPendingChoice(null)}
-                className="rounded-md border border-[#c29aad] bg-white px-2 py-1 text-xs font-semibold"
+                className="glass-debug-button px-2 py-1 text-xs font-semibold"
               >
                 선택 전 상태
               </button>
@@ -2875,7 +3097,7 @@ export default function Home() {
                     setPhase("screen4_8_chapter");
                   }
                 }}
-                className="rounded-md border border-[#c29aad] bg-white px-2 py-1 text-xs font-semibold"
+                className="glass-debug-button px-2 py-1 text-xs font-semibold"
               >
                 현재 선택지 1번 반응 보기
               </button>
@@ -3436,7 +3658,7 @@ export default function Home() {
           <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[70] md:bottom-8">
             <div className="mx-auto flex w-full max-w-6xl justify-center pointer-events-auto">
               <div
-                className="relative flex min-h-[220px] w-full flex-col rounded-[30px] border border-white/20 bg-[linear-gradient(180deg,rgba(22,20,28,0.74),rgba(12,10,18,0.88))] p-5 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] backdrop-blur-md md:min-h-[260px] md:p-8"
+                className="relative flex h-[250px] w-full flex-col rounded-[30px] border border-white/20 bg-[linear-gradient(180deg,rgba(22,20,28,0.74),rgba(12,10,18,0.88))] p-5 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] backdrop-blur-md md:h-[290px] md:p-8"
                 onClick={() => {
                   if (isDialogueLineTyping) {
                     revealCurrentDialogueImmediately();
@@ -3449,40 +3671,29 @@ export default function Home() {
                   </span>
                 </div>
 
-                <div className="flex-1 overflow-y-auto pt-7 md:pt-8">
-                  <p className="font-story text-[clamp(24px,2.2vw,44px)] font-medium leading-[1.4] text-white/95">
+                <div className="flex-1 overflow-hidden pt-7 md:pt-8">
+                  <p className="font-story text-[clamp(18px,1.65vw,30px)] font-medium leading-[1.24] text-white/95">
                     {typedProfessorLine || "\u00A0"}
                   </p>
-                  {currentProfessorVoiceSlotPath && (
-                    <div className="mt-4 rounded-2xl border border-white/12 bg-white/8 p-3 md:p-4">
-                      <p className="font-gothic text-xs font-bold tracking-[0.08em] text-white/70">
-                        교수 음성 슬롯
-                      </p>
-                      <audio className="mt-2 w-full" controls preload="none" src={currentProfessorVoiceSlotPath} />
-                      <p className="font-gothic mt-2 break-all text-[11px] text-white/55">
-                        {currentProfessorVoiceSlotPath}
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 {canAdvanceCurrentStep && (
-                  <div className="mt-4 flex flex-col items-stretch justify-between gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center">
-                    <p className="text-sm font-bold tracking-wide text-white/55">
+                  <div className="mt-3 flex flex-col items-stretch justify-between gap-2 border-t border-white/10 pt-3 sm:flex-row sm:items-center">
+                    <p className="text-xs font-bold tracking-wide text-white/55 sm:text-sm">
                       {isAutoPlayOn
                         ? "자동 진행 중입니다."
                         : hasCurrentChoices
                         ? "선택 완료. 다음 단계로 이동하세요."
                         : "다음 단계로 이동하세요."}
                     </p>
-                    <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+                    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                       <button
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
                           setIsAutoPlayOn((current) => !current);
                         }}
-                        className={`rounded-xl border-2 px-5 py-3 text-sm font-black transition-all sm:min-w-[126px] ${
+                        className={`flex h-10 items-center justify-center rounded-xl border-2 px-4 text-xs font-black transition-all sm:w-[112px] ${
                           isAutoPlayOn
                             ? "border-[#ff4f81] bg-[#ff4f81] text-white shadow-[0_0_15px_rgba(255,79,129,0.4)]"
                             : "border-white/20 bg-white/5 text-white hover:bg-white/10"
@@ -3496,10 +3707,10 @@ export default function Home() {
                           event.stopPropagation();
                           moveNextChapter();
                         }}
-                        className="flex items-center justify-center gap-2 rounded-xl bg-white px-8 py-3 text-base font-black text-[#1a1a1a] transition-transform hover:scale-[1.02] active:scale-[0.98] sm:text-lg"
+                        className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-white px-4 text-xs font-black text-[#1a1a1a] transition-transform hover:scale-[1.02] active:scale-[0.98] sm:w-[112px]"
                       >
                         다음
-                        <span className="text-sm">▶</span>
+                        <span className="text-[10px]">▶</span>
                       </button>
                     </div>
                   </div>
