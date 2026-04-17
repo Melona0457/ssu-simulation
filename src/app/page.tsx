@@ -34,6 +34,7 @@ type Phase =
   | "screen3_professor"
   | "screen4_8_chapter"
   | "screen9_ending"
+  | "screen10_temp"
   | "screen11_credit";
 
 type EndingState = {
@@ -594,6 +595,9 @@ const STORY_BGM_URLS = {
   endingCredit: `${BGM_BASE_URL}/ending_credit.ogg`,
 } as const;
 
+const SCREEN10_DEBUG_BACKGROUND_URL = "/ui/debug-screen10/background.png";
+const SCREEN10_DEBUG_OVERLAY_URL = "/ui/debug-screen10/overlay.png";
+
 const STORY_SFX_URLS = {
   heartbeat: "/sfx/story/heartbeat.ogg",
   footsteps: "/sfx/story/footsteps.ogg",
@@ -889,7 +893,7 @@ function resolveBgmUrlByContext(phase: Phase, episodeId: string | null) {
     return STORY_BGM_URLS.introSetup;
   }
 
-  if (phase === "screen9_ending" || phase === "screen11_credit") {
+  if (phase === "screen9_ending" || phase === "screen10_temp" || phase === "screen11_credit") {
     return STORY_BGM_URLS.endingCredit;
   }
 
@@ -1641,6 +1645,7 @@ export default function Home() {
     { phase: "screen3_professor", label: "화면3 교수 설정" },
     { phase: "screen4_8_chapter", label: "화면4~8 스토리" },
     { phase: "screen9_ending", label: "화면9 엔딩" },
+    { phase: "screen10_temp", label: "화면10 임시" },
     { phase: "screen11_credit", label: "화면11 크레딧" },
   ];
 
@@ -4091,6 +4096,46 @@ export default function Home() {
         </div>
       )}
 
+      {phase === "screen10_temp" && (
+        <section className="relative min-h-screen overflow-hidden bg-[#1b1312]">
+          <div
+            className="absolute inset-0 bg-center bg-cover bg-no-repeat"
+            style={{ backgroundImage: `url('${SCREEN10_DEBUG_BACKGROUND_URL}')` }}
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(42,23,14,0.08),rgba(25,16,14,0.3))]" />
+
+          {professorVisualSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={professorVisualSrc}
+              alt="교수님 임시 배치 이미지"
+              className="absolute left-[44%] top-[10.5%] z-10 h-auto w-[clamp(290px,31vw,560px)] max-w-none -translate-x-1/2 object-contain opacity-[0.94] drop-shadow-[0_18px_32px_rgba(0,0,0,0.32)]"
+              draggable={false}
+            />
+          ) : (
+            <div className="absolute left-4 top-4 z-30 max-w-[min(92vw,420px)] rounded-[22px] border border-white/30 bg-[rgba(29,18,17,0.68)] px-4 py-3 text-sm leading-[1.6] text-white/90 shadow-[0_14px_32px_rgba(0,0,0,0.28)] backdrop-blur-md">
+              화면10 임시 배치입니다. 교수님 생성 전이라 현재는 `이미지2` 자리에 들어갈 비주얼이 없어서,
+              화면3에서 교수 이미지를 먼저 생성하면 이 자리에 자동으로 들어옵니다.
+            </div>
+          )}
+
+          <div className="absolute inset-x-0 bottom-0 z-20 flex justify-end">
+            {/* 배경3 오버레이를 전경으로 고정해 최종 시안처럼 책상/시험지 프레임을 먼저 맞춘다. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={SCREEN10_DEBUG_OVERLAY_URL}
+              alt="시험지 전경 오버레이"
+              className="h-auto w-[min(118vw,1380px)] min-w-[920px] max-w-none object-contain object-bottom"
+              draggable={false}
+            />
+          </div>
+
+          <div className="absolute left-4 top-4 z-30 rounded-full border border-white/45 bg-[rgba(255,247,242,0.88)] px-4 py-2 text-xs font-black tracking-[0.14em] text-[#6b3a2a] shadow-[0_10px_20px_rgba(0,0,0,0.12)]">
+            SCREEN 10 TEMP
+          </div>
+        </section>
+      )}
+
       {phase === "screen11_credit" && (
         <section
           className="relative min-h-screen overflow-hidden bg-[#1f1f21] text-white"
@@ -4119,28 +4164,30 @@ export default function Home() {
                 aria-label="오 나의 교수님! 비밀 에피소드"
                 role="img"
               />
-              <p className="font-sans mt-10 text-[clamp(28px,6.5vw,48px)] sm:mt-14">Credit</p>
-              <p className="font-sans mt-8 text-[clamp(28px,6.5vw,48px)] sm:mt-12">숭멋사 14기</p>
-              <p className="mt-10 text-[clamp(28px,6.5vw,48px)] leading-[1.35] sm:mt-14">
-                PM 최영환
-                <br />
-                PM 이영서
-                <br />
-                FE 최정인
-                <br />
-                FE 신하빈
-                <br />
-                FE 차민상
-              </p>
+              <div className="font-credit">
+                <p className="mt-10 text-[clamp(28px,6.5vw,48px)] sm:mt-14">Credit</p>
+                <p className="mt-8 text-[clamp(28px,6.5vw,48px)] sm:mt-12">숭멋사 14기</p>
+                <p className="mt-10 text-[clamp(28px,6.5vw,48px)] leading-[1.35] sm:mt-14">
+                  PM 최영환
+                  <br />
+                  PM 이영서
+                  <br />
+                  FE 최정인
+                  <br />
+                  FE 신하빈
+                  <br />
+                  FE 차민상
+                </p>
+              </div>
 
               {creditMessageEntries.length > 0 && (
                 <div className="mt-24">
-                  <p className="font-sans text-[clamp(26px,5.2vw,44px)] text-[#ffd8e7]">응원 문구</p>
+                  <p className="font-credit text-[clamp(26px,5.2vw,44px)] text-[#ffd8e7]">응원 문구</p>
                   <div className="mt-10 space-y-8">
                     {creditMessageEntries.map((entry) => (
                       <div
                         key={entry.id}
-                        className="rounded-[24px] border border-white/14 bg-white/6 px-5 py-5 shadow-[0_18px_38px_rgba(0,0,0,0.18)] backdrop-blur-sm"
+                        className="font-story rounded-[24px] border border-white/14 bg-white/6 px-5 py-5 shadow-[0_18px_38px_rgba(0,0,0,0.18)] backdrop-blur-sm"
                       >
                         <p className="text-[clamp(20px,3.8vw,34px)] font-medium leading-[1.5] text-white">
                           {entry.message_text}
