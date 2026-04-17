@@ -1516,6 +1516,8 @@ export default function Home() {
   const [professor, setProfessor] = useState<ProfessorFormState>(initialProfessorState);
   const [generatedProfessorImageUrl, setGeneratedProfessorImageUrl] = useState("");
   const [generatedProfessorCutoutUrl, setGeneratedProfessorCutoutUrl] = useState("");
+  const [generatedProfessorStorySpriteUrl, setGeneratedProfessorStorySpriteUrl] = useState("");
+  const [generatedProfessorDialoguePortraitUrl, setGeneratedProfessorDialoguePortraitUrl] = useState("");
   const [isGeneratingProfessorImage, setIsGeneratingProfessorImage] = useState(false);
   const [professorImageError, setProfessorImageError] = useState("");
   const [professorImagePromptSummary, setProfessorImagePromptSummary] = useState("");
@@ -1707,7 +1709,13 @@ export default function Home() {
     typeof currentLine?.professorLineIndex === "number"
       ? buildProfessorVoiceSlotPath(activeProfessorScriptProfileKey, currentLine.professorLineIndex)
       : "";
-  const professorVisualSrc = generatedProfessorCutoutUrl || generatedProfessorImageUrl;
+  const professorVisualSrc =
+    generatedProfessorStorySpriteUrl || generatedProfessorCutoutUrl || generatedProfessorImageUrl;
+  const professorDialoguePortraitSrc =
+    generatedProfessorDialoguePortraitUrl ||
+    generatedProfessorStorySpriteUrl ||
+    generatedProfessorCutoutUrl ||
+    generatedProfessorImageUrl;
   const isNightEpisodeEndingTransition =
     phase === "screen4_8_chapter" &&
     isEndingTransition &&
@@ -2564,17 +2572,33 @@ export default function Home() {
       const data = (await response.json()) as {
         imageDataUrl?: string;
         transparentDataUrl?: string | null;
+        storySpriteDataUrl?: string | null;
+        dialoguePortraitDataUrl?: string | null;
+        storedFullImageUrl?: string | null;
         prompt?: string;
         message?: string;
+        storageUploadWarning?: string | null;
       };
 
       if (!response.ok || !data.imageDataUrl) {
         throw new Error(data.message || "교수 이미지 생성에 실패했습니다.");
       }
 
-      setGeneratedProfessorImageUrl(data.imageDataUrl);
-      setGeneratedProfessorCutoutUrl(data.transparentDataUrl || "");
+      setGeneratedProfessorImageUrl(data.storedFullImageUrl || data.imageDataUrl);
+      setGeneratedProfessorCutoutUrl(data.transparentDataUrl || data.storedFullImageUrl || "");
+      setGeneratedProfessorStorySpriteUrl(
+        data.storySpriteDataUrl || data.transparentDataUrl || data.imageDataUrl,
+      );
+      setGeneratedProfessorDialoguePortraitUrl(
+        data.dialoguePortraitDataUrl ||
+          data.storySpriteDataUrl ||
+          data.transparentDataUrl ||
+          data.imageDataUrl,
+      );
       setProfessorImagePromptSummary(data.prompt || buildIllustrationPrompt(resolvedProfessor));
+      if (data.storageUploadWarning) {
+        setProfessorImageError(data.storageUploadWarning);
+      }
     } catch (error) {
       setProfessorImageError(
         error instanceof Error ? error.message : "교수 이미지 생성에 실패했습니다.",
@@ -2871,6 +2895,8 @@ export default function Home() {
     setProfessor(initialProfessorState);
     setGeneratedProfessorImageUrl("");
     setGeneratedProfessorCutoutUrl("");
+    setGeneratedProfessorStorySpriteUrl("");
+    setGeneratedProfessorDialoguePortraitUrl("");
     setProfessorImageError("");
     setProfessorImagePromptSummary("");
     setActiveProfessorScriptProfileKey("male_30s");
@@ -3766,20 +3792,6 @@ export default function Home() {
             </div>
 
             <div className="relative mt-4 flex flex-1 items-end justify-center pb-[260px] md:pb-[300px]">
-              {shouldShowProfessorBaseVisual && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-[16px] z-10 flex justify-center">
-                  <div className="relative">
-                    <div className="absolute inset-x-10 bottom-2 h-10 rounded-full bg-[radial-gradient(circle,rgba(0,0,0,0.34),rgba(0,0,0,0))]" />
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={professorVisualSrc}
-                      alt="교수 비주얼"
-                      className="h-auto max-h-[62vh] w-auto max-w-[min(54vw,520px)] object-contain drop-shadow-[0_22px_32px_rgba(39,11,26,0.42)]"
-                      draggable={false}
-                    />
-                  </div>
-                </div>
-              )}
               {currentVisualCue && !shouldShowChoiceOverlay && (
                 <div className="pointer-events-none absolute inset-x-0 top-[8%] z-20 flex justify-center px-4">
                   <div
@@ -3839,7 +3851,42 @@ export default function Home() {
 
           </div>
 
-          <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[70] md:bottom-8">
+          {shouldShowProfessorBaseVisual && (
+            <div className="pointer-events-none fixed inset-x-4 top-[182px] bottom-[14px] z-[68] md:top-[196px] md:bottom-[18px]">
+              <div className="mx-auto relative h-full max-w-6xl">
+                <div className="absolute inset-x-0 bottom-0 flex h-full items-end justify-center">
+                  <div className="relative flex h-full w-full items-end justify-center">
+                    <div className="absolute inset-x-6 bottom-5 h-12 rounded-full bg-[radial-gradient(circle,rgba(0,0,0,0.18),rgba(0,0,0,0))]" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={professorVisualSrc}
+                      alt="교수 비주얼"
+                      className="h-[82%] w-[82%] object-contain object-bottom drop-shadow-[0_30px_48px_rgba(39,11,26,0.42)] md:h-[94%] md:w-[94%]"
+                      draggable={false}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {shouldShowProfessorBaseVisual && professorDialoguePortraitSrc && (
+            <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[88] hidden md:block md:bottom-8">
+              <div className="mx-auto relative h-[290px] max-w-6xl">
+                <div className="absolute left-[-193px] top-1/2 flex h-[188px] w-[150px] -translate-y-1/2 items-center justify-center overflow-visible">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={professorDialoguePortraitSrc}
+                    alt="교수 대사 포트레이트"
+                    className="h-full w-full object-contain object-center drop-shadow-[0_20px_34px_rgba(27,8,18,0.34)]"
+                    draggable={false}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[90] md:bottom-8">
             <div className="mx-auto flex w-full max-w-6xl justify-center pointer-events-auto">
               <div
                 className="relative flex h-[250px] w-full flex-col rounded-[30px] border border-white/20 bg-[linear-gradient(180deg,rgba(22,20,28,0.74),rgba(12,10,18,0.88))] p-5 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] backdrop-blur-md md:h-[290px] md:p-8"
