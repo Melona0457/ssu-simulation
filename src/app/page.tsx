@@ -14,15 +14,13 @@ import {
   type StoryScene,
 } from "@/lib/professor-route-story";
 import {
-  chapterFallbackDialogues,
+  buildIllustrationPrompt,
   endingMeta,
-  finalRealityLine,
   getEndingRank,
   playerGenderOptions,
   professorGenderOptions,
   professorSpeakingStyleOptions,
   resolveProfessorForGeneration,
-  sessionPackEpisodeIds,
   type ChapterChoice,
   type ChapterId,
   type EndingRank,
@@ -55,23 +53,17 @@ type ChapterStep = {
 
 type DialogueSpeakerLabel = "나레이션" | "교수" | "나" | "독백" | "남성";
 
-type SessionPackStepPayload = {
-  chapterId: ChapterId;
-  stepIndex: number;
-  dialogue: string;
-  choices: Array<{
-    text: string;
-    preview: string;
-    reaction: string;
-    emotion: ChapterChoice["emotion"];
-    effects: ChapterChoice["effects"];
-  }>;
-};
-
 type DialogueLine = {
   speaker: DialogueSpeakerLabel;
   text: string;
   professorLineIndex: number | null;
+};
+
+type StoryVisualCue = {
+  key: string;
+  title: string;
+  subtitle: string;
+  variant: "professor" | "prop" | "mood";
 };
 
 const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
@@ -535,28 +527,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
     },
   ],
 };
-
-function buildSessionPackStepPayload(chapterIds: ChapterId[]): SessionPackStepPayload[] {
-  return chapterIds.flatMap((chapterId) => {
-    const baseSteps = (
-      chapterStepScripts[chapterId] ?? [chapterFallbackDialogues[chapterId]]
-    ).map(normalizeStepScriptSpeakers);
-    return baseSteps.map((step, stepIndex) => ({
-      chapterId,
-      stepIndex,
-      dialogue: step.dialogue,
-      choices: step.choices.map((choice) => ({
-        text: choice.text,
-        preview: choice.preview,
-        reaction: choice.reaction,
-        emotion: choice.emotion,
-        effects: choice.effects,
-      })),
-    }));
-  });
-}
-
-const sessionPackStepPayload = buildSessionPackStepPayload(sessionPackEpisodeIds);
+void chapterStepScripts;
 
 const initialPlayerState: PlayerFormState = {
   name: "",
@@ -607,12 +578,26 @@ const STORY_SFX_URLS = {
   restaurantBell: "/sfx/story/restaurant_bell.ogg",
   doorKnock: "/sfx/story/door_knock.ogg",
   thunder: "/sfx/story/thunder.ogg",
+  rain: "/sfx/story/rain.ogg",
   coffeeMachine: "/sfx/story/coffee_machine.ogg",
   clockTick: "/sfx/story/clock_tick.ogg",
 } as const;
 
 type StorySfxKey = keyof typeof STORY_SFX_URLS;
 type EndingProfessorGender = "남자" | "여자";
+
+const STORY_SFX_BEHAVIOR: Record<StorySfxKey, { loop?: boolean }> = {
+  heartbeat: {},
+  footsteps: {},
+  doorOpen: {},
+  pageTurn: {},
+  restaurantBell: {},
+  doorKnock: {},
+  thunder: {},
+  rain: { loop: true },
+  coffeeMachine: {},
+  clockTick: {},
+};
 
 const GENDERED_ENDING_PROFESSOR_LINES: Record<
   string,
@@ -664,20 +649,6 @@ function toDisplayProfessorName(name: string) {
   return trimmed.length > 0 ? trimmed : "이름 미정 교수";
 }
 
-function toRealityProfessorLabel(name: string) {
-  const base = toDisplayProfessorName(name);
-
-  if (base.endsWith("교수님")) {
-    return base;
-  }
-
-  if (base.endsWith("교수")) {
-    return `${base}님`;
-  }
-
-  return `${base} 교수님`;
-}
-
 function ensureDialogueSpeakerPrefix(text: string, defaultSpeaker: DialogueSpeakerLabel) {
   const trimmed = text.trim();
   if (!trimmed) {
@@ -708,6 +679,7 @@ function normalizeStepScriptSpeakers(step: ChapterStep): ChapterStep {
     })),
   };
 }
+void normalizeStepScriptSpeakers;
 
 function getAffinityMood(percent: number) {
   if (percent >= 80) {
@@ -730,6 +702,23 @@ const storyEpisodes = professorRouteStory.episodes as readonly StoryEpisode[];
 const storyEpisodeMap = new Map<string, StoryEpisode>(
   storyEpisodes.map((episode) => [episode.id, episode] as const),
 );
+
+const storyDisplayLineSerialMap = (() => {
+  const map = new Map<string, number>();
+  let serial = 0;
+
+  for (const episode of storyEpisodes) {
+    for (const scene of episode.scenes) {
+      const displayLineCount = (scene.stage_direction?.length ?? 0) + (scene.lines?.length ?? 0);
+      for (let lineIndex = 0; lineIndex < displayLineCount; lineIndex += 1) {
+        map.set(`${episode.id}::${scene.id}::${lineIndex}`, serial);
+        serial += 1;
+      }
+    }
+  }
+
+  return map;
+})();
 
 function getStoryEpisode(episodeId: string) {
   return storyEpisodeMap.get(episodeId) ?? null;
@@ -955,6 +944,13 @@ function resolveSfxKeysByContext(
     return ["thunder"];
   }
 
+  if (
+    sceneId === "ep06o_scene03_route_b" &&
+    lineText.includes("우산도 없는데 이 비를 맞고 가는 건 자살 행위다")
+  ) {
+    return ["rain"];
+  }
+
   if (sceneId === "ep06o_scene04_common_office" && lineText.includes("에스프레소 머신을 작동")) {
     return ["coffeeMachine"];
   }
@@ -1013,9 +1009,6 @@ const choiceAffinityMap: Record<string, number> = {
   ep02_c01_opt03: 0,
   ep02_c02_opt01: 2,
   ep02_c02_opt02: 1,
-  ep02_c03_opt01: 2,
-  ep02_c03_opt02: 2,
-  ep02_c03_opt03: 0,
   ep03b_c01_opt01: 1,
   ep03b_c01_opt02: 0,
   ep03b_c01_opt03: 0,
@@ -1053,8 +1046,244 @@ const choiceAffinityMap: Record<string, number> = {
   ep06c_c01_opt03: 1,
 };
 
+const meaningfulChoiceIds = new Set(Object.keys(choiceAffinityMap));
+
 function getChoiceAffinity(choiceId: string) {
   return choiceAffinityMap[choiceId] ?? 1;
+}
+
+const futurePotentialScoreMemo = new Map<string, number>();
+
+function getFuturePotentialScoreFromDestination(
+  episodeId: string | undefined,
+  sceneId: string | undefined,
+): number {
+  if (!episodeId || !sceneId) {
+    return 0;
+  }
+
+  const memoKey = `${episodeId}::${sceneId}`;
+  const memoized = futurePotentialScoreMemo.get(memoKey);
+  if (typeof memoized === "number") {
+    return memoized;
+  }
+
+  const scene = getStoryScene(episodeId, sceneId);
+  if (!scene) {
+    return 0;
+  }
+
+  let total = 0;
+
+  if (scene.type === "choice" && scene.choices && scene.choices.length > 0) {
+    const scenePotential = scene.choices.some((choice) => meaningfulChoiceIds.has(choice.id)) ? 2 : 0;
+    const branchPotential = Math.max(
+      0,
+      ...scene.choices.map((choice) => {
+        if (choice.next_scene) {
+          return getFuturePotentialScoreFromDestination(episodeId, choice.next_scene);
+        }
+
+        if (choice.next_episode) {
+          return getFuturePotentialScoreFromDestination(choice.next_episode, getFirstSceneId(choice.next_episode) ?? undefined);
+        }
+
+        return 0;
+      }),
+    );
+
+    total = scenePotential + branchPotential;
+  } else if (scene.next_scene) {
+    total = getFuturePotentialScoreFromDestination(episodeId, scene.next_scene);
+  } else if (scene.next_episode) {
+    total = getFuturePotentialScoreFromDestination(
+      scene.next_episode,
+      getFirstSceneId(scene.next_episode) ?? undefined,
+    );
+  }
+
+  futurePotentialScoreMemo.set(memoKey, total);
+  return total;
+}
+
+function isBgmSuppressedForStoryMoment(
+  phase: Phase,
+  episodeId: string | null,
+  sceneId: string | null,
+  lineIndex: number | null,
+) {
+  if (phase !== "screen4_8_chapter" || !episodeId || !sceneId || lineIndex === null) {
+    return false;
+  }
+
+  return episodeId === "ep06_night_professor_office" && sceneId === "ep06o_scene05_umbrella" && lineIndex >= 5 && lineIndex <= 6;
+}
+
+function resolveStoryVisualCue(
+  episodeId: string | null,
+  sceneId: string | null,
+  lineIndex: number | null,
+): StoryVisualCue | null {
+  if (!episodeId || !sceneId || lineIndex === null) {
+    return null;
+  }
+
+  const cueKey = `${sceneId}:${lineIndex}`;
+
+  const cueMap: Record<string, StoryVisualCue> = {
+    "ep01_scene01:1": {
+      key: cueKey,
+      title: "교수님 실루엣",
+      subtitle: "등굣길에서 익숙한 뒷모습이 시야에 들어오는 순간",
+      variant: "professor",
+    },
+    "ep02_scene01_intro:0": {
+      key: cueKey,
+      title: "강의실 시선",
+      subtitle: "문을 열자마자 교수님의 시선이 정면으로 꽂히는 타이밍",
+      variant: "professor",
+    },
+    "ep02_scene02_after_choice01:1": {
+      key: cueKey,
+      title: "책장 넘김 컷인",
+      subtitle: "가까이 다가와 직접 페이지를 넘겨주는 손동작",
+      variant: "prop",
+    },
+    "ep02_scene03_after_choice02:1": {
+      key: cueKey,
+      title: "캔커피 컷인",
+      subtitle: "교단 위 캔커피가 손으로 툭 건네지는 순간",
+      variant: "prop",
+    },
+    "ep02_scene04_after_choice03:1": {
+      key: cueKey,
+      title: "압박 시선",
+      subtitle: "정면으로 시선을 고정하는 긴장감 컷",
+      variant: "mood",
+    },
+    "ep02_scene06_pen_gift:1": {
+      key: cueKey,
+      title: "볼펜 선물",
+      subtitle: "손안에 남은 온기를 보여주는 중앙 오브젝트 컷",
+      variant: "prop",
+    },
+    "ep03c_scene01_intro:0": {
+      key: cueKey,
+      title: "학식 합석",
+      subtitle: "빈 앞자리에 그림자가 드리워지는 순간",
+      variant: "professor",
+    },
+    "ep03c_scene02_opt01:1": {
+      key: cueKey,
+      title: "종이컵 물",
+      subtitle: "직접 떠다 준 물컵이 손에 닿는 순간",
+      variant: "prop",
+    },
+    "ep03c_scene04_opt03:1": {
+      key: cueKey,
+      title: "요구르트 컷인",
+      subtitle: "식판에서 미끄러지듯 건네지는 작은 호의",
+      variant: "prop",
+    },
+    "ep03c_scene05_spoon_drop:0": {
+      key: cueKey,
+      title: "숟가락 낙하",
+      subtitle: "바닥에 툭 떨어진 수저를 강조하는 타이밍",
+      variant: "prop",
+    },
+    "ep03c_scene06_outro:1": {
+      key: cueKey,
+      title: "휴지 한 장",
+      subtitle: "말 대신 남겨진 자잘한 다정함",
+      variant: "prop",
+    },
+    "ep03r_scene01_intro:1": {
+      key: cueKey,
+      title: "식당 재회",
+      subtitle: "입구에서 눈이 마주친 뒤 곧장 다가오는 순간",
+      variant: "professor",
+    },
+    "ep04_scene01_intro:2": {
+      key: cueKey,
+      title: "받아온 볼펜",
+      subtitle: "공부 대신 자꾸 시야에 걸리는 펜",
+      variant: "prop",
+    },
+    "ep04_scene03_meet_professor:2": {
+      key: cueKey,
+      title: "서가 조우",
+      subtitle: "코너를 돌자마자 교수님이 눈앞에 서는 타이밍",
+      variant: "professor",
+    },
+    "ep04_scene04_opt01:2": {
+      key: cueKey,
+      title: "책 건네기",
+      subtitle: "손에서 손으로 참고 도서가 넘어오는 순간",
+      variant: "prop",
+    },
+    "ep04_scene05_opt02:2": {
+      key: cueKey,
+      title: "추천 도서",
+      subtitle: "시험 범위를 짚어 주는 참고 도서 컷인",
+      variant: "prop",
+    },
+    "ep06o_scene01_intro:1": {
+      key: cueKey,
+      title: "연구실 불빛",
+      subtitle: "캄캄한 건물 속 한 칸만 따뜻하게 빛나는 창문",
+      variant: "mood",
+    },
+    "ep06o_scene03_route_b:0": {
+      key: cueKey,
+      title: "폭우 전환",
+      subtitle: "천둥과 함께 화면 중앙을 가르는 폭우 연출",
+      variant: "mood",
+    },
+    "ep06o_scene04_common_office:0": {
+      key: cueKey,
+      title: "연구실 내부",
+      subtitle: "주황빛 조명과 시더우드 향의 공간이 처음 열리는 순간",
+      variant: "mood",
+    },
+    "ep06o_scene05_umbrella:5": {
+      key: cueKey,
+      title: "이름을 부르는 순간",
+      subtitle: "정적 속에서 교수님 얼굴이 중앙으로 클로즈업되는 타이밍",
+      variant: "professor",
+    },
+    "ep06o_scene05_umbrella:7": {
+      key: cueKey,
+      title: "장우산 컷인",
+      subtitle: "연구실 향기와 온기가 남은 우산을 건네는 순간",
+      variant: "prop",
+    },
+    "ep06o_scene06_rolls_intro:4": {
+      key: cueKey,
+      title: "롤스로이스 등장",
+      subtitle: "빗속에서 차창이 내려가며 시선이 마주치는 장면",
+      variant: "mood",
+    },
+    "ep06b_scene05_emotion:2": {
+      key: cueKey,
+      title: "곁을 내주는 거리",
+      subtitle: "옆자리에 앉아 위로를 건네는 밤 벤치 장면",
+      variant: "professor",
+    },
+    "ep06c_scene02_professor_enters:0": {
+      key: cueKey,
+      title: "복도 실루엣",
+      subtitle: "문틈 빛 속으로 교수님 그림자가 길게 들어오는 순간",
+      variant: "professor",
+    },
+    "ep06c_scene04_opt02:3": {
+      key: cueKey,
+      title: "편의점 봉투",
+      subtitle: "에너지 음료와 초콜릿이 든 흰 봉투가 책상 위에 놓이는 타이밍",
+      variant: "prop",
+    },
+  };
+
+  return cueMap[cueKey] ?? null;
 }
 
 function storyEndingKeyByRank(rank: EndingRank): StoryEndingRankKey {
@@ -1107,18 +1336,6 @@ function buildVariantLines(
   });
 
   return [...stageLines, ...contentLines];
-}
-
-function parseVariantDisplayLine(line: string) {
-  const match = /^(교수|나레이션|나|독백|남성):\s*(.*)$/.exec(line);
-  if (!match) {
-    return { speaker: "대사", text: line };
-  }
-
-  return {
-    speaker: match[1],
-    text: match[2],
-  };
 }
 
 function pickEndingVariant(
@@ -1233,17 +1450,49 @@ export default function Home() {
 
   const [player, setPlayer] = useState<PlayerFormState>(initialPlayerState);
   const [professor, setProfessor] = useState<ProfessorFormState>(initialProfessorState);
+  const [generatedProfessorImageUrl, setGeneratedProfessorImageUrl] = useState("");
+  const [generatedProfessorCutoutUrl, setGeneratedProfessorCutoutUrl] = useState("");
+  const [isGeneratingProfessorImage, setIsGeneratingProfessorImage] = useState(false);
+  const [professorImageError, setProfessorImageError] = useState("");
+  const [professorImagePromptSummary, setProfessorImagePromptSummary] = useState("");
 
   const [isBgmOn, setIsBgmOn] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const activeSfxRef = useRef<Array<{ audio: HTMLAudioElement; expiresAfterSerial: number }>>([]);
+  const tryPlayBgmRef = useRef<() => void>(() => {});
   const lastSfxTriggerRef = useRef<string>("");
+  const [needsBgmUnlock, setNeedsBgmUnlock] = useState(false);
+
+  const stopActiveSfx = () => {
+    activeSfxRef.current.forEach(({ audio }) => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
+    activeSfxRef.current = [];
+  };
+
+  tryPlayBgmRef.current = () => {
+    if (!audioRef.current || !isBgmOn) {
+      return;
+    }
+
+    audioRef.current.currentTime = 0;
+    audioRef.current
+      .play()
+      .then(() => setNeedsBgmUnlock(false))
+      .catch((err) => {
+        console.error("BGM 재생 실패:", err);
+        setNeedsBgmUnlock(true);
+      });
+  };
 
   const toggleBgm = () => {
     if (!audioRef.current) return;
     if (isBgmOn) {
       audioRef.current.pause();
+      setNeedsBgmUnlock(false);
     } else {
-      audioRef.current.play().catch((err) => console.error("BGM 재생 실패:", err));
+      tryPlayBgmRef.current();
     }
     setIsBgmOn(!isBgmOn);
   };
@@ -1258,7 +1507,6 @@ export default function Home() {
   const [pendingChoice, setPendingChoice] = useState<StoryChoice | null>(null);
   const [maxScore, setMaxScore] = useState(0);
   const [rawScore, setRawScore] = useState(0);
-  const [storyLog, setStoryLog] = useState<string[]>([]);
   const [affinityDelta, setAffinityDelta] = useState<{ value: number; id: number } | null>(null);
   const affinityDeltaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [heartPulse, setHeartPulse] = useState<"increase" | "decrease" | null>(null);
@@ -1304,10 +1552,6 @@ export default function Home() {
 
   const playerName = useMemo(() => toDisplayPlayerName(player.name), [player.name]);
   const professorName = useMemo(() => toDisplayProfessorName(professor.name), [professor.name]);
-  const realityProfessorName = useMemo(
-    () => toRealityProfessorLabel(professor.name),
-    [professor.name],
-  );
 
   const currentEpisode = storyCursor ? getStoryEpisode(storyCursor.episodeId) : null;
   const currentBgmUrl = useMemo(
@@ -1331,6 +1575,12 @@ export default function Home() {
   const currentLine =
     !pendingChoice && storyCursor && storyCursor.lineIndex < currentSceneLines.length
       ? currentSceneLines[storyCursor.lineIndex]
+      : null;
+  const currentLineSerial =
+    storyCursor && !pendingChoice && currentLine
+      ? storyDisplayLineSerialMap.get(
+          `${storyCursor.episodeId}::${storyCursor.sceneId}::${storyCursor.lineIndex}`,
+        ) ?? null
       : null;
   const currentChoiceList = useMemo(
     () =>
@@ -1365,6 +1615,7 @@ export default function Home() {
     typeof currentLine?.professorLineIndex === "number"
       ? buildProfessorVoiceSlotPath(activeProfessorScriptProfileKey, currentLine.professorLineIndex)
       : "";
+  const professorVisualSrc = generatedProfessorCutoutUrl || generatedProfessorImageUrl;
   const isNightEpisodeEndingTransition =
     phase === "screen4_8_chapter" &&
     isEndingTransition &&
@@ -1379,6 +1630,65 @@ export default function Home() {
     (!hasCurrentChoices || Boolean(pendingChoice) || currentLine !== null) &&
     !isDialogueLineTyping &&
     !isNightEpisodeEndingTransition;
+  const futurePotentialScore = useMemo(() => {
+    if (!storyCursor || !currentScene) {
+      return 0;
+    }
+
+    if (pendingChoice) {
+      if (pendingChoice.next_scene) {
+        return getFuturePotentialScoreFromDestination(storyCursor.episodeId, pendingChoice.next_scene);
+      }
+
+      if (pendingChoice.next_episode) {
+        return getFuturePotentialScoreFromDestination(
+          pendingChoice.next_episode,
+          getFirstSceneId(pendingChoice.next_episode) ?? undefined,
+        );
+      }
+
+      return 0;
+    }
+
+    if (currentChoiceList.length > 0) {
+      return getFuturePotentialScoreFromDestination(storyCursor.episodeId, currentScene.id);
+    }
+
+    if (currentScene.next_scene) {
+      return getFuturePotentialScoreFromDestination(storyCursor.episodeId, currentScene.next_scene);
+    }
+
+    if (currentScene.next_episode) {
+      return getFuturePotentialScoreFromDestination(
+        currentScene.next_episode,
+        getFirstSceneId(currentScene.next_episode) ?? undefined,
+      );
+    }
+
+    return 0;
+  }, [currentChoiceList.length, currentScene, pendingChoice, storyCursor]);
+  const affinityDenominator = maxScore + futurePotentialScore;
+  const isBgmSuppressed = isBgmSuppressedForStoryMoment(
+    phase,
+    storyCursor?.episodeId ?? null,
+    currentScene?.id ?? null,
+    pendingChoice ? null : storyCursor?.lineIndex ?? null,
+  );
+  const currentVisualCue = useMemo(
+    () =>
+      resolveStoryVisualCue(
+        storyCursor?.episodeId ?? null,
+        currentScene?.id ?? null,
+        pendingChoice ? null : storyCursor?.lineIndex ?? null,
+      ),
+    [currentScene?.id, pendingChoice, storyCursor],
+  );
+  const shouldShowProfessorBaseVisual =
+    phase === "screen4_8_chapter" &&
+    !shouldShowChoiceOverlay &&
+    !currentVisualCue &&
+    Boolean(professorVisualSrc) &&
+    currentLine?.speaker === "교수";
 
   function revealCurrentDialogueImmediately() {
     const line = activeDialogueLine.trim();
@@ -1399,7 +1709,7 @@ export default function Home() {
   moveNextChapterRef.current = moveNextChapter;
 
   const affinityPercent =
-    maxScore > 0 ? Math.min(100, Math.round((Math.max(0, rawScore) / maxScore) * 100)) : 0;
+    affinityDenominator > 0 ? Math.min(100, Math.round((Math.max(0, rawScore) / affinityDenominator) * 100)) : 0;
   const visibleAffinityPercent = affinityPercent > 0 ? Math.max(6, affinityPercent) : 0;
   const affinityKnobPercent = Math.max(3, Math.min(97, visibleAffinityPercent));
   const affinityMood = getAffinityMood(affinityPercent);
@@ -1417,13 +1727,56 @@ export default function Home() {
   );
 
   useEffect(() => {
-    if (!audioRef.current || !isBgmOn) {
+    if (!audioRef.current || !isBgmOn || isBgmSuppressed) {
       return;
     }
 
-    audioRef.current.currentTime = 0;
-    audioRef.current.play().catch((err) => console.error("BGM 재생 실패:", err));
-  }, [currentBgmUrl, isBgmOn]);
+    tryPlayBgmRef.current();
+  }, [currentBgmUrl, isBgmOn, isBgmSuppressed]);
+
+  useEffect(() => {
+    if (!audioRef.current) {
+      return;
+    }
+
+    if (isBgmSuppressed) {
+      audioRef.current.pause();
+      return;
+    }
+
+    if (!isBgmOn || !audioRef.current.paused) {
+      return;
+    }
+
+    audioRef.current
+      .play()
+      .then(() => setNeedsBgmUnlock(false))
+      .catch((err) => {
+        console.error("BGM 재생 실패:", err);
+        setNeedsBgmUnlock(true);
+      });
+  }, [isBgmOn, isBgmSuppressed]);
+
+  useEffect(() => {
+    if (!needsBgmUnlock || !isBgmOn) {
+      return;
+    }
+
+    const retryBgmPlayback = () => {
+      if (!isBgmOn) {
+        return;
+      }
+
+      tryPlayBgmRef.current();
+    };
+
+    window.addEventListener("pointerdown", retryBgmPlayback, { passive: true });
+    window.addEventListener("keydown", retryBgmPlayback);
+    return () => {
+      window.removeEventListener("pointerdown", retryBgmPlayback);
+      window.removeEventListener("keydown", retryBgmPlayback);
+    };
+  }, [isBgmOn, needsBgmUnlock]);
 
   useEffect(() => {
     if (phase !== "screen4_8_chapter" || !storyCursor || !currentLine || pendingChoice) {
@@ -1449,12 +1802,49 @@ export default function Home() {
       return;
     }
 
+    const currentSerial =
+      storyDisplayLineSerialMap.get(
+        `${storyCursor.episodeId}::${storyCursor.sceneId}::${storyCursor.lineIndex}`,
+      ) ?? null;
+    if (currentSerial === null) {
+      return;
+    }
+
     sfxKeys.forEach((key) => {
       const sfx = new Audio(STORY_SFX_URLS[key]);
       sfx.preload = "auto";
+      sfx.loop = Boolean(STORY_SFX_BEHAVIOR[key].loop);
+      activeSfxRef.current.push({
+        audio: sfx,
+        expiresAfterSerial: currentSerial + 1,
+      });
       void sfx.play().catch(() => undefined);
     });
   }, [currentLine, isBgmOn, pendingChoice, phase, storyCursor]);
+
+  useEffect(() => {
+    if (!isBgmOn) {
+      stopActiveSfx();
+      return;
+    }
+
+    if (currentLineSerial === null) {
+      if (phase !== "screen4_8_chapter") {
+        stopActiveSfx();
+      }
+      return;
+    }
+
+    activeSfxRef.current = activeSfxRef.current.filter(({ audio, expiresAfterSerial }) => {
+      if (currentLineSerial <= expiresAfterSerial) {
+        return true;
+      }
+
+      audio.pause();
+      audio.currentTime = 0;
+      return false;
+    });
+  }, [currentLineSerial, isBgmOn, phase]);
 
   useEffect(() => {
     const image = new Image();
@@ -1478,6 +1868,7 @@ export default function Home() {
         clearTimeout(endingTransitionTimerRef.current);
         endingTransitionTimerRef.current = null;
       }
+      stopActiveSfx();
       if (particleFrameRef.current) {
         cancelAnimationFrame(particleFrameRef.current);
       }
@@ -1767,6 +2158,7 @@ export default function Home() {
     });
     setPendingChoice(null);
     lastSfxTriggerRef.current = "";
+    stopActiveSfx();
     setPhase("screen4_8_chapter");
   }
 
@@ -1851,6 +2243,9 @@ export default function Home() {
   }
 
   function goScreen2() {
+    if (isBgmOn && needsBgmUnlock) {
+      tryPlayBgmRef.current();
+    }
     setPhase("screen2_player");
   }
 
@@ -1897,8 +2292,47 @@ export default function Home() {
     }
   }
 
+  async function generateProfessorImage() {
+    const resolvedProfessor = resolveProfessorForGeneration(professor);
+    setProfessor(resolvedProfessor);
+    setIsGeneratingProfessorImage(true);
+    setProfessorImageError("");
+
+    try {
+      const response = await fetch("/api/generate-professor-image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          professor: resolvedProfessor,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        imageDataUrl?: string;
+        transparentDataUrl?: string | null;
+        prompt?: string;
+        message?: string;
+      };
+
+      if (!response.ok || !data.imageDataUrl) {
+        throw new Error(data.message || "교수 이미지 생성에 실패했습니다.");
+      }
+
+      setGeneratedProfessorImageUrl(data.imageDataUrl);
+      setGeneratedProfessorCutoutUrl(data.transparentDataUrl || "");
+      setProfessorImagePromptSummary(data.prompt || buildIllustrationPrompt(resolvedProfessor));
+    } catch (error) {
+      setProfessorImageError(
+        error instanceof Error ? error.message : "교수 이미지 생성에 실패했습니다.",
+      );
+    } finally {
+      setIsGeneratingProfessorImage(false);
+    }
+  }
+
   function prepareSessionPack(resolvedProfessor: ProfessorFormState) {
-    void sessionPackStepPayload.length;
     setProfessor(resolvedProfessor);
     setRawScore(0);
     setMaxScore(0);
@@ -1908,10 +2342,6 @@ export default function Home() {
       affinityDeltaTimerRef.current = null;
     }
     setEnding(null);
-    setStoryLog([
-      `${playerName}(${player.gender})의 시험기간 시뮬레이션 시작`,
-      `${toDisplayProfessorName(resolvedProfessor.name)} 교수님과의 첫 만남이 시작되었다.`,
-    ]);
   }
 
   async function startStory() {
@@ -1925,6 +2355,8 @@ export default function Home() {
     }
     setStoryCursor({ episodeId: firstEpisodeId, sceneId: firstSceneId, lineIndex: 0 });
     setPendingChoice(null);
+    stopActiveSfx();
+    lastSfxTriggerRef.current = "";
     setRawScore(0);
     setMaxScore(0);
     setPhase("screen4_8_chapter");
@@ -1976,35 +2408,35 @@ export default function Home() {
     }
 
     setPendingChoice(choice);
-    const gainedScore = getChoiceAffinity(choice.id);
-    setRawScore((current) => current + gainedScore);
-    setMaxScore((current) => current + 2);
+    if (meaningfulChoiceIds.has(choice.id)) {
+      const gainedScore = getChoiceAffinity(choice.id);
+      setRawScore((current) => current + gainedScore);
+      setMaxScore((current) => current + 2);
 
-    if (gainedScore !== 0) {
-      setHeartPulse(gainedScore > 0 ? "increase" : "decrease");
-      if (heartPulseTimerRef.current) clearTimeout(heartPulseTimerRef.current);
-      heartPulseTimerRef.current = setTimeout(() => {
-        setHeartPulse(null);
-        heartPulseTimerRef.current = null;
-      }, 400);
-    }
-
-    if (gainedScore > 0) {
-      setAffinityDelta({ value: gainedScore, id: Date.now() });
-      if (affinityDeltaTimerRef.current) {
-        clearTimeout(affinityDeltaTimerRef.current);
+      if (gainedScore !== 0) {
+        setHeartPulse(gainedScore > 0 ? "increase" : "decrease");
+        if (heartPulseTimerRef.current) clearTimeout(heartPulseTimerRef.current);
+        heartPulseTimerRef.current = setTimeout(() => {
+          setHeartPulse(null);
+          heartPulseTimerRef.current = null;
+        }, 400);
       }
-      affinityDeltaTimerRef.current = setTimeout(() => {
+
+      if (gainedScore > 0) {
+        setAffinityDelta({ value: gainedScore, id: Date.now() });
+        if (affinityDeltaTimerRef.current) {
+          clearTimeout(affinityDeltaTimerRef.current);
+        }
+        affinityDeltaTimerRef.current = setTimeout(() => {
+          setAffinityDelta(null);
+        }, 1200);
+      } else {
         setAffinityDelta(null);
-      }, 1200);
+      }
     } else {
       setAffinityDelta(null);
     }
 
-    setStoryLog((current) => [
-      ...current,
-      `[${currentEpisodeNumber}에피소드] ${replaceStoryPlaceholders(choice.text, playerName, professorName)}`,
-    ]);
   }
 
   function moveNextChapter() {
@@ -2056,6 +2488,7 @@ export default function Home() {
     }
 
     if (currentScene.terminal) {
+      stopActiveSfx();
       const score100 = maxScore > 0 ? Math.round((Math.max(0, rawScore) / maxScore) * 100) : 0;
       const rank = score100 >= 100 ? "ENDING_F" : getEndingRank(Math.min(score100, 99));
       const variant = pickEndingVariant(rank);
@@ -2087,9 +2520,14 @@ export default function Home() {
   }
 
   function resetToMain() {
+    stopActiveSfx();
     setPhase("screen1_title");
     setPlayer(initialPlayerState);
     setProfessor(initialProfessorState);
+    setGeneratedProfessorImageUrl("");
+    setGeneratedProfessorCutoutUrl("");
+    setProfessorImageError("");
+    setProfessorImagePromptSummary("");
     setActiveProfessorScriptProfileKey("male_30s");
     setActiveProfessorScriptLines([]);
     setStoryCursor(null);
@@ -2101,7 +2539,6 @@ export default function Home() {
       clearTimeout(affinityDeltaTimerRef.current);
       affinityDeltaTimerRef.current = null;
     }
-    setStoryLog([]);
     setEnding(null);
     setIsEndingTransition(false);
     setIsCreditFinished(false);
@@ -2449,7 +2886,7 @@ export default function Home() {
 
       {phase === "screen1_title" && (
         <section
-          className="relative flex min-h-screen cursor-pointer items-center justify-center overflow-hidden px-4 py-6 md:px-8 md:py-8"
+          className="relative flex min-h-screen cursor-pointer items-center justify-center overflow-hidden px-4 py-0 md:px-8 md:py-0"
           onClick={goScreen2}
           role="button"
           tabIndex={0}
@@ -2483,6 +2920,10 @@ export default function Home() {
                   style={{ backgroundImage: "url('/ui/title-screen/start-button.webp')" }}
                   aria-hidden
                 />
+                <div className="screen1-start-audio-guide" aria-hidden>
+                  <p>배경음악이 있습니다.</p>
+                  <p>만약 안들리시면 음소거 버튼을 두 번 눌러주세요!</p>
+                </div>
               </div>
             </div>
           </div>
@@ -2653,28 +3094,86 @@ export default function Home() {
                 </div>
 
                 <div className="flex items-center justify-center">
-                  <div className="rounded-2xl border-2 border-[#c88ca8] bg-white/70 px-6 py-5 text-left text-[#5f223f]">
+                  <div className="w-full rounded-[28px] border-2 border-[#c88ca8] bg-white/72 p-4 text-left text-[#5f223f] shadow-[0_16px_38px_rgba(92,28,57,0.16)]">
                     <p className="text-[clamp(22px,2.1vw,32px)] font-bold leading-[1.35]">
-                      더미 모드 안내
+                      교수 비주얼 프리뷰
                     </p>
-                    <p className="mt-2 text-[clamp(18px,1.5vw,24px)] leading-[1.5]">
-                      배경/교수 이미지/컷인 특수효과는 비활성화 상태로 진행됩니다.
-                      <br />
-                      스토리와 엔딩, BGM, 효과음/음성 슬롯 구조만 우선 반영됩니다.
+                    <div className="mt-3 flex min-h-[360px] items-center justify-center overflow-hidden rounded-[24px] border border-[#d7a1b9] bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.95),rgba(255,236,244,0.76)_42%,rgba(229,177,201,0.58)_100%)]">
+                      {generatedProfessorImageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={generatedProfessorCutoutUrl || generatedProfessorImageUrl}
+                          alt="생성된 교수 이미지"
+                          className="h-full max-h-[420px] w-auto object-contain drop-shadow-[0_18px_24px_rgba(71,24,43,0.28)]"
+                          draggable={false}
+                        />
+                      ) : (
+                        <div className="rounded-[26px] border border-dashed border-[#bf86a2] bg-white/55 px-8 py-10 text-center">
+                          <p className="font-gothic text-sm font-bold tracking-[0.16em] text-[#9d597a]">
+                            VISUAL PREVIEW
+                          </p>
+                          <p className="mt-2 text-lg font-semibold text-[#6c2949]">
+                            교수님 생성 버튼을 누르면
+                          </p>
+                          <p className="text-base text-[#7a3b5a]">
+                            스토리 중간 컷인에 쓸 더미 비주얼이 여기에 표시됩니다.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-3 text-sm leading-[1.55] text-[#76405d]">
+                      실제 소품 이미지는 아직 없어도, 생성한 교수 이미지를 바탕으로 컷인 타이밍과 화면 크기를 먼저 점검할 수 있게 구성합니다.
                     </p>
+                    {professorImagePromptSummary && (
+                      <p className="mt-2 line-clamp-3 text-xs leading-[1.5] text-[#8a5470]">
+                        프롬프트 요약: {professorImagePromptSummary}
+                      </p>
+                    )}
+                    {professorImageError && (
+                      <p className="mt-2 text-sm font-semibold text-[#b12456]">{professorImageError}</p>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <p className="mt-3 text-[clamp(22px,2.3vw,34px)] font-semibold leading-[1.2] text-[#5a1f39]">
-                설정을 완료했으면 바로 스토리를 시작해주세요.
-              </p>
+              <div className="mt-3 flex flex-col items-center text-center text-[clamp(22px,2.3vw,34px)] font-semibold leading-[1.25] text-[#5a1f39]">
+                <p className="whitespace-nowrap">교수님 생성은 1회만 가능합니다. 신중하게 작성해주세요.</p>
+                <p className="whitespace-nowrap">AI로 생성하는데 최대 1분이 소요될 수 있습니다.</p>
+                <p className="whitespace-nowrap">
+                  음악 즐기시면서 기다려주시면 금방 작성하신 교수님 보여드릴게요!
+                </p>
+              </div>
 
-              <div className="mt-3 flex items-center justify-center">
+              <div className="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={generateProfessorImage}
+                  disabled={isGeneratingProfessorImage}
+                  className="screen2-confirm-btn screen3-create-btn min-w-[240px] disabled:cursor-wait disabled:opacity-70"
+                >
+                  <span className="screen2-confirm-gloss" aria-hidden />
+                  <span
+                    className="screen2-confirm-line screen2-confirm-line-vertical"
+                    aria-hidden
+                  />
+                  <span
+                    className="screen2-confirm-line screen2-confirm-line-horizontal"
+                    aria-hidden
+                  />
+                  <span className="screen2-confirm-heart screen2-confirm-heart-left" aria-hidden>
+                    ♡
+                  </span>
+                  <span className="screen2-confirm-label">
+                    {isGeneratingProfessorImage ? "교수님 생성 중..." : "교수님 생성"}
+                  </span>
+                  <span className="screen2-confirm-heart screen2-confirm-heart-right" aria-hidden>
+                    ♡
+                  </span>
+                </button>
                 <button
                   type="button"
                   onClick={startStory}
-                  className="screen2-confirm-btn screen3-create-btn"
+                  className="screen2-confirm-btn screen3-create-btn min-w-[240px]"
                 >
                   <span className="screen2-confirm-gloss" aria-hidden />
                   <span
@@ -2861,14 +3360,58 @@ export default function Home() {
             </div>
 
             <div className="relative mt-4 flex flex-1 items-end justify-center pb-[260px] md:pb-[300px]">
-              <div className="rounded-2xl border border-white/65 bg-black/30 px-8 py-16 text-center text-white">
-                <p className="font-gothic text-xs font-bold tracking-[0.12em] text-white/80">
-                  DUMMY VISUAL SLOT
-                </p>
-                <p className="mt-2 text-sm text-white/90">
-                  교수 스프라이트/특수효과(컷인)는 현재 비활성화 상태입니다.
-                </p>
-              </div>
+              {shouldShowProfessorBaseVisual && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-[16px] z-10 flex justify-center">
+                  <div className="relative">
+                    <div className="absolute inset-x-10 bottom-2 h-10 rounded-full bg-[radial-gradient(circle,rgba(0,0,0,0.34),rgba(0,0,0,0))]" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={professorVisualSrc}
+                      alt="교수 비주얼"
+                      className="h-auto max-h-[62vh] w-auto max-w-[min(54vw,520px)] object-contain drop-shadow-[0_22px_32px_rgba(39,11,26,0.42)]"
+                      draggable={false}
+                    />
+                  </div>
+                </div>
+              )}
+              {currentVisualCue && !shouldShowChoiceOverlay && (
+                <div className="pointer-events-none absolute inset-x-0 top-[8%] z-20 flex justify-center px-4">
+                  <div
+                    key={currentVisualCue.key}
+                    className="w-full max-w-[min(70vw,560px)] rounded-[30px] border border-white/60 bg-[linear-gradient(180deg,rgba(255,248,251,0.94),rgba(255,231,241,0.88))] p-4 shadow-[0_28px_60px_rgba(37,10,24,0.3)] backdrop-blur-sm"
+                  >
+                    <div className="overflow-hidden rounded-[24px] border border-[#d7a1b9] bg-[radial-gradient(circle_at_50%_16%,rgba(255,255,255,0.98),rgba(255,240,245,0.86)_40%,rgba(225,171,195,0.66)_100%)]">
+                      {currentVisualCue.variant === "professor" && professorVisualSrc ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={professorVisualSrc}
+                          alt={currentVisualCue.title}
+                          className="mx-auto h-auto max-h-[42vh] w-auto object-contain drop-shadow-[0_16px_24px_rgba(58,18,37,0.24)]"
+                          draggable={false}
+                        />
+                      ) : (
+                        <div className="flex min-h-[260px] flex-col items-center justify-center px-8 py-10 text-center">
+                          <span className="font-gothic text-xs font-black tracking-[0.24em] text-[#b35d86]">
+                            {currentVisualCue.variant === "prop" ? "OBJECT CUE" : currentVisualCue.variant === "mood" ? "MOOD CUE" : "PROFESSOR CUE"}
+                          </span>
+                          <div className="mt-4 rounded-full border border-[#e2aec5] bg-white/72 px-5 py-2 text-sm font-semibold text-[#9d4e73]">
+                            {currentVisualCue.title}
+                          </div>
+                          <div className="mt-6 h-24 w-24 rounded-[28px] border border-dashed border-[#c782a2] bg-white/58 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-2 pb-1 pt-3 text-center text-[#6b2848]">
+                      <p className="text-[clamp(22px,1.8vw,30px)] font-black leading-none">
+                        {currentVisualCue.title}
+                      </p>
+                      <p className="mt-2 text-sm leading-[1.5] text-[#8c5570]">
+                        {currentVisualCue.subtitle}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {shouldShowChoiceOverlay && (
