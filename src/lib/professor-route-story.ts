@@ -988,7 +988,7 @@ export const professorRouteStory = {
           type: "linear",
           stage_direction: ["소등된 강의실, 비상등만 켜진 늦은 밤.", "1인칭 시점. 희미한 빛 속에서 천천히 시야가 열린다.", "책상 위에 엎드려 있던 자세. 강의 노트가 뺨에 붙어 있고, 형광펜 뚜껑은 어딘가로 굴러가 있다."],
           lines: [
-            { role: "narration", text: "……어둡다. 여기가 어디지." },
+            { role: "monologue", text: "……어둡다. 여기가 어디지." },
             { role: "narration", text: "천장을 보니 강의실이다. 창밖은 완전히 깜깜하고, 복도 불빛만 문틈으로 가늘게 새어 들어온다. 얼마나 잔 거지. 시험이 내일인데—" },
             { role: "narration", text: "그때. 인기척." },
           ],
