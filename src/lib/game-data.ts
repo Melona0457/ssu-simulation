@@ -328,19 +328,6 @@ export const dinnerNightBranchByChoice: Record<0 | 1 | 2, ChapterId> = {
   2: "NIGHT_CAMPUS_WALK",
 };
 
-export const sessionPackEpisodeIds: ChapterId[] = [
-  "COMMUTE_CAMPUS",
-  "MORNING_CLASSROOM",
-  "LUNCH_STUDENT_CAFETERIA",
-  "LUNCH_OFFCAMPUS_RESTAURANT",
-  "LUNCH_RESTROOM_STALL",
-  "AFTERNOON_LIBRARY",
-  "LIGHT_DINNER",
-  "NIGHT_SELF_STUDY",
-  "NIGHT_CAMPUS_WALK",
-  "NIGHT_LAB_VISIT",
-];
-
 export function pickSixChaptersForRun() {
   return [
     "COMMUTE_CAMPUS",

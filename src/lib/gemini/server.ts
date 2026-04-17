@@ -19,9 +19,7 @@ type GeminiResponseLike = {
   candidates?: GeminiCandidate[];
 };
 
-const DEFAULT_TEXT_MODEL = "gemini-2.5-flash";
 const DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image";
-const DEFAULT_TTS_MODEL = "gemini-2.5-flash-preview-tts";
 
 export function createGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -33,38 +31,13 @@ export function createGeminiClient() {
   return new GoogleGenAI({ apiKey });
 }
 
-export function getGeminiTextModel() {
-  return process.env.GEMINI_TEXT_MODEL?.trim() || DEFAULT_TEXT_MODEL;
-}
-
 export function getGeminiImageModel() {
   return process.env.GEMINI_IMAGE_MODEL?.trim() || DEFAULT_IMAGE_MODEL;
-}
-
-export function getGeminiTtsModel() {
-  return process.env.GEMINI_TTS_MODEL?.trim() || DEFAULT_TTS_MODEL;
 }
 
 function collectResponseParts(response: unknown) {
   const typed = response as GeminiResponseLike;
   return typed.candidates?.flatMap((candidate) => candidate.content?.parts ?? []) ?? [];
-}
-
-export function extractTextFromGeminiResponse(response: unknown) {
-  const typed = response as GeminiResponseLike;
-
-  if (typeof typed.text === "string" && typed.text.trim().length > 0) {
-    return typed.text;
-  }
-
-  const parts = collectResponseParts(response);
-  const text = parts
-    .map((part) => (typeof part.text === "string" ? part.text : ""))
-    .filter((segment) => segment.trim().length > 0)
-    .join("\n")
-    .trim();
-
-  return text;
 }
 
 export function extractFirstInlineData(response: unknown) {
