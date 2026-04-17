@@ -922,6 +922,30 @@ function resolveBgmUrlByContext(phase: Phase, episodeId: string | null) {
   return STORY_BGM_URLS.introSetup;
 }
 
+/**
+ * 에피소드 ID에 따라 배경 이미지를 결정합니다.
+ * 파일이 준비되지 않았을 경우를 대비해 기존의 DUMMY_SOLID_LAYER를 fallback으로 사용합니다.
+ */
+function resolveBackdropByEpisode(episodeId: string | null) {
+  if (!episodeId) return DUMMY_SOLID_LAYER;
+
+  const bgMapping: Record<string, string> = {
+    ep01_commute: "/ui/backgrounds/ep01_commute.webp",
+    ep02_morning_classroom: "/ui/backgrounds/ep02_classroom.webp",
+    ep03_lunch_student_cafeteria: "/ui/backgrounds/ep03_cafeteria.webp",
+    ep03_lunch_off_campus_restaurant: "/ui/backgrounds/ep03_restaurant.webp",
+    ep03_lunch_bathroom_stall: "/ui/backgrounds/ep03_restroom.webp",
+    ep04_library: "/ui/backgrounds/ep04_library.webp",
+    ep05_simple_dinner: "/ui/backgrounds/ep05_dinner.webp",
+    ep06_night_professor_office: "/ui/backgrounds/ep06_office_night.webp",
+    ep06_night_bench: "/ui/backgrounds/ep06_bench_night.webp",
+    ep06_night_self_study: "/ui/backgrounds/ep06_classroom_night.webp",
+  };
+
+  const imagePath = bgMapping[episodeId];
+  return imagePath ? `url('${imagePath}')` : DUMMY_SOLID_LAYER;
+}
+
 function resolveSfxKeysByContext(
   episodeId: string,
   sceneId: string,
@@ -1637,10 +1661,10 @@ export default function Home() {
     ? {
         title: currentEpisode.title,
         location: currentEpisode.location,
-        backdrop: DUMMY_SOLID_LAYER,
+        backdrop: resolveBackdropByEpisode(currentEpisode.id),
       }
     : null;
-  const currentBackdropLayers = [DUMMY_DARK_LAYER, currentChapterInfo?.backdrop ?? DUMMY_SOLID_LAYER];
+  const currentBackdropLayers = [currentChapterInfo?.backdrop ?? DUMMY_SOLID_LAYER];
   const activeSpeakerLabel = pendingChoice ? "나" : currentLine?.speaker ?? "나레이션";
   const activeDialogueLine = pendingChoice
     ? replaceStoryPlaceholders(pendingChoice.text, playerName, professorName)
@@ -3169,7 +3193,7 @@ export default function Home() {
           }}
         >
           <div className="w-full max-w-[980px] text-center">
-            <h2 className="font-sans text-[clamp(56px,8vw,112px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8b3a60,_0_12px_30px_rgba(0,0,0,0.45)]">
+            <h2 className="font-sans text-[clamp(56px,8vw,108px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8b3a60,_0_12px_30px_rgba(0,0,0,0.45)]">
               당신의 이름과 성별은?
             </h2>
 
@@ -3423,9 +3447,12 @@ export default function Home() {
       {phase === "screen4_8_chapter" && currentChapterInfo && storyCursor && (
         <section className="relative min-h-screen overflow-hidden">
           <div
-            className="absolute inset-0"
+            className="absolute inset-0 bg-center bg-no-repeat transition-[background-image] duration-2000 ease-in-out"
             style={{
               backgroundImage: currentBackdropLayers.join(", "),
+              backgroundSize: "cover",
+              minWidth: "100%",
+              minHeight: "100%",
             }}
           />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(44,14,33,0.22),rgba(34,10,27,0.58))]" />
