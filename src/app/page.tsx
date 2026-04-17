@@ -46,6 +46,15 @@ type EndingState = {
   variantLines?: string[];
 };
 
+type CreditMessageEntry = {
+  id: string;
+  created_at: string;
+  player_name: string;
+  message_text: string;
+  ending_key: string | null;
+  ending_title: string | null;
+};
+
 type AudioLevels = {
   master: number;
   bgm: number;
@@ -1577,6 +1586,12 @@ export default function Home() {
   const [ending, setEnding] = useState<EndingState | null>(null);
   const [isEndingTransition, setIsEndingTransition] = useState(false);
   const [isCreditFinished, setIsCreditFinished] = useState(false);
+  const [isCreditMessageModalOpen, setIsCreditMessageModalOpen] = useState(false);
+  const [creditMessageAuthorInput, setCreditMessageAuthorInput] = useState("");
+  const [creditMessageInput, setCreditMessageInput] = useState("");
+  const [creditMessageError, setCreditMessageError] = useState("");
+  const [isSubmittingCreditMessage, setIsSubmittingCreditMessage] = useState(false);
+  const [creditMessageEntries, setCreditMessageEntries] = useState<CreditMessageEntry[]>([]);
   const [typedProfessorLine, setTypedProfessorLine] = useState("");
   const [isAutoPlayOn, setIsAutoPlayOn] = useState(false);
   const [isDebugUnlocked, setIsDebugUnlocked] = useState(false);
@@ -1770,6 +1785,10 @@ export default function Home() {
   const endingScreenImagePath = useMemo(
     () => getEndingScreenImagePath(ending?.rank, professor.gender),
     [ending?.rank, professor.gender],
+  );
+  const creditRollDuration = useMemo(
+    () => Math.max(18, 18 + creditMessageEntries.length * 3.1),
+    [creditMessageEntries.length],
   );
   const debugEndingVariants = useMemo(
     () =>
@@ -2727,9 +2746,97 @@ export default function Home() {
     }
   }
 
-  function goCreditScreen() {
+  async function loadCreditMessages() {
+    try {
+      const response = await fetch("/api/credit-messages", {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("응원 문구 조회 실패");
+      }
+
+      const data = (await response.json()) as {
+        messages?: CreditMessageEntry[];
+      };
+      setCreditMessageEntries(Array.isArray(data.messages) ? data.messages : []);
+    } catch {
+      setCreditMessageEntries([]);
+    }
+  }
+
+  async function goCreditScreen() {
     setIsCreditFinished(false);
+    await loadCreditMessages();
     setPhase("screen11_credit");
+  }
+
+  function openCreditMessageModal() {
+    setCreditMessageError("");
+    setCreditMessageAuthorInput("");
+    setCreditMessageInput("");
+    setIsCreditMessageModalOpen(true);
+  }
+
+  async function skipCreditMessage() {
+    setCreditMessageError("");
+    setIsCreditMessageModalOpen(false);
+    await goCreditScreen();
+  }
+
+  async function submitCreditMessage() {
+    const normalizedMessage = creditMessageInput.replace(/\s+/g, " ").trim();
+    const normalizedAuthor = creditMessageAuthorInput.trim().slice(0, 30);
+
+    if (!normalizedMessage) {
+      setCreditMessageError("응원 문구를 입력해주세요.");
+      return;
+    }
+
+    if (normalizedMessage.length > 80) {
+      setCreditMessageError("응원 문구는 80자 이하로 입력해주세요.");
+      return;
+    }
+
+    setIsSubmittingCreditMessage(true);
+    setCreditMessageError("");
+
+    try {
+      const response = await fetch("/api/credit-messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          playerName: normalizedAuthor || "익명의 학생",
+          messageText: normalizedMessage,
+          ending: ending?.rank
+            ? {
+                key: endingMeta[ending.rank].key,
+                title: ending.title,
+              }
+            : null,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        message?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.message || "응원 문구 저장에 실패했습니다.");
+      }
+
+      setIsCreditMessageModalOpen(false);
+      setCreditMessageInput("");
+      await goCreditScreen();
+    } catch (error) {
+      setCreditMessageError(
+        error instanceof Error ? error.message : "응원 문구 저장에 실패했습니다.",
+      );
+    } finally {
+      setIsSubmittingCreditMessage(false);
+    }
   }
 
   function resetToMain() {
@@ -2756,6 +2863,12 @@ export default function Home() {
     setEnding(null);
     setIsEndingTransition(false);
     setIsCreditFinished(false);
+    setIsCreditMessageModalOpen(false);
+    setCreditMessageAuthorInput("");
+    setCreditMessageInput("");
+    setCreditMessageError("");
+    setIsSubmittingCreditMessage(false);
+    setCreditMessageEntries([]);
     setIsAutoPlayOn(false);
     if (endingTransitionTimerRef.current) {
       clearTimeout(endingTransitionTimerRef.current);
@@ -3797,7 +3910,7 @@ export default function Home() {
             <div className="flex min-h-screen items-end justify-end px-4 pb-6 md:px-8 md:pb-8">
               <button
                 type="button"
-                onClick={goCreditScreen}
+                onClick={openCreditMessageModal}
                 className="pointer-events-auto rounded-full border border-white/70 bg-white px-7 py-3 text-lg font-black text-[#25131c] shadow-[0_10px_24px_rgba(0,0,0,0.24)] transition hover:bg-[#fff5fa]"
               >
                 다음
@@ -3805,6 +3918,103 @@ export default function Home() {
             </div>
           </div>
         </section>
+      )}
+
+      {isCreditMessageModalOpen && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[rgba(63,35,50,0.38)] px-4 backdrop-blur-[4px]">
+          <div className="w-full max-w-[min(96vw,880px)] rounded-[30px] border border-[#f1bfd3] bg-[linear-gradient(180deg,rgba(255,249,252,0.98),rgba(255,241,246,0.98))] p-6 text-[#4a2033] shadow-[0_30px_80px_rgba(91,40,64,0.22)] md:p-8">
+            <p className="text-[clamp(20px,2.1vw,32px)] font-black leading-[1.2] text-[#5d2340] md:whitespace-nowrap">
+              엔딩 크레딧에 추가되는 응원 문구 작성하실래요?
+            </p>
+            <p className="mt-3 text-sm leading-[1.7] text-[#7b5364] md:text-base">
+              남겨주신 문구는 기본 엔딩 크레딧이 끝난 뒤 한 줄씩 이어서 보여드릴게요.
+            </p>
+
+            <div className="mt-5 rounded-[24px] border border-[#efc8d8] bg-white/72 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+              <label
+                htmlFor="credit-author"
+                className="block text-xs font-black tracking-[0.14em] text-[#c65384]"
+              >
+                크레딧에 표시될 이름
+              </label>
+              <input
+                id="credit-author"
+                type="text"
+                value={creditMessageAuthorInput}
+                onChange={(event) => {
+                  setCreditMessageAuthorInput(event.target.value);
+                  if (creditMessageError) {
+                    setCreditMessageError("");
+                  }
+                }}
+                maxLength={30}
+                placeholder="비워두면 익명의 학생으로 등록돼요."
+                className="mt-3 h-12 w-full rounded-[16px] border border-[#e9bfd0] bg-white px-4 text-base text-[#4a2033] outline-none transition placeholder:text-[#bc9aaa] focus:border-[#ea7ba6] focus:ring-2 focus:ring-[#f6b9d1]/70"
+              />
+              <div className="mt-2 flex items-center justify-end text-xs text-[#aa7f90]">
+                <span>{creditMessageAuthorInput.trim().length}/30</span>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-[24px] border border-[#efc8d8] bg-white/72 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+              <label
+                htmlFor="credit-message"
+                className="block text-xs font-black tracking-[0.14em] text-[#c65384]"
+              >
+                응원 문구
+              </label>
+              <textarea
+                id="credit-message"
+                value={creditMessageInput}
+                onChange={(event) => {
+                  setCreditMessageInput(event.target.value);
+                  if (creditMessageError) {
+                    setCreditMessageError("");
+                  }
+                }}
+                maxLength={80}
+                rows={3}
+                placeholder="예: 숭멋사 14기 파이팅! 교수님과의 비밀 에피소드도 끝까지 완주해보세요."
+                className="mt-3 min-h-[128px] w-full rounded-[18px] border border-[#e9bfd0] bg-white px-4 py-3 text-base leading-[1.6] text-[#4a2033] outline-none transition placeholder:text-[#bc9aaa] focus:border-[#ea7ba6] focus:ring-2 focus:ring-[#f6b9d1]/70"
+              />
+              <div className="mt-2 flex items-center justify-between gap-3 text-xs text-[#aa7f90]">
+                <span>
+                  {creditMessageAuthorInput.trim()
+                    ? `${creditMessageAuthorInput.trim()} 이름으로 등록됩니다.`
+                    : "이름을 비워두면 익명의 학생으로 등록됩니다."}
+                </span>
+                <span>{creditMessageInput.trim().length}/80</span>
+              </div>
+            </div>
+
+            {creditMessageError && (
+              <p className="mt-3 text-sm font-semibold text-[#c43d74]">{creditMessageError}</p>
+            )}
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  void skipCreditMessage();
+                }}
+                disabled={isSubmittingCreditMessage}
+                className="rounded-full border border-[#d7b4c3] bg-white px-6 py-3 text-sm font-black text-[#6a3850] transition hover:bg-[#fff7fa] disabled:cursor-wait disabled:opacity-70"
+              >
+                다음에 할래요
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void submitCreditMessage();
+                }}
+                disabled={isSubmittingCreditMessage}
+                className="rounded-full border border-[#e88ab0] bg-[linear-gradient(180deg,#ffd8e8,#ffc4dc)] px-6 py-3 text-sm font-black text-[#5a1937] transition hover:brightness-[1.03] disabled:cursor-wait disabled:opacity-70"
+              >
+                {isSubmittingCreditMessage ? "등록 중..." : "등록"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {phase === "screen11_credit" && (
@@ -3827,6 +4037,7 @@ export default function Home() {
             <div
               className="credit-roll-content"
               onAnimationEnd={() => setIsCreditFinished(true)}
+              style={{ animationDuration: `${creditRollDuration}s` }}
             >
               <div
                 className="credit-title-logo mx-auto h-[clamp(280px,42vw,760px)] w-full max-w-[min(98vw,1800px)] bg-center bg-contain bg-no-repeat"
@@ -3847,6 +4058,27 @@ export default function Home() {
                 <br />
                 FE 차민상
               </p>
+
+              {creditMessageEntries.length > 0 && (
+                <div className="mt-24">
+                  <p className="font-sans text-[clamp(26px,5.2vw,44px)] text-[#ffd8e7]">응원 문구</p>
+                  <div className="mt-10 space-y-8">
+                    {creditMessageEntries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="rounded-[24px] border border-white/14 bg-white/6 px-5 py-5 shadow-[0_18px_38px_rgba(0,0,0,0.18)] backdrop-blur-sm"
+                      >
+                        <p className="text-[clamp(20px,3.8vw,34px)] font-medium leading-[1.5] text-white">
+                          {entry.message_text}
+                        </p>
+                        <p className="mt-3 text-sm font-semibold tracking-[0.08em] text-[#ffbfd7]">
+                          FROM. {entry.player_name}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

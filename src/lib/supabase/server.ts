@@ -21,6 +21,15 @@ export type PlaySessionInsert = {
   story_log: string[];
 };
 
+export type CreditMessageRecord = {
+  id: string;
+  created_at: string;
+  player_name: string;
+  message_text: string;
+  ending_key: string | null;
+  ending_title: string | null;
+};
+
 export function createSupabaseServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
