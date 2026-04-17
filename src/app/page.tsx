@@ -561,10 +561,10 @@ const BGM_BASE_URL = process.env.NEXT_PUBLIC_SUPABASE_BGM_BASE_URL?.replace(/\/+
 const VOICE_BASE_URL = process.env.NEXT_PUBLIC_SUPABASE_VOICE_BASE_URL?.replace(/\/+$/, "") || "/voice";
 const AUDIO_LEVEL_STORAGE_KEY = "ssu-simulation-audio-levels-v1";
 const DEFAULT_AUDIO_LEVELS: AudioLevels = {
-  master: 80,
-  bgm: 70,
-  voice: 85,
-  sfx: 72,
+  master: 50,
+  bgm: 80,
+  voice: 100,
+  sfx: 100,
 };
 const debugEndingScoreMap: Record<EndingRank, number> = {
   ENDING_A_PLUS: 95,
@@ -927,11 +927,18 @@ function resolveSfxKeysByContext(
   sceneId: string,
   lineText: string,
 ): StorySfxKey[] {
+  const normalizedLineText = lineText.replace(/\s+/g, " ").trim();
+
   if (sceneId === "ep02_scene01_intro" && lineText.includes("터벅터벅... 강의실 문을 열자마자")) {
     return ["footsteps", "doorOpen"];
   }
 
-  if (sceneId === "ep02_scene02_after_choice01" && lineText.includes("책 페이지를 넘겨")) {
+  if (
+    sceneId === "ep02_scene02_after_choice01" &&
+    (normalizedLineText.includes("책 페이지를 넘겨 준다") ||
+      normalizedLineText.includes("책 페이지를 넘겨준다") ||
+      normalizedLineText.includes("손끝이 살짝 스친"))
+  ) {
     return ["pageTurn"];
   }
 
@@ -941,6 +948,15 @@ function resolveSfxKeysByContext(
 
   if (sceneId === "ep03b_scene01_intro" && lineText.includes("그때, 달칵")) {
     return ["doorOpen"];
+  }
+
+  if (
+    sceneId === "ep03r_scene01_intro" &&
+    (normalizedLineText.includes("문에 달린 작은 종이 딸랑") ||
+      normalizedLineText.includes("딸랑 하고 울린다") ||
+      normalizedLineText.includes("딸랑— 하고 울린다"))
+  ) {
+    return ["restaurantBell"];
   }
 
   if (sceneId === "ep03r_scene06_outro" && lineText.includes("딸랑— 문이 닫힌다")) {
@@ -1470,6 +1486,7 @@ export default function Home() {
   const [isGeneratingProfessorImage, setIsGeneratingProfessorImage] = useState(false);
   const [professorImageError, setProfessorImageError] = useState("");
   const [professorImagePromptSummary, setProfessorImagePromptSummary] = useState("");
+  const [professorSpeakingStyleError, setProfessorSpeakingStyleError] = useState("");
 
   const [audioLevels, setAudioLevels] = useState<AudioLevels>(DEFAULT_AUDIO_LEVELS);
   const [isSoundPanelOpen, setIsSoundPanelOpen] = useState(false);
@@ -2319,6 +2336,18 @@ export default function Home() {
       ...current,
       [key]: value,
     }));
+    if (key === "speakingStyle") {
+      setProfessorSpeakingStyleError("");
+    }
+  }
+
+  function ensureProfessorSpeakingStyleSelected() {
+    if (professor.speakingStyle) {
+      return true;
+    }
+
+    setProfessorSpeakingStyleError("교수님 말투를 선택해주세요.");
+    return false;
   }
 
   function openStoryDebugContext(targetEpisodeId: string, targetSceneId?: string) {
@@ -2469,6 +2498,10 @@ export default function Home() {
   }
 
   async function generateProfessorImage() {
+    if (!ensureProfessorSpeakingStyleSelected()) {
+      return;
+    }
+
     const resolvedProfessor = resolveProfessorForGeneration(professor);
     setProfessor(resolvedProfessor);
     setIsGeneratingProfessorImage(true);
@@ -2521,6 +2554,10 @@ export default function Home() {
   }
 
   async function startStory() {
+    if (!ensureProfessorSpeakingStyleSelected()) {
+      return;
+    }
+
     const resolvedProfessor = resolveProfessorForGeneration(professor);
     prepareSessionPack(resolvedProfessor);
     await loadProfessorScriptLines(resolvedProfessor);
@@ -2874,7 +2911,7 @@ export default function Home() {
             <p className="text-sm">
               교수 설정: <span className="font-bold">{professor.gender}</span> /{" "}
               <span className="font-bold">
-                {professorSpeakingStyleOptions.find((option) => option.value === (professor.speakingStyle || "TONE_30S"))?.label ?? "30대"}
+                {professorSpeakingStyleOptions.find((option) => option.value === professor.speakingStyle)?.label ?? "미선택"}
               </span>
             </p>
             <p className="text-sm">
@@ -3133,7 +3170,7 @@ export default function Home() {
           <div className="screen1-stage relative z-10 mx-auto flex w-full max-w-[1360px] flex-col items-center justify-center">
             <div className="screen1-hero-frame">
               <div className="screen1-title-wrap">
-                <h1 className="sr-only">교수님과 두근두근 시험기간 시뮬레이션</h1>
+                <h1 className="sr-only">오 나의 교수님! 비밀 에피소드</h1>
               </div>
 
               <div className="screen1-start-wrap">
@@ -3303,15 +3340,22 @@ export default function Home() {
                     <select
                       value={professor.speakingStyle}
                       onChange={(event) => updateProfessor("speakingStyle", event.target.value)}
-                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
+                      className={`h-14 rounded-3xl border-[3px] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl ${
+                        professorSpeakingStyleError ? "border-[#cf3f73]" : "border-[#b87695]"
+                      }`}
                     >
-                      <option value="TONE_30S">선택</option>
+                      <option value="">선택</option>
                       {professorSpeakingStyleOptions.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
                       ))}
                     </select>
+                    {professorSpeakingStyleError && (
+                      <p className="text-sm font-semibold text-[#b12456] sm:col-start-2">
+                        {professorSpeakingStyleError}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -3787,7 +3831,7 @@ export default function Home() {
               <div
                 className="credit-title-logo mx-auto h-[clamp(280px,42vw,760px)] w-full max-w-[min(98vw,1800px)] bg-center bg-contain bg-no-repeat"
                 style={{ backgroundImage: "url('/ui/title-screen/end-logo.webp')" }}
-                aria-label="두근두근 교수님과 시험기간 시뮬레이션"
+                aria-label="오 나의 교수님! 비밀 에피소드"
                 role="img"
               />
               <p className="font-sans mt-10 text-[clamp(28px,6.5vw,48px)] sm:mt-14">Credit</p>

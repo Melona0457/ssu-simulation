@@ -3,8 +3,31 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "두근두근 교수님과 시험기간 시뮬레이션",
-  description: "교수님 커스터마이징과 시험 전날 분기형 선택지를 중심으로 한 MVP 시뮬레이션",
+  metadataBase: new URL("https://ssu-simulation.vercel.app"),
+  title: "오 나의 교수님! 비밀 에피소드",
+  description: "교수님을 커스터마이징하고 시험 전날의 선택지를 따라가는 로맨스 시뮬레이션",
+  openGraph: {
+    title: "오 나의 교수님! 비밀 에피소드",
+    description: "교수님을 커스터마이징하고 시험 전날의 선택지를 따라가는 로맨스 시뮬레이션",
+    url: "https://ssu-simulation.vercel.app",
+    siteName: "오 나의 교수님! 비밀 에피소드",
+    locale: "ko_KR",
+    type: "website",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "오 나의 교수님! 비밀 에피소드",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "오 나의 교수님! 비밀 에피소드",
+    description: "교수님을 커스터마이징하고 시험 전날의 선택지를 따라가는 로맨스 시뮬레이션",
+    images: ["/opengraph-image"],
+  },
 };
 
 export const viewport: Viewport = {
