@@ -52,6 +52,7 @@ type CreditMessageEntry = {
   created_at: string;
   player_name: string;
   message_text: string;
+  professor_image_url: string | null;
   ending_key: string | null;
   ending_title: string | null;
 };
@@ -89,6 +90,15 @@ type StoryVisualCue = {
   subtitle: string;
   variant: "professor" | "prop" | "mood";
 };
+
+function resolvePersistedProfessorImageUrl(imageUrl: string) {
+  const normalized = imageUrl.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  return /^https?:\/\//.test(normalized) || /^data:image\//.test(normalized) ? normalized : null;
+}
 
 const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   COMMUTE_CAMPUS: [
@@ -2504,7 +2514,8 @@ export default function Home() {
     }
 
     if (targetPhase === "screen11_credit") {
-      setIsCreditFinished(false);
+      void goCreditScreen();
+      return;
     }
 
     setPhase(targetPhase);
@@ -2887,6 +2898,9 @@ export default function Home() {
       body: JSON.stringify({
         playerName: draft.playerName || "익명의 학생",
         messageText: draft.messageText,
+        professorImageUrl: resolvePersistedProfessorImageUrl(
+          generatedProfessorStorySpriteUrl || generatedProfessorImageUrl,
+        ),
         ending: endingInfo?.rank
           ? {
               key: endingMeta[endingInfo.rank].key,
@@ -4105,13 +4119,12 @@ export default function Home() {
           ) : null}
 
           {endingOverlayAssetPath ? (
-            <div className="absolute inset-0 z-20 flex items-end justify-center overflow-hidden" aria-hidden="true">
-              {/* 엔딩도 화면10과 동일하게 화면 전체를 쓰되 오버레이 원본은 잘리지 않도록 contain으로 유지한다. */}
+            <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden" aria-hidden="true">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={endingOverlayAssetPath}
                 alt="엔딩 전경 오버레이"
-                className="h-full w-full object-contain object-bottom"
+                className="absolute bottom-0 right-0 h-auto w-[min(82vw,1380px)] max-w-none object-contain object-right-bottom"
                 draggable={false}
               />
             </div>
@@ -4166,7 +4179,7 @@ export default function Home() {
                   엔딩 크레딧에 추가되는 응원 문구 작성하실래요?
                 </p>
                 <p className="mt-3 text-sm leading-[1.7] text-[#7b5364] md:text-base">
-                  작성하신 문구는 엔딩까지 클리어해야 등록돼요! 부족하지만 재밌게 즐겨주세요 ❤️
+                  작성하신 문구와 교수님 상반신 이미지는 엔딩까지 클리어해야 등록돼요! 부족하지만 재밌게 즐겨주세요 ❤️
                 </p>
               </>
             ) : (
@@ -4362,24 +4375,47 @@ export default function Home() {
 
               {creditMessageEntries.length > 0 && (
                 <div className="mt-24">
-                  <p className="font-credit text-[clamp(26px,5.2vw,44px)] text-[#ffd8e7]">응원 문구</p>
+                  <p className="font-credit text-[clamp(26px,5.2vw,44px)] text-[#ffd8e7]">
+                    🎊 응원 문구 🎊
+                  </p>
                   <div className="mt-10 space-y-8">
                     {creditMessageEntries.map((entry) => (
                       <div
                         key={entry.id}
-                        className="font-story rounded-[24px] border border-white/14 bg-white/6 px-5 py-5 shadow-[0_18px_38px_rgba(0,0,0,0.18)] backdrop-blur-sm"
+                        className="font-story flex items-center gap-4 rounded-[24px] border border-white/14 bg-white/6 px-5 py-5 shadow-[0_18px_38px_rgba(0,0,0,0.18)] backdrop-blur-sm"
                       >
-                        <p className="text-[clamp(20px,3.8vw,34px)] font-medium leading-[1.5] text-white">
-                          {entry.message_text}
-                        </p>
-                        <p className="mt-3 text-sm font-semibold tracking-[0.08em] text-[#ffbfd7]">
-                          FROM. {entry.player_name}
-                        </p>
+                        {entry.professor_image_url ? (
+                          <div className="h-[128px] w-[88px] shrink-0 overflow-hidden rounded-[18px] border border-white/16 bg-[rgba(255,255,255,0.08)] shadow-[0_12px_24px_rgba(0,0,0,0.18)] sm:h-[156px] sm:w-[108px]">
+                            <img
+                              src={entry.professor_image_url}
+                              alt={`${entry.player_name} 교수 이미지`}
+                              className="h-full w-full object-cover object-top"
+                              loading="lazy"
+                            />
+                          </div>
+                        ) : null}
+                        <div className="flex min-w-0 flex-1 flex-col justify-center self-stretch text-center">
+                          <p className="text-[clamp(20px,3.8vw,34px)] font-medium leading-[1.5] text-white">
+                            {entry.message_text}
+                          </p>
+                          <p className="mt-3 text-sm font-semibold tracking-[0.08em] text-[#ffbfd7]">
+                            FROM. {entry.player_name}
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+
+              <div className="mt-24">
+                <p className="font-credit text-[clamp(26px,5.5vw,52px)] leading-[1.4] text-[#ffe0ec]">
+                  모두 중간고사 결과가 잘 나오길 바랍니다.
+                </p>
+                <p className="mt-8 font-credit text-[clamp(34px,7vw,72px)] leading-none tracking-[0.04em] text-[#ffe0ec]">
+                  THE END
+                </p>
+              </div>
             </div>
           </div>
 

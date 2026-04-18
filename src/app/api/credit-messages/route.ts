@@ -4,6 +4,7 @@ import { createSupabaseServerClient, type CreditMessageRecord } from "@/lib/supa
 type CreditMessagePayload = {
   playerName?: string;
   messageText?: string;
+  professorImageUrl?: string | null;
   ending?: {
     key?: string;
     title?: string;
@@ -14,6 +15,10 @@ const CREDIT_MESSAGE_MAX_LENGTH = 80;
 
 function normalizeMessageText(value: string) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function isMissingProfessorImageColumnError(errorMessage: string) {
+  return errorMessage.includes("professor_image_url");
 }
 
 export async function GET() {
@@ -28,10 +33,33 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("credit_messages")
-    .select("id, created_at, player_name, message_text, ending_key, ending_title")
+    .select("id, created_at, player_name, message_text, professor_image_url, ending_key, ending_title")
     .order("created_at", { ascending: false });
 
   if (error) {
+    if (isMissingProfessorImageColumnError(error.message)) {
+      const fallback = await supabase
+        .from("credit_messages")
+        .select("id, created_at, player_name, message_text, ending_key, ending_title")
+        .order("created_at", { ascending: false });
+
+      if (fallback.error) {
+        return NextResponse.json(
+          {
+            message: `응원 문구 조회 실패: ${fallback.error.message}`,
+          },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json({
+        messages: (fallback.data ?? []).map((entry) => ({
+          ...entry,
+          professor_image_url: null,
+        })) satisfies CreditMessageRecord[],
+      });
+    }
+
     return NextResponse.json(
       {
         message: `응원 문구 조회 실패: ${error.message}`,
@@ -51,6 +79,7 @@ export async function POST(request: Request) {
 
   const playerName = (payload.playerName || "익명의 학생").trim().slice(0, 30) || "익명의 학생";
   const messageText = normalizeMessageText(payload.messageText || "");
+  const professorImageUrl = payload.professorImageUrl?.trim() || null;
 
   if (!messageText) {
     return NextResponse.json(
@@ -77,14 +106,40 @@ export async function POST(request: Request) {
     });
   }
 
-  const { error } = await supabase.from("credit_messages").insert({
+  const insertPayload = {
     player_name: playerName,
     message_text: messageText,
+    professor_image_url: professorImageUrl,
     ending_key: payload.ending?.key?.trim() || null,
     ending_title: payload.ending?.title?.trim() || null,
-  });
+  };
+
+  const { error } = await supabase.from("credit_messages").insert(insertPayload);
 
   if (error) {
+    if (isMissingProfessorImageColumnError(error.message)) {
+      const fallback = await supabase.from("credit_messages").insert({
+        player_name: playerName,
+        message_text: messageText,
+        ending_key: payload.ending?.key?.trim() || null,
+        ending_title: payload.ending?.title?.trim() || null,
+      });
+
+      if (!fallback.error) {
+        return NextResponse.json({
+          message: "응원 문구 저장 완료",
+          warning: "professor_image_url 컬럼이 없어 이미지 저장은 건너뛰었습니다.",
+        });
+      }
+
+      return NextResponse.json(
+        {
+          message: `응원 문구 저장 실패: ${fallback.error.message}`,
+        },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json(
       {
         message: `응원 문구 저장 실패: ${error.message}`,

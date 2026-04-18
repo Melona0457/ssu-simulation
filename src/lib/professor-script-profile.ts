@@ -82,7 +82,13 @@ function extractProfessorLines(markdownText: string) {
 
 export async function loadProfessorScriptProfile(profileKey: ProfessorScriptProfileKey) {
   const filename = PROFILE_FILE_MAP[profileKey];
-  const absolutePath = path.join(process.cwd(), filename);
+  const absolutePath = path.join(
+    process.cwd(),
+    "src",
+    "data",
+    "professor-script-profiles",
+    filename,
+  );
   const markdownText = await readFile(absolutePath, "utf8");
   const professorLines = extractProfessorLines(markdownText);
 
