@@ -89,6 +89,7 @@ type StoryVisualCue = {
   title: string;
   subtitle: string;
   variant: "professor" | "prop" | "mood";
+  image?: string;
 };
 
 function resolvePersistedProfessorImageUrl(imageUrl: string) {
@@ -1026,8 +1027,28 @@ function resolveBgmUrlByContext(phase: Phase, episodeId: string | null) {
  * 에피소드 ID에 따라 배경 이미지를 결정합니다.
  * 파일이 준비되지 않았을 경우를 대비해 기존의 DUMMY_SOLID_LAYER를 fallback으로 사용합니다.
  */
-function resolveBackdropByEpisode(episodeId: string | null) {
+function resolveBackdropByContext(episodeId: string | null, sceneId: string | null) {
   if (!episodeId) return DUMMY_SOLID_LAYER;
+
+  if (sceneId === "ep03b_scene05_sink") {
+    return "url('/ui/backgrounds/ep03_restroom(sink).webp')";
+  }
+
+  if (sceneId === "ep03b_scene09_outro") {
+    return "url('/ui/backgrounds/ep03_steak.webp')";
+  }
+
+  if (sceneId === "ep03c_scene05_spoon_drop") {
+    return "url('/ui/backgrounds/ep03_droped.webp')";
+  }
+
+  if (sceneId === "ep03r_scene05_meal") {
+    return "url('/ui/backgrounds/ep03_restaurant_kimchi.webp')";
+  }
+
+  if (sceneId === "ep03r_scene06_outro") {
+    return "url('/ui/backgrounds/ep03_restaurant_out.webp')";
+  }
 
   const bgMapping: Record<string, string> = {
     ep01_commute: "/ui/backgrounds/ep01_commute.webp",
@@ -1295,72 +1316,6 @@ function resolveStoryVisualCue(
       title: "강의실 시선",
       subtitle: "문을 열자마자 교수님의 시선이 정면으로 꽂히는 타이밍",
       variant: "professor",
-    },
-    "ep02_scene02_after_choice01:1": {
-      key: cueKey,
-      title: "책장 넘김 컷인",
-      subtitle: "가까이 다가와 직접 페이지를 넘겨주는 손동작",
-      variant: "prop",
-    },
-    "ep02_scene03_after_choice02:1": {
-      key: cueKey,
-      title: "캔커피 컷인",
-      subtitle: "교단 위 캔커피가 손으로 툭 건네지는 순간",
-      variant: "prop",
-    },
-    "ep02_scene04_after_choice03:1": {
-      key: cueKey,
-      title: "압박 시선",
-      subtitle: "정면으로 시선을 고정하는 긴장감 컷",
-      variant: "mood",
-    },
-    "ep02_scene06_pen_gift:1": {
-      key: cueKey,
-      title: "볼펜 선물",
-      subtitle: "손안에 남은 온기를 보여주는 중앙 오브젝트 컷",
-      variant: "prop",
-    },
-    "ep03c_scene01_intro:0": {
-      key: cueKey,
-      title: "학식 합석",
-      subtitle: "빈 앞자리에 그림자가 드리워지는 순간",
-      variant: "professor",
-    },
-    "ep03c_scene02_opt01:1": {
-      key: cueKey,
-      title: "종이컵 물",
-      subtitle: "직접 떠다 준 물컵이 손에 닿는 순간",
-      variant: "prop",
-    },
-    "ep03c_scene04_opt03:1": {
-      key: cueKey,
-      title: "요구르트 컷인",
-      subtitle: "식판에서 미끄러지듯 건네지는 작은 호의",
-      variant: "prop",
-    },
-    "ep03c_scene05_spoon_drop:0": {
-      key: cueKey,
-      title: "숟가락 낙하",
-      subtitle: "바닥에 툭 떨어진 수저를 강조하는 타이밍",
-      variant: "prop",
-    },
-    "ep03c_scene06_outro:1": {
-      key: cueKey,
-      title: "휴지 한 장",
-      subtitle: "말 대신 남겨진 자잘한 다정함",
-      variant: "prop",
-    },
-    "ep03r_scene01_intro:1": {
-      key: cueKey,
-      title: "식당 재회",
-      subtitle: "입구에서 눈이 마주친 뒤 곧장 다가오는 순간",
-      variant: "professor",
-    },
-    "ep04_scene01_intro:2": {
-      key: cueKey,
-      title: "받아온 볼펜",
-      subtitle: "공부 대신 자꾸 시야에 걸리는 펜",
-      variant: "prop",
     },
     "ep04_scene03_meet_professor:2": {
       key: cueKey,
@@ -1693,6 +1648,10 @@ export default function Home() {
     sceneId: string;
     lineIndex: number;
   } | null>(null);
+  const [timedOverlayImage, setTimedOverlayImage] = useState<string | null>(null);
+  const timedOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [heartbeatOverlayImage, setHeartbeatOverlayImage] = useState<string | null>(null);
+  const heartbeatOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingChoice, setPendingChoice] = useState<StoryChoice | null>(null);
   const [maxScore, setMaxScore] = useState(0);
   const [rawScore, setRawScore] = useState(0);
@@ -1812,7 +1771,7 @@ export default function Home() {
     ? {
         title: currentEpisode.title,
         location: currentEpisode.location,
-        backdrop: resolveBackdropByEpisode(currentEpisode.id),
+        backdrop: resolveBackdropByContext(currentEpisode.id, storyCursor?.sceneId ?? null),
       }
     : null;
   const currentBackdropLayers = [currentChapterInfo?.backdrop ?? DUMMY_SOLID_LAYER];
@@ -2220,6 +2179,116 @@ export default function Home() {
   }, [currentLineSerial, effectiveSfxVolume, isSfxEnabled, phase]);
 
   useEffect(() => {
+    if (phase !== "screen4_8_chapter" || !storyCursor) {
+      return;
+    }
+
+    const isEp2Choice1 =
+      storyCursor.episodeId === "ep02_morning_classroom" &&
+      storyCursor.sceneId === "ep02_scene02_after_choice01" &&
+      storyCursor.lineIndex === 1;
+    const isEp2Choice2 =
+      storyCursor.episodeId === "ep02_morning_classroom" &&
+      storyCursor.sceneId === "ep02_scene03_after_choice02" &&
+      storyCursor.lineIndex === 1;
+    const isEp2Choice3 =
+      storyCursor.episodeId === "ep02_morning_classroom" &&
+      storyCursor.sceneId === "ep02_scene04_after_choice03" &&
+      storyCursor.lineIndex === 1;
+    const isEp2End =
+      storyCursor.episodeId === "ep02_morning_classroom" &&
+      storyCursor.sceneId === "ep02_scene06_pen_gift" &&
+      storyCursor.lineIndex === 1;
+    const isEp3Intro =
+      storyCursor.episodeId === "ep03_lunch_student_cafeteria" &&
+      storyCursor.sceneId === "ep03c_scene01_intro" &&
+      storyCursor.lineIndex === 0;
+    const isEp3Choice1 =
+      storyCursor.episodeId === "ep03_lunch_student_cafeteria" &&
+      storyCursor.sceneId === "ep03c_scene02_opt01" &&
+      storyCursor.lineIndex === 1;
+    const isEp3Choice3 =
+      storyCursor.episodeId === "ep03_lunch_student_cafeteria" &&
+      storyCursor.sceneId === "ep03c_scene04_opt03" &&
+      storyCursor.lineIndex === 1;
+    const isEp3SpoonDrop =
+      storyCursor.episodeId === "ep03_lunch_student_cafeteria" &&
+      storyCursor.sceneId === "ep03c_scene05_spoon_drop" &&
+      storyCursor.lineIndex === 0;
+    const isEp3NewSpoon =
+      storyCursor.episodeId === "ep03_lunch_student_cafeteria" &&
+      storyCursor.sceneId === "ep03c_scene05_spoon_drop" &&
+      storyCursor.lineIndex === 2;
+    const isEp3Tissue =
+      storyCursor.episodeId === "ep03_lunch_student_cafeteria" &&
+      storyCursor.sceneId === "ep03c_scene06_outro" &&
+      storyCursor.lineIndex === 1;
+    const isEp3Menu =
+      storyCursor.episodeId === "ep03_lunch_off_campus_restaurant" &&
+      storyCursor.sceneId === "ep03r_scene01_intro" &&
+      storyCursor.lineIndex === 0;
+    const isEp3RestaurantOut =
+      storyCursor.episodeId === "ep03_lunch_off_campus_restaurant" &&
+      storyCursor.sceneId === "ep03r_scene06_outro" &&
+      storyCursor.lineIndex === 0;
+    const isEp4Ballpen =
+      storyCursor.episodeId === "ep04_library" &&
+      storyCursor.sceneId === "ep04_scene01_intro" &&
+      storyCursor.lineIndex === 2;
+
+    if (
+      isEp2Choice1 ||
+      isEp2Choice2 ||
+      isEp2End ||
+      isEp3Intro ||
+      isEp3Choice1 ||
+      isEp3Choice3 ||
+      isEp3SpoonDrop ||
+      isEp3NewSpoon ||
+      isEp3Tissue ||
+      isEp3Menu ||
+      isEp3RestaurantOut ||
+      isEp4Ballpen
+    ) {
+      if (timedOverlayTimerRef.current) {
+        clearTimeout(timedOverlayTimerRef.current);
+      }
+
+      let imageUrl = "";
+      if (isEp2Choice1) imageUrl = "/ui/backgrounds/ep02_choice1.webp";
+      else if (isEp2Choice2) imageUrl = "/ui/backgrounds/ep02_choice2.webp";
+      else if (isEp2End) imageUrl = "/ui/backgrounds/ep02_end.webp";
+      else if (isEp3Intro) imageUrl = "/ui/backgrounds/ep03_cafeteria.webp";
+      else if (isEp3Choice1) imageUrl = "/ui/backgrounds/ep03_choice1.webp";
+      else if (isEp3Choice3) imageUrl = "/ui/backgrounds/ep03_choice3.webp";
+      else if (isEp3SpoonDrop) imageUrl = "/ui/backgrounds/ep03_drop.webp";
+      else if (isEp3NewSpoon) imageUrl = "/ui/backgrounds/ep03_newspoon.webp";
+      else if (isEp3Tissue) imageUrl = "/ui/backgrounds/ep03_tissue.webp";
+      else if (isEp3Menu) imageUrl = "/ui/backgrounds/ep03_menu.webp";
+      else if (isEp3RestaurantOut) imageUrl = "/ui/backgrounds/ep03_restaurant_out.webp";
+      else if (isEp4Ballpen) imageUrl = "/ui/backgrounds/ep04_ballpen.webp";
+
+      setTimedOverlayImage(imageUrl);
+      timedOverlayTimerRef.current = setTimeout(() => {
+        setTimedOverlayImage(null);
+        timedOverlayTimerRef.current = null;
+      }, 3000);
+    }
+
+    if (isEp2Choice3) {
+      if (heartbeatOverlayTimerRef.current) {
+        clearTimeout(heartbeatOverlayTimerRef.current);
+      }
+
+      setHeartbeatOverlayImage("/ui/backgrounds/ep02_choice3.webp");
+      heartbeatOverlayTimerRef.current = setTimeout(() => {
+        setHeartbeatOverlayImage(null);
+        heartbeatOverlayTimerRef.current = null;
+      }, 3000);
+    }
+  }, [phase, storyCursor]);
+
+  useEffect(() => {
     if (!isProfessorVoiceEnabled) {
       lastProfessorVoiceTriggerRef.current = "";
       stopProfessorVoice();
@@ -2319,6 +2388,14 @@ export default function Home() {
       if (endingTransitionTimerRef.current) {
         clearTimeout(endingTransitionTimerRef.current);
         endingTransitionTimerRef.current = null;
+      }
+      if (timedOverlayTimerRef.current) {
+        clearTimeout(timedOverlayTimerRef.current);
+        timedOverlayTimerRef.current = null;
+      }
+      if (heartbeatOverlayTimerRef.current) {
+        clearTimeout(heartbeatOverlayTimerRef.current);
+        heartbeatOverlayTimerRef.current = null;
       }
       stopActiveSfx();
       stopProfessorVoice();
@@ -3311,6 +3388,16 @@ export default function Home() {
     setIsSubmittingCreditMessage(false);
     setCreditMessageEntries([]);
     setIsAutoPlayOn(false);
+    setTimedOverlayImage(null);
+    if (timedOverlayTimerRef.current) {
+      clearTimeout(timedOverlayTimerRef.current);
+      timedOverlayTimerRef.current = null;
+    }
+    setHeartbeatOverlayImage(null);
+    if (heartbeatOverlayTimerRef.current) {
+      clearTimeout(heartbeatOverlayTimerRef.current);
+      heartbeatOverlayTimerRef.current = null;
+    }
     setScreen10TypedNarration("");
     setIsScreen10ActionReady(false);
     setIsScreen9DoorOpening(false);
@@ -4128,6 +4215,34 @@ export default function Home() {
           />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(44,14,33,0.22),rgba(34,10,27,0.58))]" />
           <div className="episode-soft-pink-tint absolute inset-0" />
+          {heartbeatOverlayImage && (
+            <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={heartbeatOverlayImage}
+                alt="Heartbeat effect"
+                className="h-full w-full object-cover animate-heartbeat-bg"
+                draggable={false}
+              />
+            </div>
+          )}
+          {timedOverlayImage && (
+            <div className="pointer-events-none fixed inset-0 z-[110] flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/60 animate-in fade-in duration-500" aria-hidden />
+              <div className="relative animate-in fade-in zoom-in duration-500 ease-out">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={timedOverlayImage}
+                  alt="Special Event"
+                  className="h-auto max-h-[60vh] w-auto max-w-[min(85vw,700px)] overflow-hidden rounded-[32px] border-[5px] border-black object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.6)]"
+                  draggable={false}
+                />
+              </div>
+            </div>
+          )}
+          {currentVisualCue && !shouldShowChoiceOverlay && (
+            <div className="absolute inset-0 z-20 bg-black/60 animate-in fade-in duration-500" aria-hidden />
+          )}
           {isNightEpisodeEndingTransition && (
             <div className="episode-night-fade-overlay absolute inset-0 z-40" aria-hidden />
           )}
@@ -4232,18 +4347,22 @@ export default function Home() {
 
             <div className="relative mt-4 flex flex-1 items-end justify-center pb-[260px] md:pb-[300px]" style={uiScaleCenterStyle}>
               {currentVisualCue && !shouldShowChoiceOverlay && (
-                <div className="pointer-events-none absolute inset-x-0 top-[8%] z-20 flex justify-center px-4">
+                <div className="pointer-events-none absolute inset-x-0 top-[8%] z-30 flex justify-center px-4">
                   <div
                     key={currentVisualCue.key}
                     className="w-full max-w-[min(70vw,560px)] rounded-[30px] border border-white/60 bg-[linear-gradient(180deg,rgba(255,248,251,0.94),rgba(255,231,241,0.88))] p-4 shadow-[0_28px_60px_rgba(37,10,24,0.3)] backdrop-blur-sm"
                   >
                     <div className="overflow-hidden rounded-[24px] border border-[#d7a1b9] bg-[radial-gradient(circle_at_50%_16%,rgba(255,255,255,0.98),rgba(255,240,245,0.86)_40%,rgba(225,171,195,0.66)_100%)]">
-                      {currentVisualCue.variant === "professor" && professorVisualSrc ? (
+                      {(currentVisualCue.image || (currentVisualCue.variant === "professor" && professorVisualSrc)) ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={professorVisualSrc}
+                          src={currentVisualCue.image || professorVisualSrc}
                           alt={currentVisualCue.title}
-                          className="mx-auto h-auto max-h-[42vh] w-auto object-contain drop-shadow-[0_16px_24px_rgba(58,18,37,0.24)]"
+                          className={`mx-auto h-auto max-h-[42vh] w-auto object-contain ${
+                            currentVisualCue.image
+                              ? "rounded-[32px] border-[5px] border-black drop-shadow-[0_20px_50px_rgba(0,0,0,0.6)]"
+                              : "drop-shadow-[0_16px_24px_rgba(58,18,37,0.24)]"
+                          }`}
                           draggable={false}
                         />
                       ) : (
