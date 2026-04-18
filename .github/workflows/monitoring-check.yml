@@ -1,0 +1,59 @@
+name: Monitoring Check
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  monitor-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MONITORING_APP_BASE_URL: ${{ secrets.MONITORING_APP_BASE_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Validate required secrets
+        run: |
+          if [ -z "$MONITORING_APP_BASE_URL" ]; then
+            echo "MONITORING_APP_BASE_URL secret is missing."
+            exit 1
+          fi
+
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET secret is missing."
+            exit 1
+          fi
+
+      - name: Run production monitoring check
+        run: |
+          APP_URL="${MONITORING_APP_BASE_URL%/}"
+          RESPONSE_FILE="$(mktemp)"
+          HTTP_STATUS="$(curl -sS -o "$RESPONSE_FILE" -w "%{http_code}" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$APP_URL/api/cron/monitoring-check")"
+
+          echo "HTTP status: $HTTP_STATUS"
+          cat "$RESPONSE_FILE"
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "Monitoring endpoint returned non-success status."
+            exit 1
+          fi
+
+          echo ""
+          echo "## Monitoring Check" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '[
+            "- endpoint: /api/cron/monitoring-check",
+            "- message: " + (.message // "no message"),
+            "- alerts: " + ((.alerts | length | tostring) // "0"),
+            "- generationCount: " + ((.summary.totals.generationCount | tostring) // "0"),
+            "- generationErrors: " + ((.summary.totals.generationErrorCount | tostring) // "0"),
+            "- bgHealth: " + (if .bgHealthCheck.ok then "ok" else "error" end)
+          ] | .[]' "$RESPONSE_FILE" >> "$GITHUB_STEP_SUMMARY"
+
+          ERROR_ALERT_COUNT="$(jq '[.alerts[]? | select(.severity == "error")] | length' "$RESPONSE_FILE")"
+          if [ "$ERROR_ALERT_COUNT" -gt 0 ]; then
+            echo "Error-level monitoring alerts detected."
+            exit 1
+          fi
