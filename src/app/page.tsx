@@ -597,11 +597,14 @@ const DEFAULT_AUDIO_LEVELS: AudioLevels = {
   voice: 80,
   sfx: 90,
 };
+const MIN_TOTAL_AFFINITY_SCORE = -25;
+const MAX_TOTAL_AFFINITY_SCORE = 50;
+const TOTAL_AFFINITY_SCORE_SPAN = MAX_TOTAL_AFFINITY_SCORE - MIN_TOTAL_AFFINITY_SCORE;
 const debugEndingScoreMap: Record<EndingRank, number> = {
-  ENDING_A_PLUS: 95,
-  ENDING_B_PLUS: 78,
-  ENDING_C_PLUS: 58,
-  ENDING_F: 100,
+  ENDING_A_PLUS: 76,
+  ENDING_B_PLUS: 56,
+  ENDING_C_PLUS: 40,
+  ENDING_F: 87,
 };
 
 const STORY_BGM_URLS = {
@@ -753,6 +756,18 @@ function getAffinityMood(percent: number) {
   }
 
   return "어색한 시작";
+}
+
+function totalScoreToPercent(score: number) {
+  const normalized = ((score - MIN_TOTAL_AFFINITY_SCORE) / TOTAL_AFFINITY_SCORE_SPAN) * 100;
+  return Math.max(0, Math.min(100, Math.round(normalized)));
+}
+
+function percentToTotalScore(percent: number) {
+  const clampedPercent = Math.max(0, Math.min(100, percent));
+  const rawScore =
+    MIN_TOTAL_AFFINITY_SCORE + (TOTAL_AFFINITY_SCORE_SPAN * clampedPercent) / 100;
+  return Math.round(rawScore);
 }
 
 const storyEpisodes = professorRouteStory.episodes as readonly StoryEpisode[];
@@ -1107,52 +1122,50 @@ function resolveSfxKeysByContext(
 }
 
 const choiceAffinityMap: Record<string, number> = {
-  ep02_c01_opt01: 2,
-  ep02_c01_opt02: 2,
-  ep02_c01_opt03: 0,
-  ep02_c02_opt01: 2,
-  ep02_c02_opt02: 1,
-  ep03b_c01_opt01: 1,
-  ep03b_c01_opt02: 0,
-  ep03b_c01_opt03: 0,
-  ep03b_c02_opt01: 2,
-  ep03b_c02_opt02: 0,
-  ep03b_c02_opt03: 1,
-  ep03c_c01_opt01: 1,
-  ep03c_c01_opt02: 2,
-  ep03c_c01_opt03: 1,
-  ep03c_c02_opt01: 1,
-  ep03c_c02_opt02: 2,
-  ep03r_c01_opt01: 1,
-  ep03r_c01_opt02: 2,
-  ep03r_c01_opt03: 0,
-  ep04_c01_opt01: 1,
-  ep04_c01_opt02: 2,
-  ep04_c01_opt03: 0,
-  ep04_c02_opt01: 1,
-  ep04_c02_opt02: 2,
-  ep05_c01_opt01: 2,
-  ep05_c01_opt02: 1,
-  ep05_c01_opt03: 2,
-  ep06o_c01_opt01: 2,
-  ep06o_c01_opt02: 1,
-  ep06o_c02_opt01: 2,
-  ep06o_c02_opt02: 2,
-  ep06o_c02_opt03: 0,
-  ep06b_c01_opt01: 2,
-  ep06b_c01_opt02: 2,
-  ep06b_c01_opt03: 1,
-  ep06b_c02_opt01: 1,
-  ep06b_c02_opt02: 2,
-  ep06c_c01_opt01: 1,
-  ep06c_c01_opt02: 2,
-  ep06c_c01_opt03: 1,
+  ep02_c01_opt01: 10,
+  ep02_c01_opt02: 5,
+  ep02_c01_opt03: -5,
+  ep02_c02_opt01: -5,
+  ep02_c02_opt02: 5,
+  ep03b_c01_opt01: 5,
+  ep03b_c01_opt02: -5,
+  ep03b_c01_opt03: -5,
+  ep03b_c02_opt01: 5,
+  ep03b_c02_opt02: -5,
+  ep03b_c02_opt03: -5,
+  ep03c_c01_opt01: -5,
+  ep03c_c01_opt02: 5,
+  ep03c_c01_opt03: -5,
+  ep03c_c02_opt01: 5,
+  ep03c_c02_opt02: 5,
+  ep03r_c01_opt01: 5,
+  ep03r_c01_opt02: 10,
+  ep03r_c01_opt03: -5,
+  ep04_c01_opt01: 5,
+  ep04_c01_opt02: 5,
+  ep04_c01_opt03: -5,
+  ep04_c02_opt01: 5,
+  ep04_c02_opt02: 5,
+  ep06o_c01_opt01: 10,
+  ep06o_c01_opt02: -5,
+  ep06b_c01_opt01: 5,
+  ep06b_c01_opt02: 10,
+  ep06b_c01_opt03: 5,
+  ep06b_c02_opt01: 5,
+  ep06b_c02_opt02: 5,
+  ep06c_c01_opt01: 5,
+  ep06c_c01_opt02: 5,
+  ep06c_c01_opt03: 5,
 };
 
 const meaningfulChoiceIds = new Set(Object.keys(choiceAffinityMap));
 
 function getChoiceAffinity(choiceId: string) {
-  return choiceAffinityMap[choiceId] ?? 1;
+  return choiceAffinityMap[choiceId] ?? 0;
+}
+
+function getChoiceSceneMaxScore(choices: readonly StoryChoice[]) {
+  return Math.max(0, ...choices.map((choice) => choiceAffinityMap[choice.id] ?? 0));
 }
 
 const futurePotentialScoreMemo = new Map<string, number>();
@@ -1179,7 +1192,7 @@ function getFuturePotentialScoreFromDestination(
   let total = 0;
 
   if (scene.type === "choice" && scene.choices && scene.choices.length > 0) {
-    const scenePotential = scene.choices.some((choice) => meaningfulChoiceIds.has(choice.id)) ? 2 : 0;
+    const scenePotential = getChoiceSceneMaxScore(scene.choices);
     const branchPotential = Math.max(
       0,
       ...scene.choices.map((choice) => {
@@ -1828,7 +1841,7 @@ export default function Home() {
 
     return 0;
   }, [currentChoiceList.length, currentScene, pendingChoice, storyCursor]);
-  const affinityDenominator = maxScore + futurePotentialScore;
+  const routeMaxScore = maxScore + futurePotentialScore;
   const isBgmSuppressed = isBgmSuppressedForStoryMoment(
     phase,
     storyCursor?.episodeId ?? null,
@@ -1869,8 +1882,7 @@ export default function Home() {
   revealCurrentDialogueImmediatelyRef.current = revealCurrentDialogueImmediately;
   moveNextChapterRef.current = moveNextChapter;
 
-  const affinityPercent =
-    affinityDenominator > 0 ? Math.min(100, Math.round((Math.max(0, rawScore) / affinityDenominator) * 100)) : 0;
+  const affinityPercent = totalScoreToPercent(rawScore);
   const visibleAffinityPercent = affinityPercent > 0 ? Math.max(6, affinityPercent) : 0;
   const affinityKnobPercent = Math.max(3, Math.min(97, visibleAffinityPercent));
   const affinityMood = getAffinityMood(affinityPercent);
@@ -2557,12 +2569,11 @@ export default function Home() {
   function applyDebugAffinity() {
     const nextPercent = Math.max(0, Math.min(100, Math.round(debugAffinityInput)));
     const prevPercent = affinityPercent;
-    const scoreBase = Math.max(maxScore, 20);
-    const nextRawScore = Math.round((nextPercent / 100) * scoreBase);
+    const nextRawScore = percentToTotalScore(nextPercent);
     
     setDebugAffinityInput(nextPercent);
     setRawScore(nextRawScore);
-    setMaxScore(scoreBase);
+    setMaxScore(Math.max(maxScore, MAX_TOTAL_AFFINITY_SCORE));
     setAffinityDelta(null);
 
     if (nextPercent !== prevPercent) {
@@ -2796,8 +2807,9 @@ export default function Home() {
     setPendingChoice(choice);
     if (meaningfulChoiceIds.has(choice.id)) {
       const gainedScore = getChoiceAffinity(choice.id);
+      const currentChoiceMaxScore = getChoiceSceneMaxScore(currentChoiceList);
       setRawScore((current) => current + gainedScore);
-      setMaxScore((current) => current + 2);
+      setMaxScore((current) => current + currentChoiceMaxScore);
 
       if (gainedScore !== 0) {
         setHeartPulse(gainedScore > 0 ? "increase" : "decrease");
@@ -2875,8 +2887,8 @@ export default function Home() {
 
     if (currentScene.terminal) {
       stopActiveSfx();
-      const score100 = maxScore > 0 ? Math.round((Math.max(0, rawScore) / maxScore) * 100) : 0;
-      const rank = score100 >= 100 ? "ENDING_F" : getEndingRank(Math.min(score100, 99));
+      const score100 = totalScoreToPercent(rawScore);
+      const rank = rawScore >= 40 ? "ENDING_F" : getEndingRank(rawScore);
       const variant = pickEndingVariant(rank);
       const rankTitle = endingMeta[rank].title;
 
@@ -3267,7 +3279,8 @@ export default function Home() {
             <p className="text-sm">
               호감도: <span className="font-bold">{affinityPercent}%</span> / Raw Score:{" "}
               <span className="font-bold">{rawScore}</span> / Max Score:{" "}
-              <span className="font-bold">{maxScore}</span>
+              <span className="font-bold">{maxScore}</span> / Route Max:{" "}
+              <span className="font-bold">{routeMaxScore}</span>
             </p>
             <p className="text-sm">
               교수 스크립트: <span className="font-bold">{activeProfessorScriptProfileKey}</span> /{" "}
