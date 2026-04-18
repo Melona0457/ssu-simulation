@@ -29,7 +29,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("credit_messages")
     .select("id, created_at, player_name, message_text, ending_key, ending_title")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false });
 
   if (error) {
     return NextResponse.json(

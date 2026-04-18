@@ -1651,6 +1651,8 @@ export default function Home() {
   const [creditMessageEntries, setCreditMessageEntries] = useState<CreditMessageEntry[]>([]);
   const [typedProfessorLine, setTypedProfessorLine] = useState("");
   const [isAutoPlayOn, setIsAutoPlayOn] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
+  const [isMobileNoticeDismissed, setIsMobileNoticeDismissed] = useState(false);
   const [isDebugUnlocked, setIsDebugUnlocked] = useState(false);
   const [isDebugPanelOpen, setIsDebugPanelOpen] = useState(false);
   const [isDebugPasswordModalOpen, setIsDebugPasswordModalOpen] = useState(false);
@@ -1892,6 +1894,26 @@ export default function Home() {
 
     window.localStorage.setItem(AUDIO_LEVEL_STORAGE_KEY, JSON.stringify(audioLevels));
   }, [audioLevels]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 1024px), (pointer: coarse)");
+    const updateCompactViewport = () => {
+      setIsCompactViewport(mediaQuery.matches || window.innerWidth < 1025);
+    };
+
+    updateCompactViewport();
+    mediaQuery.addEventListener("change", updateCompactViewport);
+    window.addEventListener("resize", updateCompactViewport);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateCompactViewport);
+      window.removeEventListener("resize", updateCompactViewport);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isSoundPanelOpen) {
@@ -2888,8 +2910,15 @@ export default function Home() {
       try {
         await persistCreditMessage(pendingCreditMessageDraft, ending);
         setPendingCreditMessageDraft(null);
-      } catch {
-        setPendingCreditMessageDraft(null);
+      } catch (error) {
+        openCreditMessageModal(
+          "ending",
+          pendingCreditMessageDraft,
+          error instanceof Error
+            ? `${error.message} 다시 시도하거나 건너뛸 수 있어요.`
+            : "응원 문구 저장에 실패했습니다. 다시 시도하거나 건너뛸 수 있어요.",
+        );
+        return;
       }
     }
     setIsCreditFinished(false);
@@ -2897,11 +2926,15 @@ export default function Home() {
     setPhase("screen11_credit");
   }
 
-  function openCreditMessageModal(context: CreditMessagePromptContext = "ending") {
+  function openCreditMessageModal(
+    context: CreditMessagePromptContext = "ending",
+    draft?: CreditMessageDraft | null,
+    errorMessage = "",
+  ) {
     setCreditMessagePromptContext(context);
-    setCreditMessageError("");
-    setCreditMessageAuthorInput("");
-    setCreditMessageInput("");
+    setCreditMessageError(errorMessage);
+    setCreditMessageAuthorInput(draft?.playerName ?? "");
+    setCreditMessageInput(draft?.messageText ?? "");
     setIsCreditMessageModalOpen(true);
   }
 
@@ -2909,6 +2942,7 @@ export default function Home() {
     setCreditMessageError("");
     setIsCreditMessageModalOpen(false);
     if (creditMessagePromptContext === "ending") {
+      setPendingCreditMessageDraft(null);
       await goCreditScreen();
     }
   }
@@ -2931,24 +2965,21 @@ export default function Home() {
     setCreditMessageError("");
 
     try {
+      const submittedDraft = {
+        playerName: normalizedAuthor || "익명의 학생",
+        messageText: normalizedMessage,
+      };
+
       if (creditMessagePromptContext === "professor_generation") {
-        setPendingCreditMessageDraft({
-          playerName: normalizedAuthor || "익명의 학생",
-          messageText: normalizedMessage,
-        });
+        setPendingCreditMessageDraft(submittedDraft);
         setIsCreditMessageModalOpen(false);
         setCreditMessageInput("");
         setCreditMessageAuthorInput("");
         return;
       }
 
-      await persistCreditMessage(
-        {
-          playerName: normalizedAuthor || "익명의 학생",
-          messageText: normalizedMessage,
-        },
-        ending,
-      );
+      await persistCreditMessage(submittedDraft, ending);
+      setPendingCreditMessageDraft(null);
       setIsCreditMessageModalOpen(false);
       setCreditMessageInput("");
       setCreditMessageAuthorInput("");
@@ -3014,6 +3045,32 @@ export default function Home() {
 
   return (
     <main className="min-h-screen text-black">
+      {isCompactViewport && !isMobileNoticeDismissed && (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[rgba(28,12,20,0.66)] px-5 backdrop-blur-md">
+          <div className="font-pretendard w-full max-w-[min(92vw,540px)] rounded-[30px] border border-white/35 bg-[linear-gradient(180deg,rgba(255,248,252,0.96),rgba(255,236,244,0.94))] px-6 py-7 text-center text-[#4f2038] shadow-[0_30px_90px_rgba(52,15,32,0.34)]">
+            <p className="text-[clamp(28px,7vw,40px)] font-black leading-[1.15]">
+              모바일과 웹 분할화면에서는
+              <br />
+              제대로 보이지 않아요
+            </p>
+            <p className="mt-4 text-[clamp(15px,3.8vw,18px)] font-medium leading-[1.7] text-[#74495e]">
+              이 게임은 웹 전체화면만 지원합니다.
+              <br />
+              가능하면 PC에서 브라우저를 전체화면으로 열어 접속해주세요.
+              <br />
+              죄송합니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsMobileNoticeDismissed(true)}
+              className="mt-6 rounded-full border border-[#eaa4c0] bg-[linear-gradient(180deg,#ffddec,#ffc5db)] px-6 py-3 text-sm font-black text-[#5f1f3c] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_24px_rgba(166,64,108,0.18)] transition hover:brightness-[1.02]"
+            >
+              일단 계속 보기
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 상단 HUD 컨트롤 */}
       <div className="top-hud-controls">
         <button
@@ -4100,15 +4157,31 @@ export default function Home() {
       {isCreditMessageModalOpen && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[rgba(63,35,50,0.38)] px-4 backdrop-blur-[4px]">
           <div className="w-full max-w-[min(96vw,880px)] rounded-[30px] border border-[#f1bfd3] bg-[linear-gradient(180deg,rgba(255,249,252,0.98),rgba(255,241,246,0.98))] p-6 text-[#4a2033] shadow-[0_30px_80px_rgba(91,40,64,0.22)] md:p-8">
-            <p className="text-[clamp(20px,2.1vw,32px)] font-black leading-[1.2] text-[#5d2340] md:whitespace-nowrap">
-              교수님 이미지가 생성되는 동안
-            </p>
-            <p className="mt-1 text-[clamp(20px,2.1vw,32px)] font-black leading-[1.2] text-[#5d2340] md:whitespace-nowrap">
-              엔딩 크레딧에 추가되는 응원 문구 작성하실래요?
-            </p>
-            <p className="mt-3 text-sm leading-[1.7] text-[#7b5364] md:text-base">
-              작성하신 문구는 엔딩까지 클리어해야 등록돼요! 부족하지만 재밌게 즐겨주세요 ❤️
-            </p>
+            {creditMessagePromptContext === "professor_generation" ? (
+              <>
+                <p className="text-[clamp(20px,2.1vw,32px)] font-black leading-[1.2] text-[#5d2340] md:whitespace-nowrap">
+                  교수님 이미지가 생성되는 동안
+                </p>
+                <p className="mt-1 text-[clamp(20px,2.1vw,32px)] font-black leading-[1.2] text-[#5d2340] md:whitespace-nowrap">
+                  엔딩 크레딧에 추가되는 응원 문구 작성하실래요?
+                </p>
+                <p className="mt-3 text-sm leading-[1.7] text-[#7b5364] md:text-base">
+                  작성하신 문구는 엔딩까지 클리어해야 등록돼요! 부족하지만 재밌게 즐겨주세요 ❤️
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-[clamp(20px,2.1vw,32px)] font-black leading-[1.2] text-[#5d2340] md:whitespace-nowrap">
+                  응원 문구 등록을 다시 시도할까요?
+                </p>
+                <p className="mt-1 text-[clamp(20px,2.1vw,32px)] font-black leading-[1.2] text-[#5d2340] md:whitespace-nowrap">
+                  저장이 안 되면 크레딧에 표시되지 않아요.
+                </p>
+                <p className="mt-3 text-sm leading-[1.7] text-[#7b5364] md:text-base">
+                  같은 문구를 유지해뒀어요. 다시 등록하거나 건너뛰고 크레딧으로 이동할 수 있어요.
+                </p>
+              </>
+            )}
 
             <div className="mt-5 rounded-[24px] border border-[#efc8d8] bg-white/72 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
               <label
@@ -4275,6 +4348,15 @@ export default function Home() {
                   FE 신하빈
                   <br />
                   FE 차민상
+                </p>
+              </div>
+
+              <div className="mt-18 font-credit text-[#ffd8e7]">
+                <p className="text-[clamp(24px,5vw,40px)] leading-[1.45]">
+                  😭 API비용을 저희 사비로 충당중입니다 😭
+                </p>
+                <p className="mt-4 text-[clamp(24px,5vw,40px)] leading-[1.45]">
+                  재밌게 즐기셨다면 소중한 한 표 부탁드립니다 🙏❤️
                 </p>
               </div>
 
