@@ -56,6 +56,13 @@ type CreditMessageEntry = {
   ending_title: string | null;
 };
 
+type CreditMessagePromptContext = "professor_generation" | "ending";
+
+type CreditMessageDraft = {
+  playerName: string;
+  messageText: string;
+};
+
 type AudioLevels = {
   master: number;
   bgm: number;
@@ -561,6 +568,10 @@ const initialProfessorState: ProfessorFormState = {
   feature2: "",
   feature3: "",
   feature4: "",
+  feature5: "",
+  feature6: "",
+  feature7: "",
+  feature8: "",
   customPrompt: "",
 };
 
@@ -1627,6 +1638,12 @@ export default function Home() {
   const [isEndingTransition, setIsEndingTransition] = useState(false);
   const [isCreditFinished, setIsCreditFinished] = useState(false);
   const [isCreditMessageModalOpen, setIsCreditMessageModalOpen] = useState(false);
+  const [creditMessagePromptContext, setCreditMessagePromptContext] =
+    useState<CreditMessagePromptContext>("ending");
+  const [hasPromptedCreditMessageOnProfessorGeneration, setHasPromptedCreditMessageOnProfessorGeneration] =
+    useState(false);
+  const [hasUsedProfessorGeneration, setHasUsedProfessorGeneration] = useState(false);
+  const [pendingCreditMessageDraft, setPendingCreditMessageDraft] = useState<CreditMessageDraft | null>(null);
   const [creditMessageAuthorInput, setCreditMessageAuthorInput] = useState("");
   const [creditMessageInput, setCreditMessageInput] = useState("");
   const [creditMessageError, setCreditMessageError] = useState("");
@@ -2567,11 +2584,19 @@ export default function Home() {
     if (!ensureProfessorSpeakingStyleSelected()) {
       return;
     }
+    if (hasUsedProfessorGeneration) {
+      return;
+    }
 
     const resolvedProfessor = resolveProfessorForGeneration(professor);
     setProfessor(resolvedProfessor);
+    setHasUsedProfessorGeneration(true);
     setIsGeneratingProfessorImage(true);
     setProfessorImageError("");
+    if (!hasPromptedCreditMessageOnProfessorGeneration) {
+      setHasPromptedCreditMessageOnProfessorGeneration(true);
+      openCreditMessageModal("professor_generation");
+    }
 
     try {
       const response = await fetch("/api/generate-professor-image", {
@@ -2828,13 +2853,52 @@ export default function Home() {
     }
   }
 
+  async function persistCreditMessage(
+    draft: CreditMessageDraft,
+    endingInfo: EndingState | null,
+  ) {
+    const response = await fetch("/api/credit-messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        playerName: draft.playerName || "익명의 학생",
+        messageText: draft.messageText,
+        ending: endingInfo?.rank
+          ? {
+              key: endingMeta[endingInfo.rank].key,
+              title: endingInfo.title,
+            }
+          : null,
+      }),
+    });
+
+    const data = (await response.json()) as {
+      message?: string;
+    };
+
+    if (!response.ok) {
+      throw new Error(data.message || "응원 문구 저장에 실패했습니다.");
+    }
+  }
+
   async function goCreditScreen() {
+    if (pendingCreditMessageDraft) {
+      try {
+        await persistCreditMessage(pendingCreditMessageDraft, ending);
+        setPendingCreditMessageDraft(null);
+      } catch {
+        setPendingCreditMessageDraft(null);
+      }
+    }
     setIsCreditFinished(false);
     await loadCreditMessages();
     setPhase("screen11_credit");
   }
 
-  function openCreditMessageModal() {
+  function openCreditMessageModal(context: CreditMessagePromptContext = "ending") {
+    setCreditMessagePromptContext(context);
     setCreditMessageError("");
     setCreditMessageAuthorInput("");
     setCreditMessageInput("");
@@ -2844,7 +2908,9 @@ export default function Home() {
   async function skipCreditMessage() {
     setCreditMessageError("");
     setIsCreditMessageModalOpen(false);
-    await goCreditScreen();
+    if (creditMessagePromptContext === "ending") {
+      await goCreditScreen();
+    }
   }
 
   async function submitCreditMessage() {
@@ -2865,34 +2931,30 @@ export default function Home() {
     setCreditMessageError("");
 
     try {
-      const response = await fetch("/api/credit-messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      if (creditMessagePromptContext === "professor_generation") {
+        setPendingCreditMessageDraft({
           playerName: normalizedAuthor || "익명의 학생",
           messageText: normalizedMessage,
-          ending: ending?.rank
-            ? {
-                key: endingMeta[ending.rank].key,
-                title: ending.title,
-              }
-            : null,
-        }),
-      });
-
-      const data = (await response.json()) as {
-        message?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(data.message || "응원 문구 저장에 실패했습니다.");
+        });
+        setIsCreditMessageModalOpen(false);
+        setCreditMessageInput("");
+        setCreditMessageAuthorInput("");
+        return;
       }
 
+      await persistCreditMessage(
+        {
+          playerName: normalizedAuthor || "익명의 학생",
+          messageText: normalizedMessage,
+        },
+        ending,
+      );
       setIsCreditMessageModalOpen(false);
       setCreditMessageInput("");
-      await goCreditScreen();
+      setCreditMessageAuthorInput("");
+      if (creditMessagePromptContext === "ending") {
+        await goCreditScreen();
+      }
     } catch (error) {
       setCreditMessageError(
         error instanceof Error ? error.message : "응원 문구 저장에 실패했습니다.",
@@ -3372,27 +3434,27 @@ export default function Home() {
           className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-8"
           style={{
             backgroundImage: [
-              "linear-gradient(180deg, rgba(69,20,44,0.24), rgba(61,18,40,0.4))",
               "url('/ui/title-screen/player-customize-background.webp')",
-              "linear-gradient(180deg, rgba(69,20,44,0.28), rgba(61,18,40,0.44))",
-              "radial-gradient(circle at 82% 16%, rgba(255,176,212,0.58), rgba(255,176,212,0) 52%)",
-              "radial-gradient(circle at 16% 82%, rgba(255,188,217,0.55), rgba(255,188,217,0) 55%)",
-              "linear-gradient(135deg, #d98baa 0%, #e9a9c2 28%, #f6c6d8 54%, #e1a1bf 100%)",
             ].join(", "),
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
         >
-          <div className="w-full max-w-[980px] text-center">
-            <h2 className="font-sans text-[clamp(56px,8vw,108px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8b3a60,_0_12px_30px_rgba(0,0,0,0.45)]">
+          <div className="pointer-events-none absolute inset-0 z-0 bg-[rgba(255,214,231,0.08)] backdrop-blur-[2px]" />
+          <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_18%_22%,rgba(255,255,255,0.28),rgba(255,255,255,0)_18%),radial-gradient(circle_at_76%_18%,rgba(255,255,255,0.2),rgba(255,255,255,0)_14%),radial-gradient(circle_at_84%_72%,rgba(255,255,255,0.16),rgba(255,255,255,0)_12%),radial-gradient(circle_at_30%_78%,rgba(255,255,255,0.14),rgba(255,255,255,0)_10%)] opacity-80" />
+          <div className="font-pretendard relative z-10 w-full max-w-[980px] text-center">
+            <h2
+              className="bg-[linear-gradient(180deg,#fffdfd_0%,#fff7fb_14%,#ffeef6_30%,#ffcbe1_48%,#ff86bb_66%,#ea4ca1_84%,#bf0d71_100%)] bg-clip-text text-[clamp(56px,8vw,108px)] font-black leading-none tracking-[-0.03em] text-transparent [text-shadow:_0_1px_0_rgba(255,240,247,0.52),_0_2px_0_rgba(208,96,149,0.42),_0_4px_0_rgba(176,58,119,0.42),_0_10px_18px_rgba(154,42,103,0.22)]"
+              style={{ WebkitTextStroke: "0.9px rgba(0,0,0,0.55)" }}
+            >
               당신의 이름과 성별은?
             </h2>
 
-            <div className="mx-auto mt-8 max-w-[760px] rounded-[26px] border-4 border-[#c6809e] bg-[rgba(255,237,245,0.55)] px-6 py-8 shadow-[0_14px_38px_rgba(72,20,45,0.2)] backdrop-blur-[3px] md:px-8 md:py-10">
+            <div className="mx-auto mt-8 max-w-[760px] rounded-[30px] border-2 border-white/70 bg-[rgba(255,255,255,0.42)] px-6 py-8 shadow-[0_18px_45px_rgba(72,20,45,0.14)] backdrop-blur-[10px] md:px-8 md:py-10">
               <input
                 value={player.name}
                 onChange={(event) => updatePlayer("name", event.target.value)}
-                className="h-14 w-full rounded-2xl border-[3px] border-[#bb6f91] bg-white/92 px-4 text-center text-xl font-semibold text-[#4d1d37] outline-none placeholder:text-[#b57d94] focus:ring-2 focus:ring-[#d778a1]/65 sm:h-16 sm:text-3xl"
+                className="h-14 w-full rounded-[22px] border border-[#e7c2d0] bg-[rgba(255,255,255,0.92)] px-4 text-center text-xl font-medium text-[#4d1d37] outline-none placeholder:text-[#b57d94] shadow-[inset_0_1px_0_rgba(255,255,255,0.95)] focus:ring-2 focus:ring-[#d778a1]/45 sm:h-16 sm:text-3xl"
                 placeholder="이름은 최대 3자까지 가능합니다."
                 maxLength={3}
               />
@@ -3403,10 +3465,10 @@ export default function Home() {
                     key={option.value}
                     type="button"
                     onClick={() => updatePlayer("gender", option.value)}
-                    className={`min-w-[110px] rounded-full border-[3px] px-5 py-2 text-xl font-bold transition sm:min-w-[128px] sm:px-6 sm:text-3xl ${
+                    className={`min-w-[110px] rounded-full border px-5 py-2 text-xl font-semibold transition sm:min-w-[128px] sm:px-6 sm:text-3xl ${
                       player.gender === option.value
-                        ? "border-[#b15f84] bg-[linear-gradient(180deg,#ffd8ea,#f7a9c8)] text-[#5d1e3c] shadow-[inset_0_2px_0_rgba(255,255,255,0.8),0_6px_12px_rgba(0,0,0,0.18)]"
-                        : "border-[#c798ad] bg-white/78 text-[#6a2a49] hover:bg-white"
+                        ? "border-[#cf8cad] bg-[linear-gradient(180deg,rgba(255,215,232,0.98),rgba(247,169,200,0.95))] text-[#5d1e3c] shadow-[inset_0_2px_0_rgba(255,255,255,0.82),0_8px_18px_rgba(133,62,94,0.18)]"
+                        : "border-white/70 bg-[rgba(255,255,255,0.78)] text-[#6a2a49] hover:bg-white/90"
                     }`}
                   >
                     {option.label}
@@ -3414,7 +3476,7 @@ export default function Home() {
                 ))}
               </div>
 
-              <p className="mt-6 text-[clamp(28px,3vw,46px)] font-semibold leading-[1.3] text-[#6a2a49]">
+              <p className="mt-6 text-[clamp(28px,3vw,46px)] font-bold leading-[1.3] text-[#6a2a49]">
                 이름을 입력하지 않을 시
                 <br />
                 [김멋사]로 자동 설정 됩니다.
@@ -3446,39 +3508,39 @@ export default function Home() {
           className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-6 md:px-8 md:py-8"
           style={{
             backgroundImage: [
-              "linear-gradient(180deg, rgba(67,20,42,0.24), rgba(69,16,41,0.42))",
               "url('/ui/title-screen/professor-customize-background.webp')",
-              "linear-gradient(180deg, rgba(67,20,42,0.3), rgba(69,16,41,0.48))",
-              "radial-gradient(circle at 80% 18%, rgba(255,188,219,0.56), rgba(255,188,219,0) 54%)",
-              "radial-gradient(circle at 14% 82%, rgba(255,194,219,0.53), rgba(255,194,219,0) 56%)",
-              "linear-gradient(145deg, #d892b0 0%, #e5aac3 34%, #f8d4e4 58%, #d895b5 100%)",
             ].join(", "),
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
         >
-          <div className="w-full max-w-[1240px] text-center">
-            <h2 className="font-sans text-[clamp(56px,8vw,108px)] font-black leading-none tracking-[-0.03em] text-[#ffb8d5] [text-shadow:_0_4px_0_#8a3a5f,_0_12px_30px_rgba(0,0,0,0.45)]">
+          <div className="pointer-events-none absolute inset-0 z-0 bg-[rgba(255,214,231,0.08)] backdrop-blur-[2px]" />
+          <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_16%_18%,rgba(255,255,255,0.28),rgba(255,255,255,0)_18%),radial-gradient(circle_at_72%_14%,rgba(255,255,255,0.22),rgba(255,255,255,0)_14%),radial-gradient(circle_at_86%_76%,rgba(255,255,255,0.14),rgba(255,255,255,0)_12%),radial-gradient(circle_at_24%_70%,rgba(255,255,255,0.12),rgba(255,255,255,0)_10%)] opacity-80" />
+          <div className="font-pretendard relative z-10 w-full max-w-[1240px] text-center">
+            <h2
+              className="bg-[linear-gradient(180deg,#fffdfd_0%,#fff7fb_14%,#ffeef6_30%,#ffcbe1_48%,#ff86bb_66%,#ea4ca1_84%,#bf0d71_100%)] bg-clip-text text-[clamp(56px,8vw,108px)] font-black leading-none tracking-[-0.03em] text-transparent [text-shadow:_0_1px_0_rgba(255,240,247,0.52),_0_2px_0_rgba(208,96,149,0.42),_0_4px_0_rgba(176,58,119,0.42),_0_10px_18px_rgba(154,42,103,0.22)]"
+              style={{ WebkitTextStroke: "0.9px rgba(0,0,0,0.55)" }}
+            >
               교수님 생성
             </h2>
 
-            <article className="mx-auto mt-5 rounded-[28px] border-4 border-[#be809d] bg-[rgba(255,239,246,0.55)] px-5 py-5 shadow-[0_14px_40px_rgba(68,18,40,0.2)] backdrop-blur-[4px] md:px-8 md:py-7">
+            <article className="mx-auto mt-5 rounded-[30px] border-2 border-white/70 bg-[rgba(255,255,255,0.42)] px-5 py-5 shadow-[0_18px_45px_rgba(68,18,40,0.16)] backdrop-blur-[10px] md:px-8 md:py-7">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-8">
                 <div className="space-y-3 text-left">
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-[92px_1fr] sm:items-center sm:gap-3">
-                    <label className="text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
+                    <label className="text-[clamp(24px,7vw,44px)] font-extrabold leading-none text-[#5f213f]">
                       이름
                     </label>
                     <input
                       value={professor.name}
                       onChange={(event) => updateProfessor("name", event.target.value)}
-                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
+                      className="h-14 rounded-3xl border border-[#e7c2d0] bg-[rgba(255,255,255,0.92)] px-4 text-lg font-medium text-[#58203b] outline-none placeholder:text-[#b68198] shadow-[inset_0_1px_0_rgba(255,255,255,0.95)] focus:ring-2 focus:ring-[#d977a1]/45 sm:h-16 sm:text-2xl"
                       placeholder="교수 이름"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-[92px_1fr] sm:items-center sm:gap-3">
-                    <span className="text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
+                    <span className="text-[clamp(24px,7vw,44px)] font-extrabold leading-none text-[#5f213f]">
                       성별
                     </span>
                     <div className="flex flex-wrap gap-2">
@@ -3487,10 +3549,10 @@ export default function Home() {
                           key={option.value}
                           type="button"
                           onClick={() => updateProfessor("gender", option.value)}
-                          className={`h-13 min-w-[88px] rounded-full border-[3px] px-4 text-[clamp(24px,7vw,44px)] font-bold leading-none transition sm:h-16 sm:min-w-[120px] ${
+                          className={`h-13 min-w-[88px] rounded-full border px-4 text-[clamp(24px,7vw,44px)] font-semibold leading-none transition sm:h-16 sm:min-w-[120px] ${
                             professor.gender === option.value
-                              ? "border-[#b05f84] bg-[linear-gradient(180deg,#ffd8ea,#f7a9c8)] text-[#5e1f3e] shadow-[inset_0_2px_0_rgba(255,255,255,0.82),0_6px_12px_rgba(0,0,0,0.18)]"
-                              : "border-[#c99aae] bg-white/80 text-[#6b2b4a] hover:bg-white"
+                              ? "border-[#cf8cad] bg-[linear-gradient(180deg,rgba(255,215,232,0.98),rgba(247,169,200,0.95))] text-[#5e1f3e] shadow-[inset_0_2px_0_rgba(255,255,255,0.82),0_8px_18px_rgba(133,62,94,0.18)]"
+                              : "border-white/70 bg-[rgba(255,255,255,0.78)] text-[#6b2b4a] hover:bg-white/90"
                           }`}
                         >
                           {option.label}
@@ -3500,26 +3562,26 @@ export default function Home() {
                   </div>
 
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-[92px_1fr] sm:items-center sm:gap-3">
-                    <label className="text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
+                    <label className="text-[clamp(24px,7vw,44px)] font-extrabold leading-none text-[#5f213f]">
                       나이
                     </label>
                     <input
                       value={professor.age}
                       onChange={(event) => updateProfessor("age", event.target.value)}
-                      className="h-14 rounded-3xl border-[3px] border-[#b87695] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none placeholder:text-[#b68198] focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl"
+                      className="h-14 rounded-3xl border border-[#e7c2d0] bg-[rgba(255,255,255,0.92)] px-4 text-lg font-medium text-[#58203b] outline-none placeholder:text-[#b68198] shadow-[inset_0_1px_0_rgba(255,255,255,0.95)] focus:ring-2 focus:ring-[#d977a1]/45 sm:h-16 sm:text-2xl"
                       placeholder="예: 30"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-[92px_1fr] sm:items-center sm:gap-3">
-                    <label className="text-[clamp(24px,7vw,44px)] font-bold leading-none text-[#5f213f]">
+                    <label className="text-[clamp(24px,7vw,44px)] font-extrabold leading-none text-[#5f213f]">
                       말투
                     </label>
                     <select
                       value={professor.speakingStyle}
                       onChange={(event) => updateProfessor("speakingStyle", event.target.value)}
-                      className={`h-14 rounded-3xl border-[3px] bg-white/92 px-4 text-lg font-semibold text-[#58203b] outline-none focus:ring-2 focus:ring-[#d977a1]/60 sm:h-16 sm:text-2xl ${
-                        professorSpeakingStyleError ? "border-[#cf3f73]" : "border-[#b87695]"
+                      className={`h-14 rounded-3xl border bg-[rgba(255,255,255,0.92)] px-4 text-lg font-medium text-[#58203b] outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.95)] focus:ring-2 focus:ring-[#d977a1]/45 sm:h-16 sm:text-2xl ${
+                        professorSpeakingStyleError ? "border-[#cf3f73]" : "border-[#e7c2d0]"
                       }`}
                     >
                       <option value="">선택</option>
@@ -3535,12 +3597,31 @@ export default function Home() {
                       </p>
                     )}
                   </div>
+
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[92px_1fr] sm:items-start sm:gap-3">
+                    <label className="pt-2 text-[clamp(24px,7vw,44px)] font-extrabold leading-none text-[#5f213f]">
+                      설정
+                    </label>
+                    <div>
+                      <textarea
+                        value={professor.customPrompt}
+                        onChange={(event) => updateProfessor("customPrompt", event.target.value)}
+                        rows={4}
+                        maxLength={300}
+                        placeholder="LLM에 반영할 교수님의 헤어, 눈매, 코, 턱선, 얼굴형, 표정, 피부톤, 전체 분위기 등을 적어주세요."
+                        className="w-full rounded-[24px] border border-[#e7c2d0] bg-[rgba(255,255,255,0.92)] px-4 py-3 text-base font-medium leading-[1.5] text-[#58203b] outline-none placeholder:text-[#b68198] shadow-[inset_0_1px_0_rgba(255,255,255,0.95)] focus:ring-2 focus:ring-[#d977a1]/45 sm:text-xl"
+                      />
+                      <div className="mt-2 flex items-center justify-end text-xs text-[#8e5b74]">
+                        <span>{professor.customPrompt.trim().length}/300</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-center">
-                  <div className="w-full rounded-[28px] border-2 border-[#c88ca8] bg-white/72 p-4 text-left text-[#5f223f] shadow-[0_16px_38px_rgba(92,28,57,0.16)]">
+                  <div className="w-full rounded-[28px] border border-white/70 bg-[rgba(255,255,255,0.72)] p-4 text-left text-[#5f223f] shadow-[0_16px_38px_rgba(92,28,57,0.12)] backdrop-blur-[6px]">
                     <p className="text-[clamp(22px,2.1vw,32px)] font-bold leading-[1.35]">
-                      교수 비주얼 프리뷰
+                      생성된 교수님 이미지
                     </p>
                     <div className="mt-3 flex min-h-[360px] items-center justify-center overflow-hidden rounded-[24px] border border-[#d7a1b9] bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.95),rgba(255,236,244,0.76)_42%,rgba(229,177,201,0.58)_100%)]">
                       {generatedProfessorImageUrl ? (
@@ -3552,27 +3633,9 @@ export default function Home() {
                           draggable={false}
                         />
                       ) : (
-                        <div className="rounded-[26px] border border-dashed border-[#bf86a2] bg-white/55 px-8 py-10 text-center">
-                          <p className="font-gothic text-sm font-bold tracking-[0.16em] text-[#9d597a]">
-                            VISUAL PREVIEW
-                          </p>
-                          <p className="mt-2 text-lg font-semibold text-[#6c2949]">
-                            교수님 생성 버튼을 누르면
-                          </p>
-                          <p className="text-base text-[#7a3b5a]">
-                            스토리 중간 컷인에 쓸 더미 비주얼이 여기에 표시됩니다.
-                          </p>
-                        </div>
+                        <div aria-hidden="true" />
                       )}
                     </div>
-                    <p className="mt-3 text-sm leading-[1.55] text-[#76405d]">
-                      실제 소품 이미지는 아직 없어도, 생성한 교수 이미지를 바탕으로 컷인 타이밍과 화면 크기를 먼저 점검할 수 있게 구성합니다.
-                    </p>
-                    {professorImagePromptSummary && (
-                      <p className="mt-2 line-clamp-3 text-xs leading-[1.5] text-[#8a5470]">
-                        프롬프트 요약: {professorImagePromptSummary}
-                      </p>
-                    )}
                     {professorImageError && (
                       <p className="mt-2 text-sm font-semibold text-[#b12456]">{professorImageError}</p>
                     )}
@@ -3580,7 +3643,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-col items-center text-center text-[clamp(22px,2.3vw,34px)] font-semibold leading-[1.25] text-[#5a1f39]">
+              <div className="mt-3 flex flex-col items-center text-center text-[clamp(22px,2.3vw,34px)] font-bold leading-[1.25] text-[#5a1f39]">
                 <p className="whitespace-nowrap">교수님 생성은 1회만 가능합니다. 신중하게 작성해주세요.</p>
                 <p className="whitespace-nowrap">AI로 생성하는데 최대 1분이 소요될 수 있습니다.</p>
                 <p className="whitespace-nowrap">
@@ -3588,11 +3651,11 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <div className="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-[60px]">
                 <button
                   type="button"
                   onClick={generateProfessorImage}
-                  disabled={isGeneratingProfessorImage}
+                  disabled={isGeneratingProfessorImage || hasUsedProfessorGeneration}
                   className="screen2-confirm-btn screen3-create-btn min-w-[240px] disabled:cursor-wait disabled:opacity-70"
                 >
                   <span className="screen2-confirm-gloss" aria-hidden />
@@ -3974,14 +4037,24 @@ export default function Home() {
             style={{ backgroundImage: `url('${ENDING_BACKGROUND_URL}')` }}
           />
 
+          {professorVisualSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={professorVisualSrc}
+              alt="엔딩 교수님 이미지2"
+              className="absolute bottom-[11vh] left-[43.4%] z-10 h-auto w-[clamp(280px,24vw,460px)] max-w-none -translate-x-1/2 object-contain opacity-[0.96] drop-shadow-[0_20px_28px_rgba(0,0,0,0.28)]"
+              draggable={false}
+            />
+          ) : null}
+
           {endingOverlayAssetPath ? (
-            <div className="absolute inset-x-0 bottom-0 z-10 flex justify-end">
-              {/* 엔딩도 화면10과 동일하게 공통 배경 위에 전경 오버레이 이미지를 하단 배치한다. */}
+            <div className="absolute inset-0 z-20 flex items-end justify-center overflow-hidden" aria-hidden="true">
+              {/* 엔딩도 화면10과 동일하게 화면 전체를 쓰되 오버레이 원본은 잘리지 않도록 contain으로 유지한다. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={endingOverlayAssetPath}
                 alt="엔딩 전경 오버레이"
-                className="h-auto w-[min(118vw,1380px)] min-w-[920px] max-w-none object-contain object-bottom"
+                className="h-full w-full object-contain object-bottom"
                 draggable={false}
               />
             </div>
@@ -4012,7 +4085,9 @@ export default function Home() {
             <div className="flex min-h-screen items-end justify-end px-4 pb-6 md:px-8 md:pb-8">
               <button
                 type="button"
-                onClick={openCreditMessageModal}
+                onClick={() => {
+                  void goCreditScreen();
+                }}
                 className="pointer-events-auto rounded-full border border-white/70 bg-white/92 px-7 py-3 text-lg font-black text-[#25131c] shadow-[0_10px_24px_rgba(0,0,0,0.24)] transition hover:bg-[#fff5fa]"
               >
                 다음
@@ -4026,10 +4101,13 @@ export default function Home() {
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[rgba(63,35,50,0.38)] px-4 backdrop-blur-[4px]">
           <div className="w-full max-w-[min(96vw,880px)] rounded-[30px] border border-[#f1bfd3] bg-[linear-gradient(180deg,rgba(255,249,252,0.98),rgba(255,241,246,0.98))] p-6 text-[#4a2033] shadow-[0_30px_80px_rgba(91,40,64,0.22)] md:p-8">
             <p className="text-[clamp(20px,2.1vw,32px)] font-black leading-[1.2] text-[#5d2340] md:whitespace-nowrap">
+              교수님 이미지가 생성되는 동안
+            </p>
+            <p className="mt-1 text-[clamp(20px,2.1vw,32px)] font-black leading-[1.2] text-[#5d2340] md:whitespace-nowrap">
               엔딩 크레딧에 추가되는 응원 문구 작성하실래요?
             </p>
             <p className="mt-3 text-sm leading-[1.7] text-[#7b5364] md:text-base">
-              남겨주신 문구는 기본 엔딩 크레딧이 끝난 뒤 한 줄씩 이어서 보여드릴게요.
+              작성하신 문구는 엔딩까지 클리어해야 등록돼요! 부족하지만 재밌게 즐겨주세요 ❤️
             </p>
 
             <div className="mt-5 rounded-[24px] border border-[#efc8d8] bg-white/72 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
@@ -4080,11 +4158,7 @@ export default function Home() {
                 className="mt-3 min-h-[128px] w-full rounded-[18px] border border-[#e9bfd0] bg-white px-4 py-3 text-base leading-[1.6] text-[#4a2033] outline-none transition placeholder:text-[#bc9aaa] focus:border-[#ea7ba6] focus:ring-2 focus:ring-[#f6b9d1]/70"
               />
               <div className="mt-2 flex items-center justify-between gap-3 text-xs text-[#aa7f90]">
-                <span>
-                  {creditMessageAuthorInput.trim()
-                    ? `${creditMessageAuthorInput.trim()} 이름으로 등록됩니다.`
-                    : "이름을 비워두면 익명의 학생으로 등록됩니다."}
-                </span>
+                <span>{creditMessageAuthorInput.trim() ? `${creditMessageAuthorInput.trim()} 이름으로 등록됩니다.` : ""}</span>
                 <span>{creditMessageInput.trim().length}/80</span>
               </div>
             </div>
@@ -4133,7 +4207,7 @@ export default function Home() {
             <img
               src={professorVisualSrc}
               alt="교수님 이미지2"
-              className="absolute bottom-[15vh] left-1/2 z-10 h-auto w-[clamp(320px,28vw,520px)] max-w-none -translate-x-1/2 object-contain opacity-[0.96] drop-shadow-[0_20px_28px_rgba(0,0,0,0.28)]"
+              className="absolute bottom-[11vh] left-[43.4%] z-10 h-auto w-[clamp(280px,24vw,460px)] max-w-none -translate-x-1/2 object-contain opacity-[0.96] drop-shadow-[0_20px_28px_rgba(0,0,0,0.28)]"
               draggable={false}
             />
           ) : (
@@ -4143,13 +4217,13 @@ export default function Home() {
             </div>
           )}
 
-          <div className="absolute inset-x-0 bottom-0 z-20 flex justify-end">
-            {/* 화면 10은 뒷배경 -> 교수 이미지2 -> 책상 전경 순서로 고정한다. */}
+          <div className="absolute inset-0 z-20 flex items-end justify-center overflow-hidden" aria-hidden="true">
+            {/* 화면 전체를 쓰되 오버레이 원본은 잘리지 않도록 contain으로 유지한다. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={SCREEN10_DESK_URL}
-              alt="책상 전경"
-              className="h-auto w-[min(118vw,1380px)] min-w-[920px] max-w-none object-contain object-bottom"
+              alt=""
+              className="h-full w-full object-contain object-bottom"
               draggable={false}
             />
           </div>
