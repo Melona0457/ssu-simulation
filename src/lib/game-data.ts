@@ -428,10 +428,10 @@ export const chapterInfoMap: Record<ChapterId, ChapterInfo> = {
     id: "NIGHT_LAB_VISIT",
     title: "밤(교수 연구실)",
     location: "교수 연구실 앞",
-    scene: "빗속 연구실과 마지막 선택",
+    scene: "연구실의 불빛과 시험 전야",
     backdrop: "/backgrounds/episodes/night-lab.webp",
     sequenceGroup: 6,
-    keywords: ["밤", "연구실", "롤스로이스"],
+    keywords: ["밤", "연구실", "우산"],
   },
 };
 
@@ -547,7 +547,7 @@ export const chapterFallbackDialogues: Record<ChapterId, ChapterDialogue> = {
       {
         text: "아, 네! 그럼요. 앉으세요. 메뉴는... 다 괜찮습니다!",
         preview: "당황한 허용",
-        reaction: "아직 못 골랐군. 된장찌개가 무난하네. 급할수록 기본이 안전하지.",
+        reaction: "아직 못 골랐군. 김치찌개가 무난하네. 급할수록 기본이 안전하지.",
         emotion: "warm",
         effects: { affinity: 8, intellect: 9 },
       },
@@ -705,28 +705,14 @@ export const chapterFallbackDialogues: Record<ChapterId, ChapterDialogue> = {
   },
   NIGHT_LAB_VISIT: {
     dialogue:
-      "연구실 불빛, 커피 향, 빗소리, 그리고 이름을 부르는 낮은 목소리. 밤이 깊어 건물을 나서자 폭우 속에 순백의 롤스로이스가 멈춰 선다. 마지막 선택만 남았다.",
+      "연구실 불빛, 커피 향, 빗소리, 그리고 이름을 부르는 낮은 목소리. 밤이 깊어지자 교수는 우산을 건네며 내일 시험에서 노력한 만큼의 결과가 나오길 바란다고 말한다. 연구실을 나선 뒤에도 손잡이에 남은 온기와 향기가 쉽게 가시지 않는다.",
     choices: [
       {
-        text: "마음만 받을게요. 우산 쓰고 천천히 걸어가겠습니다.",
-        preview: "엔딩 A 루트",
-        reaction: "고집 있군. 그 독립심은 높이 사지. 내일은 감기 대신 정답을 들고 오게.",
+        text: "우산을 꼭 쥔 채 내일 시험 강의실을 떠올린다.",
+        preview: "시험 전야",
+        reaction: "이름을 불러 주던 목소리와 연구실의 향기가 오래 남는다. 이제 모든 것은 내일 시험 강의실에서 달렸다.",
         emotion: "warm",
-        effects: { affinity: 9, intellect: 10 },
-      },
-      {
-        text: "실례하겠습니다. 집까지 태워주세요.",
-        preview: "엔딩 B 루트",
-        reaction: "허, 솔직하군. 그 뻔뻔함, 싫지 않네. 타게. 대신 내일 결과로 보답하게.",
-        emotion: "teasing",
-        effects: { affinity: 12, intellect: 7 },
-      },
-      {
-        text: "오늘은 여기까지 할게요. 적당한 거리를 두고 싶습니다.",
-        preview: "엔딩 C 루트",
-        reaction: "그래, 선은 중요하지. 다만 내일 시험은 그 선과 별개로 최선을 다하게.",
-        emotion: "stern",
-        effects: { affinity: 6, intellect: 9 },
+        effects: { affinity: 10, intellect: 9 },
       },
     ],
   },

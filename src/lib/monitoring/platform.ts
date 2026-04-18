@@ -144,6 +144,17 @@ function readJsonLines(text: string) {
   return rows;
 }
 
+function tryParseJsonObject(text: string) {
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function withTimeoutSignal(timeoutMs = EXTERNAL_API_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -186,6 +197,7 @@ async function fetchVercelPlatformSummary(): Promise<VercelPlatformSummary> {
   const token = process.env.VERCEL_API_TOKEN?.trim();
   const teamId = process.env.VERCEL_TEAM_ID?.trim();
   const teamSlug = process.env.VERCEL_TEAM_SLUG?.trim();
+  const hasScopeHint = !teamId && !teamSlug;
 
   if (!token) {
     return {
@@ -229,6 +241,29 @@ async function fetchVercelPlatformSummary(): Promise<VercelPlatformSummary> {
 
     if (!response.ok) {
       const text = (await response.text()).slice(0, 220);
+      const parsedError = tryParseJsonObject(text);
+      const apiError = parsedError?.error;
+      const apiErrorCode =
+        apiError && typeof apiError === "object" && !Array.isArray(apiError)
+          ? readStringValue(apiError as Record<string, unknown>, ["code"])
+          : null;
+
+      if (response.status === 404 && apiErrorCode === "costs_not_found") {
+        return {
+          status: "ready",
+          message: "무료 플랜이거나 아직 청구 항목이 없어 billing line item이 없습니다.",
+          scopeLabel: teamId || teamSlug || "personal",
+          periodStart: from.toISOString(),
+          periodEnd: to.toISOString(),
+          totalBilledCost: 0,
+          totalEffectiveCost: 0,
+          services: [],
+          rawLineCount: 0,
+          updatedAt,
+          setup: hasScopeHint ? ["VERCEL_TEAM_ID 또는 VERCEL_TEAM_SLUG"] : [],
+        };
+      }
+
       return {
         status: "error",
         message: `Vercel API 응답 오류 (${response.status}): ${text || "본문 없음"}`,
@@ -313,8 +348,6 @@ async function fetchVercelPlatformSummary(): Promise<VercelPlatformSummary> {
           (left.effectiveCost ?? left.billedCost ?? 0),
       )
       .slice(0, 8);
-
-    const hasScopeHint = !teamId && !teamSlug;
 
     return {
       status: hasScopeHint ? "partial" : "ready",

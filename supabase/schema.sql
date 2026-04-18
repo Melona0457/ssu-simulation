@@ -31,6 +31,9 @@ create table if not exists public.credit_messages (
   ending_title text
 );
 
+create unique index if not exists credit_messages_dedupe_unique_idx
+on public.credit_messages (player_name, message_text, coalesce(ending_key, ''));
+
 alter table public.credit_messages
 add column if not exists professor_image_url text;
 

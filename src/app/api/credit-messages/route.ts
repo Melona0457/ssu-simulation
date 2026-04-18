@@ -17,6 +17,10 @@ function normalizeMessageText(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function normalizePlayerName(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
 function isMissingProfessorImageColumnError(errorMessage: string) {
   return errorMessage.includes("professor_image_url");
 }
@@ -77,9 +81,12 @@ export async function POST(request: Request) {
   const payload = (await request.json()) as CreditMessagePayload;
   const supabase = createSupabaseServerClient();
 
-  const playerName = (payload.playerName || "익명의 학생").trim().slice(0, 30) || "익명의 학생";
+  const playerName =
+    normalizePlayerName(payload.playerName || "익명의 학생").slice(0, 30) || "익명의 학생";
   const messageText = normalizeMessageText(payload.messageText || "");
   const professorImageUrl = payload.professorImageUrl?.trim() || null;
+  const endingKey = payload.ending?.key?.trim() || null;
+  const endingTitle = payload.ending?.title?.trim() || null;
 
   if (!messageText) {
     return NextResponse.json(
@@ -106,12 +113,40 @@ export async function POST(request: Request) {
     });
   }
 
+  let duplicateCheckQuery = supabase
+    .from("credit_messages")
+    .select("id")
+    .eq("player_name", playerName)
+    .eq("message_text", messageText)
+    .limit(1);
+
+  duplicateCheckQuery = endingKey
+    ? duplicateCheckQuery.eq("ending_key", endingKey)
+    : duplicateCheckQuery.is("ending_key", null);
+
+  const duplicateCheck = await duplicateCheckQuery;
+  if (duplicateCheck.error) {
+    return NextResponse.json(
+      {
+        message: `응원 문구 중복 확인 실패: ${duplicateCheck.error.message}`,
+      },
+      { status: 500 },
+    );
+  }
+
+  if ((duplicateCheck.data ?? []).length > 0) {
+    return NextResponse.json({
+      message: "이미 등록된 응원 문구입니다.",
+      duplicate: true,
+    });
+  }
+
   const insertPayload = {
     player_name: playerName,
     message_text: messageText,
     professor_image_url: professorImageUrl,
-    ending_key: payload.ending?.key?.trim() || null,
-    ending_title: payload.ending?.title?.trim() || null,
+    ending_key: endingKey,
+    ending_title: endingTitle,
   };
 
   const { error } = await supabase.from("credit_messages").insert(insertPayload);
@@ -121,8 +156,8 @@ export async function POST(request: Request) {
       const fallback = await supabase.from("credit_messages").insert({
         player_name: playerName,
         message_text: messageText,
-        ending_key: payload.ending?.key?.trim() || null,
-        ending_title: payload.ending?.title?.trim() || null,
+        ending_key: endingKey,
+        ending_title: endingTitle,
       });
 
       if (!fallback.error) {
