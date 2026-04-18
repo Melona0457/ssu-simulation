@@ -10,6 +10,7 @@ import {
   extractFirstInlineData,
   getGeminiImageModel,
 } from "@/lib/gemini/server";
+import { recordMonitoringEvent } from "@/lib/monitoring/server";
 import { removeBackgroundSingle } from "@/lib/bg-remove/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -66,10 +67,25 @@ async function buildTopCropImageBuffer(trimmedBuffer: Buffer, cropRatio: number)
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
   const client = createGeminiClient();
   const supabase = createSupabaseServerClient();
+  const imageModel = getGeminiImageModel();
+  const bgApiConfigured = Boolean(process.env.BG_API_URL?.trim());
 
   if (!client) {
+    await recordMonitoringEvent({
+      eventType: "professor_image_generation",
+      status: "error",
+      source: "gemini",
+      durationMs: Date.now() - startedAt,
+      errorMessage: "GEMINI_API_KEY가 없어 교수 이미지를 생성할 수 없습니다.",
+      metadata: {
+        model: imageModel,
+        bgApiConfigured,
+      },
+    });
+
     return NextResponse.json(
       {
         message: "GEMINI_API_KEY가 없어 교수 이미지를 생성할 수 없습니다.",
@@ -115,7 +131,7 @@ export async function POST(request: Request) {
 
   try {
     const response = await client.models.generateContent({
-      model: getGeminiImageModel(),
+      model: imageModel,
       contents: prompt,
     });
 
@@ -200,6 +216,25 @@ export async function POST(request: Request) {
         "Supabase 환경 변수가 없어 원본 교수 이미지를 Storage에 저장하지 못했습니다.";
     }
 
+    const monitoringMessage = [backgroundRemovalWarning, storageUploadWarning]
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      .join(" | ");
+    await recordMonitoringEvent({
+      eventType: "professor_image_generation",
+      status: monitoringMessage ? "warning" : "success",
+      source: "gemini",
+      durationMs: Date.now() - startedAt,
+      errorMessage: monitoringMessage || null,
+      metadata: {
+        model: imageModel,
+        bgApiConfigured,
+        backgroundRemovalApplied,
+        backgroundRemovalWarning,
+        storageUploadWarning,
+        storedFullImage: Boolean(storedFullImageUrl),
+      },
+    });
+
     return NextResponse.json({
       imageDataUrl,
       transparentDataUrl,
@@ -212,12 +247,23 @@ export async function POST(request: Request) {
       storageUploadWarning,
     });
   } catch (error) {
+    const errorMessage =
+      error instanceof Error ? `교수 이미지 생성 실패: ${error.message}` : "교수 이미지 생성 실패";
+    await recordMonitoringEvent({
+      eventType: "professor_image_generation",
+      status: "error",
+      source: "gemini",
+      durationMs: Date.now() - startedAt,
+      errorMessage,
+      metadata: {
+        model: imageModel,
+        bgApiConfigured,
+      },
+    });
+
     return NextResponse.json(
       {
-        message:
-          error instanceof Error
-            ? `교수 이미지 생성 실패: ${error.message}`
-            : "교수 이미지 생성 실패",
+        message: errorMessage,
       },
       { status: 500 },
     );

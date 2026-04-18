@@ -49,6 +49,9 @@ GEMINI_TTS_MODEL=gemini-2.5-flash-preview-tts
 OPENAI_SUMMARY_MODEL=gpt-4.1-mini
 BG_API_URL=https://your-bg-remove-api.example.com
 BG_API_TIMEOUT_MS=45000
+MONITORING_ADMIN_SECRET=your_monitoring_admin_secret
+MONITORING_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/your_webhook
+CRON_SECRET=your_vercel_cron_secret
 ```
 
 주의:
@@ -58,6 +61,7 @@ BG_API_TIMEOUT_MS=45000
 - 이 키는 절대 클라이언트 컴포넌트에 노출하면 안 됩니다.
 - `NEXT_PUBLIC_SUPABASE_VOICE_BASE_URL` 은 `voice` public bucket 기준 URL입니다.
 - 예시: `https://your-project-ref.supabase.co/storage/v1/object/public/voice`
+- 자동 모니터링을 쓰려면 [monitoring_schema.sql](/Users/jeongin/ssu-simulation/supabase/monitoring_schema.sql) 도 함께 실행합니다.
 
 ## 배포
 
@@ -79,6 +83,43 @@ Vercel에 배포할 때도 같은 환경 변수를 프로젝트 설정에 넣으
 - `GEMINI_TTS_MODEL`
 - `OPENAI_SUMMARY_MODEL`
 - `BG_API_TIMEOUT_MS`
+- `MONITORING_ADMIN_SECRET` (관리자 요약 API 보호용)
+- `MONITORING_DISCORD_WEBHOOK_URL` (Discord 자동 경고 전송)
+- `CRON_SECRET` (Vercel cron 인증)
+
+## 자동 모니터링
+
+- 관리자 요약 API: `GET /api/admin/monitoring-summary`
+- 브라우저 대시보드: `/admin/monitoring`
+- 인증: `Authorization: Bearer <MONITORING_ADMIN_SECRET>` 또는 `x-monitoring-secret` 헤더
+- 일일 자동 점검: [vercel.json](/Users/jeongin/ssu-simulation/vercel.json) 의 `/api/cron/monitoring-check`
+- Hobby 플랜에서는 Vercel cron 이 하루 1회만 실행됩니다.
+
+자동 점검은 아래 항목을 확인합니다.
+
+- 최근 이미지 생성 성공/경고/오류 수
+- 최근 이미지 생성 평균 지연 시간
+- 배경 제거 서버 `/health` 상태
+- 임계치 초과 시 Discord 웹훅 경고
+
+## GitHub Actions 모니터링
+
+- 워크플로: [monitoring-check.yml](/Users/jeongin/ssu-simulation/.github/workflows/monitoring-check.yml)
+- 주기: 15분마다 + 수동 실행(`workflow_dispatch`)
+- 호출 엔드포인트: `/api/cron/monitoring-check`
+- GitHub Actions는 에러 수준 경고가 감지되면 워크플로를 실패 처리합니다.
+
+GitHub repository secrets 에는 아래 두 값이 필요합니다.
+
+- `MONITORING_APP_BASE_URL`: 예시 `https://ssu-simulation.vercel.app`
+- `CRON_SECRET`: Vercel에 넣은 값과 동일한 cron 인증용 시크릿
+
+정리:
+
+- `MONITORING_ADMIN_SECRET`: Vercel만 필요
+- `MONITORING_DISCORD_WEBHOOK_URL`: Vercel만 필요
+- `CRON_SECRET`: Vercel + GitHub 둘 다 필요
+- `MONITORING_APP_BASE_URL`: GitHub만 필요
 
 ## 검증 명령어
 
