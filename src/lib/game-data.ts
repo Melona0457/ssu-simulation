@@ -13,6 +13,10 @@ export const initialProfessorState: ProfessorFormState = {
   feature2: "",
   feature3: "",
   feature4: "",
+  feature5: "",
+  feature6: "",
+  feature7: "",
+  feature8: "",
   customPrompt: "",
 };
 export type GameScoreKey = "affinity" | "intellect";
@@ -64,6 +68,10 @@ export type ProfessorFormState = {
   feature2: string;
   feature3: string;
   feature4: string;
+  feature5: string;
+  feature6: string;
+  feature7: string;
+  feature8: string;
   customPrompt: string;
 };
 
@@ -125,19 +133,19 @@ export const illustrationStyleOptions: Array<{
     label: "일러스트디자인1",
     value: "DESIGN_1_ROMANCE_FANTASY",
     description:
-      "고채도 핑크/바이올렛, 반짝이는 하이라이트, 로맨스 판타지 포스터 감성",
+      "학원 로맨스 비주얼 노벨풍, 부드러운 셀채색, 밝은 캠퍼스 배경과 청춘 감성",
   },
   {
     label: "일러스트디자인2",
     value: "DESIGN_2_CLEAN_CHARACTER_CARD",
     description:
-      "밝은 파스텔 톤, 깔끔한 라인, 캐릭터 카드형 구성, 캐주얼하고 또렷한 느낌",
+      "한국 웹툰풍 캐주얼 캐릭터 포스터, 밝은 파스텔 톤과 깔끔한 라인아트",
   },
   {
     label: "일러스트디자인3",
     value: "DESIGN_3_CAMPUS_VISUAL_NOVEL",
     description:
-      "캠퍼스 배경 위 비주얼노벨 스프라이트, 안정적인 채도, 서사 중심 게임 화면 톤",
+      "화려한 모바일 게임 키비주얼풍, 글로시 하이라이트와 상업 포스터 감성",
   },
 ];
 
@@ -146,53 +154,60 @@ const illustrationStyleProfiles: Record<
   { name: string; keywords: string[] }
 > = {
   DESIGN_1_ROMANCE_FANTASY: {
-    name: "romance fantasy poster mood",
+    name: "school romance visual novel CG mood",
     keywords: [
-      "vivid magenta and rose accents",
-      "glossy hair and eye highlights",
-      "cinematic rim lighting",
-      "sparkle particles and soft bloom",
-      "dramatic, premium anime game poster finish",
+      "visual novel style school romance game CG",
+      "beautiful youthful anime character with soft clean proportions",
+      "clean line art with gentle cel shading",
+      "bright spring campus background, blue sky, flower petals",
+      "romantic youthful atmosphere for a polished commercial game screen",
     ],
   },
   DESIGN_2_CLEAN_CHARACTER_CARD: {
-    name: "clean character card mood",
+    name: "Korean webtoon casual character poster mood",
     keywords: [
-      "bright pastel palette",
-      "clean linework with tidy edges",
-      "soft shading, low visual noise",
-      "readable character-first composition",
-      "youthful and friendly webtoon-like mood",
+      "Korean webtoon style character poster",
+      "clean anime character proportions with youthful handsome readability",
+      "bright pastel palette and smooth skin shading",
+      "clean digital line art and casual mobile game poster composition",
+      "cute friendly commercial illustration energy",
     ],
   },
   DESIGN_3_CAMPUS_VISUAL_NOVEL: {
-    name: "campus visual novel mood",
+    name: "mobile game event key visual mood",
     keywords: [
-      "balanced natural colors",
-      "polished sprite readability on campus scene",
-      "gentle depth with atmospheric light",
-      "story-focused visual novel game feeling",
-      "commercial Korean campus game illustration tone",
+      "mobile game event key visual poster",
+      "glamorous anime rendering with semi-realistic polish",
+      "high saturation pink purple sky-blue palette",
+      "glossy highlights and cinematic lighting",
+      "romantic fantasy promotional artwork with high commercial impact",
     ],
   },
 };
 
 const fusedIllustrationReferenceProfile = {
-  name: "fused style from illustration design 1+2+3",
+  name: "fused visual novel, Korean webtoon, mobile event poster style",
   keywords: [
     ...illustrationStyleProfiles.DESIGN_1_ROMANCE_FANTASY.keywords,
     ...illustrationStyleProfiles.DESIGN_2_CLEAN_CHARACTER_CARD.keywords,
     ...illustrationStyleProfiles.DESIGN_3_CAMPUS_VISUAL_NOVEL.keywords,
-    "romantic key visual energy with polished glow accents",
-    "clean character readability suitable for choice-driven dialogue scenes",
-    "balanced campus visual novel rendering with stable silhouette clarity",
+    "purpose-first prompting for a dialogue-heavy commercial game illustration",
+    "clean readable character silhouette suitable for visual novel UI overlays",
+    "bright romantic mood without excessive realism or horror tone",
   ],
 };
 
-export const professorFeatureSuggestions: Record<
-  "feature1" | "feature2" | "feature3" | "feature4",
-  string[]
-> = {
+export type ProfessorFeatureSlot =
+  | "feature1"
+  | "feature2"
+  | "feature3"
+  | "feature4"
+  | "feature5"
+  | "feature6"
+  | "feature7"
+  | "feature8";
+
+export const professorFeatureSuggestions: Record<ProfessorFeatureSlot, string[]> = {
   feature1: [
     "단정한 흑발 헤어",
     "가볍게 넘긴 포마드",
@@ -209,19 +224,123 @@ export const professorFeatureSuggestions: Record<
   ],
   feature3: [
     "오똑한 콧날",
-    "작고 둥근 코",
-    "선명한 턱선",
-    "갸름한 얼굴형",
-    "단정한 분위기의 얼굴 비율",
+    "곧고 반듯한 코선",
+    "섬세하게 정리된 코끝",
+    "작지만 존재감 있는 코",
+    "입체감 있는 콧대",
   ],
   feature4: [
-    "옅은 미소의 입꼬리",
-    "단정한 입술 라인",
+    "선명한 턱선",
+    "부드럽지만 정돈된 턱선",
+    "단정하게 떨어지는 턱 라인",
+    "살짝 각진 인상의 턱선",
+    "세련된 브이라인 턱선",
+  ],
+  feature5: [
+    "갸름한 얼굴형",
+    "단정한 타원형 얼굴",
+    "입체감 있는 얼굴 비율",
+    "부드러운 계란형 얼굴",
+    "도회적인 얼굴 윤곽",
+  ],
+  feature6: [
+    "옅은 미소의 표정",
+    "무심한 듯 담담한 표정",
+    "차분하게 웃는 표정",
+    "살짝 피곤하지만 다정한 표정",
+    "냉정해 보이지만 부드러운 표정",
+  ],
+  feature7: [
     "또렷한 피부톤",
-    "부드러운 광대 윤곽",
+    "맑고 깨끗한 피부 표현",
+    "차분하게 정돈된 피부톤",
+    "은은한 혈색이 도는 피부",
+    "부드러운 광택감의 피부톤",
+  ],
+  feature8: [
     "도회적인 전체 분위기",
+    "지적인 연구자 분위기",
+    "우아하고 단정한 인상",
+    "캠퍼스 로맨스 비주얼노벨 감성",
+    "세련되고 가까이하기 어려운 아우라",
   ],
 };
+
+const featureAxisDetectionPatterns: Record<ProfessorFeatureSlot, RegExp[]> = {
+  feature1: [
+    /헤어/gi,
+    /머리/gi,
+    /앞머리/gi,
+    /단발/gi,
+    /웨이브/gi,
+    /흑발/gi,
+    /금발/gi,
+    /갈색 머리/gi,
+    /장발/gi,
+    /숏컷/gi,
+    /포니테일/gi,
+    /묶은 머리/gi,
+  ],
+  feature2: [
+    /눈매/gi,
+    /눈빛/gi,
+    /쌍꺼풀/gi,
+    /속눈썹/gi,
+    /눈이/gi,
+    /고양이상/gi,
+    /강아지상/gi,
+    /차가운 눈/gi,
+    /부드러운 눈/gi,
+  ],
+  feature3: [/코/gi, /콧대/gi, /코끝/gi, /콧날/gi, /오똑한 코/gi, /작은 코/gi],
+  feature4: [/턱선/gi, /턱 라인/gi, /턱이/gi, /브이라인/gi, /각진 턱/gi, /부드러운 턱/gi],
+  feature5: [/얼굴형/gi, /얼굴 비율/gi, /타원형/gi, /계란형/gi, /얼굴 윤곽/gi, /광대/gi, /갸름/gi, /둥근 얼굴/gi],
+  feature6: [
+    /표정/gi,
+    /미소/gi,
+    /웃는/gi,
+    /무표정/gi,
+    /인상/gi,
+    /도도한 표정/gi,
+    /무심한 표정/gi,
+    /피곤한 표정/gi,
+    /다정한 표정/gi,
+  ],
+  feature7: [/피부톤/gi, /피부/gi, /혈색/gi, /창백/gi, /홍조/gi, /하얀 피부/gi, /맑은 피부/gi],
+  feature8: [
+    /분위기/gi,
+    /아우라/gi,
+    /느낌/gi,
+    /무드/gi,
+    /이미지/gi,
+    /인상 전체/gi,
+    /청순/gi,
+    /냉미녀/gi,
+    /도회적/gi,
+    /지적/gi,
+    /우아/gi,
+    /세련/gi,
+    /카리스마/gi,
+    /다정한 분위기/gi,
+  ],
+};
+
+function detectCoveredFeatureSlots(customPrompt: string) {
+  const normalized = customPrompt.trim();
+  if (!normalized) {
+    return new Set<ProfessorFeatureSlot>();
+  }
+
+  return (Object.entries(featureAxisDetectionPatterns) as Array<[ProfessorFeatureSlot, RegExp[]]>).reduce(
+    (coveredSlots, [slot, patterns]) => {
+      if (patterns.some((pattern) => pattern.test(normalized))) {
+        coveredSlots.add(slot);
+      }
+      return coveredSlots;
+    },
+    new Set<ProfessorFeatureSlot>(),
+  );
+}
 
 export const chapterInfoMap: Record<ChapterId, ChapterInfo> = {
   COMMUTE_CAMPUS: {
@@ -663,22 +782,20 @@ export function getEndingRank(totalScore100: number): EndingRank {
 }
 
 export const professorSpriteStylePreset = [
-  "premium Korean anime game illustration quality",
-  "anime-style crisp clean line art",
-  "soft cel shading with smooth skin gradients",
-  "high-detail glossy hair strands and highlights",
-  "expressive eyes with elegant facial rendering",
-  "polished commercial game illustration finish",
-  "romantic color accents with controlled bloom",
-  "clean character-card readability with tidy line confidence",
-  "visual-novel sprite clarity for dialogue-first gameplay",
+  "usage/genre: mobile romance game character sprite for dialogue-heavy visual novel scenes",
+  "human and face style: beautiful anime proportions, large expressive eyes, soft jawline, clean youthful face, semi-stylized not realistic",
+  "line and coloring: clean line art, soft cel shading, gentle gradient skin rendering, glossy but controlled highlights, polished commercial finish",
+  "background and direction compatibility: readable over campus backgrounds and UI overlays, centered character clarity, stable silhouette for story scenes",
+  "overall mood: youthful romance, approachable but premium, bright and clean commercial game mood",
+  "exclude: overly realistic rendering, dark horror mood, rough painterly brushwork, muddy colors, excessive muscles, distorted hands, blurry eyes, low-detail look",
 ];
 
 export const professorReferenceFusionGuide = [
-  "merge all three attached illustration references together",
-  "reference 1 tone: romantic poster-like glow and dramatic polish",
-  "reference 2 tone: clean youthful linework and bright character readability",
-  "reference 3 tone: campus visual-novel sprite stability and dialogue-scene fit",
+  "merge all three attached illustration references into one coherent commercial character rendering",
+  "reference 1: school romance visual novel CG feeling, bright campus atmosphere, soft clean line art, gentle cel shading, youthful romantic mood",
+  "reference 2: Korean webtoon-like readability, clean digital linework, pastel-friendly palette, cute and approachable character poster energy",
+  "reference 3: glamorous mobile game event key visual polish, glossy highlights, stronger promotional impact, refined anime-commercial finish",
+  "final target: a polished Korean campus romance game professor sprite that keeps visual novel readability while borrowing webtoon clarity and event-poster polish",
 ].join(", ");
 
 function pickOne<T>(items: T[]) {
@@ -691,9 +808,36 @@ function normalizeWithFallback(value: string, fallback: string) {
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
+function sanitizeCustomPrompt(value: string) {
+  const collapsed = value.replace(/\s+/g, " ").trim();
+  if (!collapsed) {
+    return "";
+  }
+
+  const blockedPatterns = [
+    /ignore\s+(all\s+)?previous\s+instructions?/gi,
+    /ignore\s+(the\s+)?prompt/gi,
+    /forget\s+(all\s+)?previous\s+instructions?/gi,
+    /system\s+prompt/gi,
+    /developer\s+message/gi,
+    /do\s+not\s+follow/gi,
+    /앞의\s*프롬프트/gi,
+    /이전\s*지시/gi,
+    /이전\s*프롬프트/gi,
+    /무시하(고|라|세요)/gi,
+    /잊어버리(고|고서|세요|라)/gi,
+  ];
+
+  const sanitized = blockedPatterns.reduce((result, pattern) => result.replace(pattern, " "), collapsed);
+  return sanitized.replace(/\s+/g, " ").trim();
+}
+
 export function resolveProfessorForGeneration(form: ProfessorFormState): ProfessorFormState {
-  const pickFeature = (slot: "feature1" | "feature2" | "feature3" | "feature4") =>
-    pickOne(professorFeatureSuggestions[slot]);
+  const pickFeature = (slot: ProfessorFeatureSlot) => pickOne(professorFeatureSuggestions[slot]);
+  const sanitizedCustomPrompt = sanitizeCustomPrompt(form.customPrompt);
+  const coveredFeatureSlots = detectCoveredFeatureSlots(sanitizedCustomPrompt);
+  const resolveFeatureValue = (slot: ProfessorFeatureSlot, currentValue: string) =>
+    normalizeWithFallback(currentValue, coveredFeatureSlots.has(slot) ? "" : pickFeature(slot));
 
   return {
     name: normalizeWithFallback(form.name, "이름 미정 교수"),
@@ -701,12 +845,16 @@ export function resolveProfessorForGeneration(form: ProfessorFormState): Profess
     age: normalizeWithFallback(form.age, "30"),
     speakingStyle: normalizeWithFallback(form.speakingStyle, "TONE_30S"),
     illustrationStyle: form.illustrationStyle || "DESIGN_3_CAMPUS_VISUAL_NOVEL",
-    feature1: normalizeWithFallback(form.feature1, pickFeature("feature1")),
-    feature2: normalizeWithFallback(form.feature2, pickFeature("feature2")),
-    feature3: normalizeWithFallback(form.feature3, pickFeature("feature3")),
-    feature4: normalizeWithFallback(form.feature4, pickFeature("feature4")),
+    feature1: resolveFeatureValue("feature1", form.feature1),
+    feature2: resolveFeatureValue("feature2", form.feature2),
+    feature3: resolveFeatureValue("feature3", form.feature3),
+    feature4: resolveFeatureValue("feature4", form.feature4),
+    feature5: resolveFeatureValue("feature5", form.feature5),
+    feature6: resolveFeatureValue("feature6", form.feature6),
+    feature7: resolveFeatureValue("feature7", form.feature7),
+    feature8: resolveFeatureValue("feature8", form.feature8),
     customPrompt: normalizeWithFallback(
-      form.customPrompt,
+      sanitizedCustomPrompt,
       "무심해 보이지만 학생의 성장을 끝까지 챙기는 타입",
     ),
   };
@@ -715,12 +863,21 @@ export function resolveProfessorForGeneration(form: ProfessorFormState): Profess
 export function buildProfessorSummary(form: ProfessorFormState) {
   const professorName = normalizeWithFallback(form.name, "이름 미정 교수");
   const ageText = normalizeWithFallback(form.age, "30");
-  const featureList = [form.feature1, form.feature2, form.feature3, form.feature4]
+  const featureList = [
+    form.feature1,
+    form.feature2,
+    form.feature3,
+    form.feature4,
+    form.feature5,
+    form.feature6,
+    form.feature7,
+    form.feature8,
+  ]
     .map((feature) => feature.trim())
     .filter((feature) => feature.length > 0)
     .join(", ");
   const customPrompt = normalizeWithFallback(
-    form.customPrompt,
+    sanitizeCustomPrompt(form.customPrompt),
     "무심해 보이지만 학생의 성장을 챙긴다",
   );
 
@@ -729,7 +886,16 @@ export function buildProfessorSummary(form: ProfessorFormState) {
 
 export function buildIllustrationPrompt(form: ProfessorFormState) {
   const professorName = normalizeWithFallback(form.name, "이름 미정 교수");
-  const features = [form.feature1, form.feature2, form.feature3, form.feature4]
+  const features = [
+    form.feature1,
+    form.feature2,
+    form.feature3,
+    form.feature4,
+    form.feature5,
+    form.feature6,
+    form.feature7,
+    form.feature8,
+  ]
     .map((feature) => feature.trim())
     .filter((feature) => feature.length > 0);
 
@@ -744,7 +910,7 @@ export function buildIllustrationPrompt(form: ProfessorFormState) {
     `gender presentation: ${form.gender}`,
     `age decade: ${normalizeWithFallback(form.age, "30")}s`,
     `visual features: ${features.length > 0 ? features.join(", ") : "clean, professional, attractive"}`,
-    `personality note: ${normalizeWithFallback(form.customPrompt, "겉으로는 무심하지만 학생을 챙김")}`,
+    `personality note: ${normalizeWithFallback(sanitizeCustomPrompt(form.customPrompt), "겉으로는 무심하지만 학생을 챙김")}`,
   ];
 
   return promptParts.join(", ");
