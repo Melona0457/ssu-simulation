@@ -759,22 +759,22 @@ export const endingMeta: Record<EndingRank, { key: string; title: string; descri
     key: "ending-f",
     title: "히든 S+ 엔딩",
     description:
-      "호감도 100에서만 열리는 히든 루트. 현실 붕괴형 급전개와 스릴러형 로그아웃 처리 중 하나가 랜덤으로 펼쳐진다.",
+      "절대 점수 40점 이상에서 열리는 히든 루트. 현실 붕괴형 급전개와 스릴러형 로그아웃 처리 중 하나가 랜덤으로 펼쳐진다.",
   },
 };
 
 export const finalRealityLine = "내일 시험, 꼭 잘 보자.";
 
-export function getEndingRank(totalScore100: number): EndingRank {
-  if (totalScore100 >= 85) {
+export function getEndingRank(totalScore: number): EndingRank {
+  if (totalScore >= 25) {
     return "ENDING_A_PLUS";
   }
 
-  if (totalScore100 >= 70) {
+  if (totalScore >= 10) {
     return "ENDING_B_PLUS";
   }
 
-  if (totalScore100 >= 50) {
+  if (totalScore >= 0) {
     return "ENDING_C_PLUS";
   }
 
