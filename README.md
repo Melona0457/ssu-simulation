@@ -52,6 +52,11 @@ BG_API_TIMEOUT_MS=45000
 MONITORING_ADMIN_SECRET=your_monitoring_admin_secret
 MONITORING_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/your_webhook
 CRON_SECRET=your_vercel_cron_secret
+VERCEL_API_TOKEN=your_vercel_api_token
+VERCEL_TEAM_ID=your_vercel_team_id
+# 또는 VERCEL_TEAM_SLUG=your_vercel_team_slug
+SUPABASE_MANAGEMENT_API_TOKEN=your_supabase_management_api_token
+# 또는 SUPABASE_PROJECT_REF=your_project_ref
 ```
 
 주의:
@@ -86,6 +91,10 @@ Vercel에 배포할 때도 같은 환경 변수를 프로젝트 설정에 넣으
 - `MONITORING_ADMIN_SECRET` (관리자 요약 API 보호용)
 - `MONITORING_DISCORD_WEBHOOK_URL` (Discord 자동 경고 전송)
 - `CRON_SECRET` (Vercel cron 인증)
+- `VERCEL_API_TOKEN` (Vercel billing snapshot)
+- `VERCEL_TEAM_ID` 또는 `VERCEL_TEAM_SLUG` (팀 프로젝트면 권장)
+- `SUPABASE_MANAGEMENT_API_TOKEN` (Supabase API 요청 집계)
+- `SUPABASE_PROJECT_REF` (없으면 `NEXT_PUBLIC_SUPABASE_URL`에서 자동 추출 시도)
 
 ## 자동 모니터링
 
@@ -101,6 +110,16 @@ Vercel에 배포할 때도 같은 환경 변수를 프로젝트 설정에 넣으
 - 최근 이미지 생성 평균 지연 시간
 - 배경 제거 서버 `/health` 상태
 - 임계치 초과 시 Discord 웹훅 경고
+
+`/admin/monitoring` 페이지에서는 앱 내부 상태와 플랫폼 사용량을 구분해서 보여줍니다.
+
+- 앱 상태: 이미지 생성, BG 서버, 자동 경고, 최근 오류
+- 플랫폼 사용량: Vercel billing snapshot, Supabase storage/API 요청 snapshot
+
+주의:
+
+- Vercel 스냅샷은 현재 공식 billing API 기준이라 팀/계정 범위 집계에 가깝습니다.
+- Supabase storage 크기는 `storage.objects` 메타데이터 합산 기준이며 오브젝트가 매우 많으면 근사치로 표시될 수 있습니다.
 
 ## GitHub Actions 모니터링
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMonitoringSummary, verifyMonitoringAdminAccess } from "@/lib/monitoring/server";
+import { getPlatformMonitoringSummary } from "@/lib/monitoring/platform";
 
 export async function GET(request: Request) {
   const access = verifyMonitoringAdminAccess(request);
@@ -14,8 +15,14 @@ export async function GET(request: Request) {
   }
 
   try {
-    const summary = await getMonitoringSummary();
-    return NextResponse.json(summary);
+    const [summary, platform] = await Promise.all([
+      getMonitoringSummary(),
+      getPlatformMonitoringSummary(),
+    ]);
+    return NextResponse.json({
+      ...summary,
+      platform,
+    });
   } catch (error) {
     return NextResponse.json(
       {

@@ -8,6 +8,7 @@ type MonitoringEventType =
   | "professor_image_generation"
   | "bg_health_check"
   | "monitoring_alert";
+type PlatformMonitoringStatus = "ready" | "partial" | "setup_required" | "error";
 
 type MonitoringSummaryResponse = {
   enabled: boolean;
@@ -48,6 +49,48 @@ type MonitoringSummaryResponse = {
     bgHealthErrors: number;
     alertTotal: number;
   }>;
+  platform: {
+    generatedAt: string;
+    notes: string[];
+    vercel: {
+      status: PlatformMonitoringStatus;
+      message: string;
+      scopeLabel: string | null;
+      periodStart: string | null;
+      periodEnd: string | null;
+      totalBilledCost: number | null;
+      totalEffectiveCost: number | null;
+      services: Array<{
+        name: string;
+        billedCost: number | null;
+        effectiveCost: number | null;
+        usageQuantity: number | null;
+        usageUnit: string | null;
+      }>;
+      rawLineCount: number;
+      updatedAt: string;
+      setup: string[];
+    };
+    supabase: {
+      status: PlatformMonitoringStatus;
+      message: string;
+      projectRef: string | null;
+      storageObjectCount: number | null;
+      storageBucketCount: number | null;
+      approxStorageBytes: number | null;
+      storageScanTruncated: boolean;
+      requestBreakdown: {
+        totalRequests: number | null;
+        authRequests: number | null;
+        realtimeRequests: number | null;
+        restRequests: number | null;
+        storageRequests: number | null;
+        windowLabel: string;
+      } | null;
+      updatedAt: string;
+      setup: string[];
+    };
+  };
 };
 
 type MonitoringEventPayload = {
@@ -111,6 +154,47 @@ function formatDuration(value: number | null) {
   return typeof value === "number" ? `${value}ms` : "-";
 }
 
+function formatNumber(value: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  return new Intl.NumberFormat("ko-KR").format(value);
+}
+
+function formatCurrency(value: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  return new Intl.NumberFormat("ko-KR", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatBytes(value: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return "-";
+  }
+
+  if (value < 1024) {
+    return `${value}B`;
+  }
+
+  const units = ["KB", "MB", "GB", "TB"];
+  let currentValue = value / 1024;
+  let unitIndex = 0;
+
+  while (currentValue >= 1024 && unitIndex < units.length - 1) {
+    currentValue /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${currentValue.toFixed(currentValue >= 10 ? 1 : 2)}${units[unitIndex]}`;
+}
+
 function getStatusTone(status: MonitoringStatus | "info") {
   if (status === "success") {
     return styles.statusSuccess;
@@ -125,6 +209,64 @@ function getStatusTone(status: MonitoringStatus | "info") {
   }
 
   return styles.statusInfo;
+}
+
+function getPlatformTone(status: PlatformMonitoringStatus) {
+  if (status === "ready") {
+    return styles.statusSuccess;
+  }
+
+  if (status === "partial") {
+    return styles.statusWarning;
+  }
+
+  if (status === "error") {
+    return styles.statusError;
+  }
+
+  return styles.statusInfo;
+}
+
+function getPlatformStatusLabel(status: PlatformMonitoringStatus) {
+  if (status === "ready") {
+    return "정상";
+  }
+
+  if (status === "partial") {
+    return "부분 연결";
+  }
+
+  if (status === "error") {
+    return "오류";
+  }
+
+  return "설정 필요";
+}
+
+function formatAxisHour(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
+function shouldShowAxisLabel(index: number, total: number, value: string) {
+  if (index === 0 || index === total - 1) {
+    return true;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return index % 2 === 0;
+  }
+
+  return date.getHours() % 2 === 0 || date.getHours() === 0;
 }
 
 async function fetchWithSecret<T>(
@@ -249,6 +391,10 @@ export function MonitoringDashboard() {
     1,
     ...generationSeries.map((bucket) => bucket.bgHealthErrors + bucket.alertTotal),
   );
+  const chartColumnCount = Math.max(1, generationSeries.length);
+  const chartMinWidth = Math.max(chartColumnCount * 42, 720);
+  const vercelPlatform = summary?.platform.vercel;
+  const supabasePlatform = summary?.platform.supabase;
 
   return (
     <main className={styles.page}>
@@ -257,7 +403,7 @@ export function MonitoringDashboard() {
           <p className={styles.eyebrow}>Admin Monitoring</p>
           <h1 className={styles.title}>실시간 운영 상태 대시보드</h1>
           <p className={styles.description}>
-            이미지 생성, 배경 제거 서버 상태, 최근 경고를 브라우저에서 바로 확인할 수 있습니다.
+            앱 내부 이벤트와 Vercel/Supabase 플랫폼 스냅샷을 한 화면에서 나눠 확인할 수 있습니다.
           </p>
         </section>
 
@@ -323,193 +469,435 @@ export function MonitoringDashboard() {
 
         {summary ? (
           <>
-            <section className={styles.grid}>
-              <article className={styles.card}>
-                <p className={styles.cardLabel}>최근 {summary.lookbackHours}시간 생성 수</p>
-                <p className={styles.cardValue}>{summary.totals.generationCount}</p>
-                <p className={styles.cardMeta}>
-                  성공 {summary.totals.generationSuccessCount} / 경고 {summary.totals.generationWarningCount} / 오류{" "}
-                  {summary.totals.generationErrorCount}
+            <section className={styles.sectionBlock}>
+              <div className={styles.blockHeader}>
+                <div>
+                  <p className={styles.blockEyebrow}>App Monitoring</p>
+                  <h2 className={styles.blockTitle}>앱 상태</h2>
+                </div>
+                <p className={styles.blockDescription}>
+                  최근 {summary.lookbackHours}시간 기준 이미지 생성, BG 서버, 자동 경고를 요약합니다.
                 </p>
-              </article>
-              <article className={styles.card}>
-                <p className={styles.cardLabel}>실패율</p>
-                <p className={styles.cardValue}>{formatPercent(summary.totals.generationErrorRate)}</p>
-                <p className={styles.cardMeta}>평균 생성 시간 {summary.totals.averageGenerationDurationMs ?? "-"}ms</p>
-              </article>
-              <article className={styles.card}>
-                <p className={styles.cardLabel}>BG 헬스체크</p>
-                <p className={styles.cardValue}>{summary.totals.bgHealthCheckCount}</p>
-                <p className={styles.cardMeta}>오류 {summary.totals.bgHealthErrorCount}건</p>
-              </article>
-              <article className={styles.card}>
-                <p className={styles.cardLabel}>최신 기준 시각</p>
-                <p className={styles.cardValueSmall}>{toLocalDateTime(summary.generatedAt)}</p>
-                <p className={styles.cardMeta}>
-                  총 이벤트 {summary.totals.allEvents}건
-                </p>
-              </article>
-            </section>
+              </div>
 
-            <section className={styles.chartGrid}>
-              <article className={styles.panel}>
-                <div className={styles.sectionHeader}>
-                  <h2 className={styles.sectionTitle}>시간대별 이미지 생성</h2>
-                  <p className={styles.sectionHint}>성공/경고/오류를 한눈에 확인</p>
-                </div>
-                {generationSeries.length > 0 ? (
-                  <div className={styles.chartFrame}>
-                    {generationSeries.map((bucket) => {
-                      const totalHeight = bucket.generationTotal > 0
-                        ? `${Math.max((bucket.generationTotal / generationMax) * 100, 6)}%`
-                        : "0%";
-                      const successHeight =
-                        bucket.generationTotal > 0
-                          ? `${(bucket.generationSuccess / bucket.generationTotal) * 100}%`
-                          : "0%";
-                      const warningHeight =
-                        bucket.generationTotal > 0
-                          ? `${(bucket.generationWarning / bucket.generationTotal) * 100}%`
-                          : "0%";
-                      const errorHeight =
-                        bucket.generationTotal > 0
-                          ? `${(bucket.generationError / bucket.generationTotal) * 100}%`
-                          : "0%";
+              <section className={styles.grid}>
+                <article className={styles.card}>
+                  <p className={styles.cardLabel}>최근 {summary.lookbackHours}시간 생성 수</p>
+                  <p className={styles.cardValue}>{summary.totals.generationCount}</p>
+                  <p className={styles.cardMeta}>
+                    성공 {summary.totals.generationSuccessCount} / 경고 {summary.totals.generationWarningCount} / 오류{" "}
+                    {summary.totals.generationErrorCount}
+                  </p>
+                </article>
+                <article className={styles.card}>
+                  <p className={styles.cardLabel}>실패율</p>
+                  <p className={styles.cardValue}>{formatPercent(summary.totals.generationErrorRate)}</p>
+                  <p className={styles.cardMeta}>평균 생성 시간 {summary.totals.averageGenerationDurationMs ?? "-"}ms</p>
+                </article>
+                <article className={styles.card}>
+                  <p className={styles.cardLabel}>BG 헬스체크</p>
+                  <p className={styles.cardValue}>{summary.totals.bgHealthCheckCount}</p>
+                  <p className={styles.cardMeta}>오류 {summary.totals.bgHealthErrorCount}건</p>
+                </article>
+                <article className={styles.card}>
+                  <p className={styles.cardLabel}>최신 기준 시각</p>
+                  <p className={styles.cardValueSmall}>{toLocalDateTime(summary.generatedAt)}</p>
+                  <p className={styles.cardMeta}>총 이벤트 {summary.totals.allEvents}건</p>
+                </article>
+              </section>
 
-                      return (
-                        <div key={bucket.isoHour} className={styles.chartColumn}>
-                          <div
-                            className={styles.stackedBar}
-                            title={`${bucket.label} / 전체 ${bucket.generationTotal}건 / 성공 ${bucket.generationSuccess} / 경고 ${bucket.generationWarning} / 오류 ${bucket.generationError}`}
-                            style={{ height: totalHeight }}
-                          >
-                            <span
-                              className={`${styles.barSegment} ${styles.barSuccess}`}
-                              style={{ height: successHeight }}
-                            />
-                            <span
-                              className={`${styles.barSegment} ${styles.barWarning}`}
-                              style={{ height: warningHeight }}
-                            />
-                            <span
-                              className={`${styles.barSegment} ${styles.barError}`}
-                              style={{ height: errorHeight }}
-                            />
-                          </div>
-                          <span className={styles.chartLabel}>{bucket.label}</span>
-                        </div>
-                      );
-                    })}
+              <section className={styles.chartGrid}>
+                <article className={styles.panel}>
+                  <div className={styles.sectionHeader}>
+                    <h2 className={styles.sectionTitle}>시간대별 이미지 생성</h2>
+                    <p className={styles.sectionHint}>성공/경고/오류를 막대 하나에 누적</p>
                   </div>
-                ) : (
-                  <p className={styles.emptyState}>차트를 그릴 데이터가 아직 없습니다.</p>
-                )}
-              </article>
-
-              <article className={styles.panel}>
-                <div className={styles.sectionHeader}>
-                  <h2 className={styles.sectionTitle}>시간대별 지연/이상 징후</h2>
-                  <p className={styles.sectionHint}>평균 생성 시간과 BG/알림 이벤트</p>
-                </div>
-                {generationSeries.length > 0 ? (
-                  <div className={styles.chartFrame}>
-                    {generationSeries.map((bucket) => {
-                      const durationHeight = bucket.averageGenerationDurationMs
-                        ? `${Math.max((bucket.averageGenerationDurationMs / durationMax) * 100, 6)}%`
-                        : "0%";
-                      const incidentHeight =
-                        bucket.bgHealthErrors + bucket.alertTotal > 0
-                          ? `${Math.max(((bucket.bgHealthErrors + bucket.alertTotal) / incidentMax) * 100, 6)}%`
-                          : "0%";
-
-                      return (
-                        <div key={`${bucket.isoHour}-latency`} className={styles.dualColumn}>
-                          <div className={styles.dualBars}>
-                            <div
-                              className={`${styles.slimBar} ${styles.barLatency}`}
-                              title={`${bucket.label} / 평균 생성 시간 ${formatDuration(bucket.averageGenerationDurationMs)}`}
-                              style={{ height: durationHeight }}
-                            />
-                            <div
-                              className={`${styles.slimBar} ${styles.barIncident}`}
-                              title={`${bucket.label} / BG 오류 ${bucket.bgHealthErrors} / 경고 ${bucket.alertTotal}`}
-                              style={{ height: incidentHeight }}
-                            />
-                          </div>
-                          <span className={styles.chartLabel}>{bucket.label}</span>
-                        </div>
-                      );
-                    })}
+                  <div className={styles.chartLegend}>
+                    <span className={styles.legendItem}>
+                      <span className={`${styles.legendDot} ${styles.legendSuccess}`} />
+                      성공
+                    </span>
+                    <span className={styles.legendItem}>
+                      <span className={`${styles.legendDot} ${styles.legendWarning}`} />
+                      경고
+                    </span>
+                    <span className={styles.legendItem}>
+                      <span className={`${styles.legendDot} ${styles.legendError}`} />
+                      오류
+                    </span>
                   </div>
-                ) : (
-                  <p className={styles.emptyState}>차트를 그릴 데이터가 아직 없습니다.</p>
-                )}
-              </article>
-            </section>
+                  {generationSeries.length > 0 ? (
+                    <div className={styles.chartScroller}>
+                      <div
+                        className={styles.chartFrame}
+                        style={{
+                          gridTemplateColumns: `repeat(${chartColumnCount}, minmax(36px, 1fr))`,
+                          minWidth: `${chartMinWidth}px`,
+                        }}
+                      >
+                        {generationSeries.map((bucket, index) => {
+                          const totalHeight = bucket.generationTotal > 0
+                            ? `${Math.max((bucket.generationTotal / generationMax) * 100, 6)}%`
+                            : "0%";
+                          const successHeight =
+                            bucket.generationTotal > 0
+                              ? `${(bucket.generationSuccess / bucket.generationTotal) * 100}%`
+                              : "0%";
+                          const warningHeight =
+                            bucket.generationTotal > 0
+                              ? `${(bucket.generationWarning / bucket.generationTotal) * 100}%`
+                              : "0%";
+                          const errorHeight =
+                            bucket.generationTotal > 0
+                              ? `${(bucket.generationError / bucket.generationTotal) * 100}%`
+                              : "0%";
+                          const showLabel = shouldShowAxisLabel(index, generationSeries.length, bucket.isoHour);
 
-            <section className={styles.detailGrid}>
-              <article className={styles.panel}>
-                <div className={styles.sectionHeader}>
-                  <h2 className={styles.sectionTitle}>최신 이벤트</h2>
-                </div>
-                <div className={styles.eventList}>
-                  <div className={styles.eventItem}>
-                    <div className={styles.eventTop}>
-                      <p className={styles.eventTitle}>이미지 생성</p>
-                      <span className={`${styles.statusPill} ${getStatusTone(generation?.status ?? "info")}`}>
-                        {generation?.status ?? "기록 없음"}
-                      </span>
-                    </div>
-                    <p className={styles.eventMeta}>
-                      {generation ? toLocalDateTime(generation.created_at) : "-"} / {generation?.duration_ms ?? "-"}ms
-                    </p>
-                    <p className={styles.eventBody}>{generation?.error_message || "최근 오류 없음"}</p>
-                  </div>
-                  <div className={styles.eventItem}>
-                    <div className={styles.eventTop}>
-                      <p className={styles.eventTitle}>BG 서버</p>
-                      <span className={`${styles.statusPill} ${getStatusTone(bgHealth?.status ?? "info")}`}>
-                        {bgHealth?.status ?? "기록 없음"}
-                      </span>
-                    </div>
-                    <p className={styles.eventMeta}>
-                      {bgHealth ? toLocalDateTime(bgHealth.created_at) : "-"} / {bgHealth?.duration_ms ?? "-"}ms
-                    </p>
-                    <p className={styles.eventBody}>{bgHealth?.error_message || "최근 오류 없음"}</p>
-                  </div>
-                  <div className={styles.eventItem}>
-                    <div className={styles.eventTop}>
-                      <p className={styles.eventTitle}>자동 경고</p>
-                      <span className={`${styles.statusPill} ${getStatusTone(alert?.status ?? "info")}`}>
-                        {alert?.status ?? "기록 없음"}
-                      </span>
-                    </div>
-                    <p className={styles.eventMeta}>{alert ? toLocalDateTime(alert.created_at) : "-"}</p>
-                    <p className={styles.eventBody}>{alert?.error_message || "최근 경고 없음"}</p>
-                  </div>
-                </div>
-              </article>
-
-              <article className={styles.panel}>
-                <div className={styles.sectionHeader}>
-                  <h2 className={styles.sectionTitle}>최근 오류</h2>
-                </div>
-                {summary.recentErrors.length > 0 ? (
-                  <div className={styles.errorList}>
-                    {summary.recentErrors.map((entry) => (
-                      <div key={`${entry.createdAt}-${entry.eventType}-${entry.source}`} className={styles.errorItem}>
-                        <p className={styles.errorTitle}>
-                          {entry.eventType} / {entry.source}
-                        </p>
-                        <p className={styles.errorMeta}>{toLocalDateTime(entry.createdAt)}</p>
-                        <p className={styles.errorBody}>{entry.message}</p>
+                          return (
+                            <div key={bucket.isoHour} className={styles.chartColumn}>
+                              <div
+                                className={styles.stackedBar}
+                                title={`${toLocalDateTime(bucket.isoHour)} / 전체 ${bucket.generationTotal}건 / 성공 ${bucket.generationSuccess} / 경고 ${bucket.generationWarning} / 오류 ${bucket.generationError}`}
+                                style={{ height: totalHeight }}
+                              >
+                                <span
+                                  className={`${styles.barSegment} ${styles.barSuccess}`}
+                                  style={{ height: successHeight }}
+                                />
+                                <span
+                                  className={`${styles.barSegment} ${styles.barWarning}`}
+                                  style={{ height: warningHeight }}
+                                />
+                                <span
+                                  className={`${styles.barSegment} ${styles.barError}`}
+                                  style={{ height: errorHeight }}
+                                />
+                              </div>
+                              <span className={styles.chartValue}>{bucket.generationTotal}</span>
+                              <span className={styles.chartLabel}>{showLabel ? formatAxisHour(bucket.isoHour) : " "}</span>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
+                    </div>
+                  ) : (
+                    <p className={styles.emptyState}>차트를 그릴 데이터가 아직 없습니다.</p>
+                  )}
+                </article>
+
+                <article className={styles.panel}>
+                  <div className={styles.sectionHeader}>
+                    <h2 className={styles.sectionTitle}>시간대별 지연/이상 징후</h2>
+                    <p className={styles.sectionHint}>평균 생성 시간과 BG/알림 이벤트</p>
                   </div>
-                ) : (
-                  <p className={styles.emptyState}>최근 오류가 없습니다.</p>
-                )}
-              </article>
+                  <div className={styles.chartLegend}>
+                    <span className={styles.legendItem}>
+                      <span className={`${styles.legendDot} ${styles.legendLatency}`} />
+                      생성 지연
+                    </span>
+                    <span className={styles.legendItem}>
+                      <span className={`${styles.legendDot} ${styles.legendIncident}`} />
+                      BG/알림
+                    </span>
+                  </div>
+                  {generationSeries.length > 0 ? (
+                    <div className={styles.chartScroller}>
+                      <div
+                        className={styles.chartFrame}
+                        style={{
+                          gridTemplateColumns: `repeat(${chartColumnCount}, minmax(36px, 1fr))`,
+                          minWidth: `${chartMinWidth}px`,
+                        }}
+                      >
+                        {generationSeries.map((bucket, index) => {
+                          const durationHeight = bucket.averageGenerationDurationMs
+                            ? `${Math.max((bucket.averageGenerationDurationMs / durationMax) * 100, 6)}%`
+                            : "0%";
+                          const incidentHeight =
+                            bucket.bgHealthErrors + bucket.alertTotal > 0
+                              ? `${Math.max(((bucket.bgHealthErrors + bucket.alertTotal) / incidentMax) * 100, 6)}%`
+                              : "0%";
+                          const showLabel = shouldShowAxisLabel(index, generationSeries.length, bucket.isoHour);
+
+                          return (
+                            <div key={`${bucket.isoHour}-latency`} className={styles.dualColumn}>
+                              <div className={styles.dualBars}>
+                                <div
+                                  className={`${styles.slimBar} ${styles.barLatency}`}
+                                  title={`${toLocalDateTime(bucket.isoHour)} / 평균 생성 시간 ${formatDuration(bucket.averageGenerationDurationMs)}`}
+                                  style={{ height: durationHeight }}
+                                />
+                                <div
+                                  className={`${styles.slimBar} ${styles.barIncident}`}
+                                  title={`${toLocalDateTime(bucket.isoHour)} / BG 오류 ${bucket.bgHealthErrors} / 경고 ${bucket.alertTotal}`}
+                                  style={{ height: incidentHeight }}
+                                />
+                              </div>
+                              <span className={styles.chartValue}>
+                                {bucket.averageGenerationDurationMs ? `${bucket.averageGenerationDurationMs}ms` : "-"}
+                              </span>
+                              <span className={styles.chartLabel}>{showLabel ? formatAxisHour(bucket.isoHour) : " "}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className={styles.emptyState}>차트를 그릴 데이터가 아직 없습니다.</p>
+                  )}
+                </article>
+              </section>
+
+              <section className={styles.detailGrid}>
+                <article className={styles.panel}>
+                  <div className={styles.sectionHeader}>
+                    <h2 className={styles.sectionTitle}>최신 이벤트</h2>
+                  </div>
+                  <div className={styles.eventList}>
+                    <div className={styles.eventItem}>
+                      <div className={styles.eventTop}>
+                        <p className={styles.eventTitle}>이미지 생성</p>
+                        <span className={`${styles.statusPill} ${getStatusTone(generation?.status ?? "info")}`}>
+                          {generation?.status ?? "기록 없음"}
+                        </span>
+                      </div>
+                      <p className={styles.eventMeta}>
+                        {generation ? toLocalDateTime(generation.created_at) : "-"} / {generation?.duration_ms ?? "-"}ms
+                      </p>
+                      <p className={styles.eventBody}>{generation?.error_message || "최근 오류 없음"}</p>
+                    </div>
+                    <div className={styles.eventItem}>
+                      <div className={styles.eventTop}>
+                        <p className={styles.eventTitle}>BG 서버</p>
+                        <span className={`${styles.statusPill} ${getStatusTone(bgHealth?.status ?? "info")}`}>
+                          {bgHealth?.status ?? "기록 없음"}
+                        </span>
+                      </div>
+                      <p className={styles.eventMeta}>
+                        {bgHealth ? toLocalDateTime(bgHealth.created_at) : "-"} / {bgHealth?.duration_ms ?? "-"}ms
+                      </p>
+                      <p className={styles.eventBody}>{bgHealth?.error_message || "최근 오류 없음"}</p>
+                    </div>
+                    <div className={styles.eventItem}>
+                      <div className={styles.eventTop}>
+                        <p className={styles.eventTitle}>자동 경고</p>
+                        <span className={`${styles.statusPill} ${getStatusTone(alert?.status ?? "info")}`}>
+                          {alert?.status ?? "기록 없음"}
+                        </span>
+                      </div>
+                      <p className={styles.eventMeta}>{alert ? toLocalDateTime(alert.created_at) : "-"}</p>
+                      <p className={styles.eventBody}>{alert?.error_message || "최근 경고 없음"}</p>
+                    </div>
+                  </div>
+                </article>
+
+                <article className={styles.panel}>
+                  <div className={styles.sectionHeader}>
+                    <h2 className={styles.sectionTitle}>최근 오류</h2>
+                  </div>
+                  {summary.recentErrors.length > 0 ? (
+                    <div className={styles.errorList}>
+                      {summary.recentErrors.map((entry) => (
+                        <div key={`${entry.createdAt}-${entry.eventType}-${entry.source}`} className={styles.errorItem}>
+                          <p className={styles.errorTitle}>
+                            {entry.eventType} / {entry.source}
+                          </p>
+                          <p className={styles.errorMeta}>{toLocalDateTime(entry.createdAt)}</p>
+                          <p className={styles.errorBody}>{entry.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className={styles.emptyState}>최근 오류가 없습니다.</p>
+                  )}
+                </article>
+              </section>
+            </section>
+
+            <section className={styles.sectionBlock}>
+              <div className={styles.blockHeader}>
+                <div>
+                  <p className={styles.blockEyebrow}>Platform Monitoring</p>
+                  <h2 className={styles.blockTitle}>플랫폼 사용량</h2>
+                </div>
+                <p className={styles.blockDescription}>
+                  앱 이벤트와 별개로 Vercel/Supabase 쪽 스냅샷을 보여줍니다.
+                </p>
+              </div>
+
+              <section className={styles.platformGrid}>
+                <article className={styles.panel}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <h2 className={styles.sectionTitle}>Vercel Billing Snapshot</h2>
+                      <p className={styles.sectionHint}>
+                        현재는 팀/계정 billing API 기준 집계입니다.
+                      </p>
+                    </div>
+                    {vercelPlatform ? (
+                      <span className={`${styles.statusPill} ${getPlatformTone(vercelPlatform.status)}`}>
+                        {getPlatformStatusLabel(vercelPlatform.status)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {vercelPlatform ? (
+                    <>
+                      <p className={styles.platformMessage}>{vercelPlatform.message}</p>
+                      <div className={styles.platformMetrics}>
+                        <div className={styles.metricCard}>
+                          <p className={styles.metricLabel}>이번 달 billed cost</p>
+                          <p className={styles.metricValue}>{formatCurrency(vercelPlatform.totalBilledCost)}</p>
+                        </div>
+                        <div className={styles.metricCard}>
+                          <p className={styles.metricLabel}>effective cost</p>
+                          <p className={styles.metricValue}>{formatCurrency(vercelPlatform.totalEffectiveCost)}</p>
+                        </div>
+                        <div className={styles.metricCard}>
+                          <p className={styles.metricLabel}>서비스 항목</p>
+                          <p className={styles.metricValue}>{formatNumber(vercelPlatform.services.length)}</p>
+                        </div>
+                      </div>
+
+                      <div className={styles.metaList}>
+                        <p className={styles.metaRow}>범위: {vercelPlatform.scopeLabel || "-"}</p>
+                        <p className={styles.metaRow}>
+                          기간: {toLocalDateTime(vercelPlatform.periodStart)} ~ {toLocalDateTime(vercelPlatform.periodEnd)}
+                        </p>
+                        <p className={styles.metaRow}>업데이트: {toLocalDateTime(vercelPlatform.updatedAt)}</p>
+                      </div>
+
+                      {vercelPlatform.services.length > 0 ? (
+                        <div className={styles.breakdownList}>
+                          {vercelPlatform.services.map((service) => (
+                            <div key={service.name} className={styles.breakdownItem}>
+                              <div>
+                                <p className={styles.breakdownTitle}>{service.name}</p>
+                                <p className={styles.breakdownMeta}>
+                                  {service.usageQuantity !== null
+                                    ? `${formatNumber(service.usageQuantity)} ${service.usageUnit ?? ""}`.trim()
+                                    : "사용량 단위 정보 없음"}
+                                </p>
+                              </div>
+                              <p className={styles.breakdownValue}>
+                                {formatCurrency(service.effectiveCost ?? service.billedCost)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className={styles.emptyState}>표시할 billing line item이 아직 없습니다.</p>
+                      )}
+
+                      {vercelPlatform.setup.length > 0 ? (
+                        <div className={styles.inlineNotice}>
+                          <p className={styles.inlineNoticeTitle}>추가 설정 권장</p>
+                          <p className={styles.inlineNoticeBody}>{vercelPlatform.setup.join(", ")}</p>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className={styles.emptyState}>Vercel 플랫폼 스냅샷을 아직 불러오지 못했습니다.</p>
+                  )}
+                </article>
+
+                <article className={styles.panel}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <h2 className={styles.sectionTitle}>Supabase Usage Snapshot</h2>
+                      <p className={styles.sectionHint}>
+                        storage.objects 기준 저장 용량과 Management API 요청 집계를 함께 표시합니다.
+                      </p>
+                    </div>
+                    {supabasePlatform ? (
+                      <span className={`${styles.statusPill} ${getPlatformTone(supabasePlatform.status)}`}>
+                        {getPlatformStatusLabel(supabasePlatform.status)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {supabasePlatform ? (
+                    <>
+                      <p className={styles.platformMessage}>{supabasePlatform.message}</p>
+                      <div className={styles.platformMetrics}>
+                        <div className={styles.metricCard}>
+                          <p className={styles.metricLabel}>스토리지 크기</p>
+                          <p className={styles.metricValue}>{formatBytes(supabasePlatform.approxStorageBytes)}</p>
+                        </div>
+                        <div className={styles.metricCard}>
+                          <p className={styles.metricLabel}>오브젝트 수</p>
+                          <p className={styles.metricValue}>{formatNumber(supabasePlatform.storageObjectCount)}</p>
+                        </div>
+                        <div className={styles.metricCard}>
+                          <p className={styles.metricLabel}>버킷 수</p>
+                          <p className={styles.metricValue}>{formatNumber(supabasePlatform.storageBucketCount)}</p>
+                        </div>
+                      </div>
+
+                      <div className={styles.metaList}>
+                        <p className={styles.metaRow}>프로젝트 ref: {supabasePlatform.projectRef || "-"}</p>
+                        <p className={styles.metaRow}>업데이트: {toLocalDateTime(supabasePlatform.updatedAt)}</p>
+                        {supabasePlatform.storageScanTruncated ? (
+                          <p className={styles.metaRow}>스토리지 용량은 표본 스캔 상한 기준 근사치입니다.</p>
+                        ) : null}
+                      </div>
+
+                      {supabasePlatform.requestBreakdown ? (
+                        <div className={styles.breakdownList}>
+                          <div className={styles.breakdownItem}>
+                            <div>
+                              <p className={styles.breakdownTitle}>{supabasePlatform.requestBreakdown.windowLabel} 총 API 요청</p>
+                              <p className={styles.breakdownMeta}>Auth / REST / Storage / Realtime 합산</p>
+                            </div>
+                            <p className={styles.breakdownValue}>
+                              {formatNumber(supabasePlatform.requestBreakdown.totalRequests)}
+                            </p>
+                          </div>
+                          <div className={styles.breakdownItem}>
+                            <div>
+                              <p className={styles.breakdownTitle}>REST / Storage</p>
+                              <p className={styles.breakdownMeta}>
+                                {formatNumber(supabasePlatform.requestBreakdown.restRequests)} / {formatNumber(supabasePlatform.requestBreakdown.storageRequests)}
+                              </p>
+                            </div>
+                            <p className={styles.breakdownValue}>Data API</p>
+                          </div>
+                          <div className={styles.breakdownItem}>
+                            <div>
+                              <p className={styles.breakdownTitle}>Auth / Realtime</p>
+                              <p className={styles.breakdownMeta}>
+                                {formatNumber(supabasePlatform.requestBreakdown.authRequests)} / {formatNumber(supabasePlatform.requestBreakdown.realtimeRequests)}
+                              </p>
+                            </div>
+                            <p className={styles.breakdownValue}>Infra</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className={styles.emptyState}>Management API 요청 집계는 아직 연결되지 않았습니다.</p>
+                      )}
+
+                      {supabasePlatform.setup.length > 0 ? (
+                        <div className={styles.inlineNotice}>
+                          <p className={styles.inlineNoticeTitle}>추가 설정 필요</p>
+                          <p className={styles.inlineNoticeBody}>{supabasePlatform.setup.join(", ")}</p>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className={styles.emptyState}>Supabase 플랫폼 스냅샷을 아직 불러오지 못했습니다.</p>
+                  )}
+                </article>
+              </section>
+
+              {summary.platform.notes.length > 0 ? (
+                <section className={styles.noteList}>
+                  {summary.platform.notes.map((note) => (
+                    <p key={note} className={styles.noteItem}>
+                      {note}
+                    </p>
+                  ))}
+                </section>
+              ) : null}
             </section>
           </>
         ) : (
