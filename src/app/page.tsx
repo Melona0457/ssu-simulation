@@ -593,9 +593,9 @@ const VOICE_BASE_URL = process.env.NEXT_PUBLIC_SUPABASE_VOICE_BASE_URL?.replace(
 const AUDIO_LEVEL_STORAGE_KEY = "ssu-simulation-audio-levels-v1";
 const DEFAULT_AUDIO_LEVELS: AudioLevels = {
   master: 50,
-  bgm: 80,
-  voice: 100,
-  sfx: 100,
+  bgm: 25,
+  voice: 80,
+  sfx: 90,
 };
 const debugEndingScoreMap: Record<EndingRank, number> = {
   ENDING_A_PLUS: 95,
@@ -655,34 +655,42 @@ const GENDERED_ENDING_PROFESSOR_LINES: Record<
 > = {
   ending_aplus_main: {
     남자:
-      "자네의 사고방식은... 딱 내 연구실에 필요한 수준이야. 졸업장? 그게 무슨 의미가 있나. 내 옆에서 나와 함께 인류의 지성을 한 단계 높여보지 않겠나? 자네 자리는 이미 내 방 바로 옆에 마련해 두었네. 자, 도망갈 생각은 말고.",
+      "자네의 사고방식은... 딱 내 연구실에 필요한 수준이야. 졸업장? 그게 무슨 의미가 있나. 내 옆에서 나와 함께 세계를 구해보지 않겠나? 자, 도망갈 생각은 말고.",
     여자:
-      "당신의 사고방식… 정말 마음에 드네요. 딱 제 연구실에 필요한 수준이에요. 졸업장요? 그게 그렇게 중요한가요. 제 옆에서, 저와 함께 인류의 지성을 한 단계 끌어올려보지 않겠어요? 당신 자리는 이미 제 방 바로 옆에 마련해 두었답니다. 그러니까… 도망칠 생각은 하지 않는 게 좋겠어요.",
+      "당신의 사고방식… 정말 마음에 드네요. 딱 제 연구실에 필요한 수준이에요. 졸업장요? 그게 그렇게 중요한가요. 제 옆에서, 저와 함께 세계를 구해보지 않겠어요? 그러니까… 어서 와요.",
   },
   ending_b_main: {
     남자:
-      "아아… 자네였군. B+라, 나쁘진 않지만 결정적이진 않았어. 유감이지만… 자네는 내 기억에 남지 않는 수준이네. 결국 자네는, 내게 그저 스쳐간 학생일 뿐이지. 자, 돌아가게. 자네에게 어울리는 평범한 삶으로.",
+      "아아… 자네였군. B+라, 나쁘진 않지만 결정적이진 않았어. 유감이지만… 자네는 내 기억에 남지 않는 수준이네. 결국 자네는, 내게 그저 스쳐간 학생일 뿐이지.",
     여자:
-      "아아… 당신이었군요. B+라, 나쁘진 않지만 결정적이진 않았어요. 유감이지만… 당신은 제 기억에 남지 않는 수준이에요. 결국 당신은, 제게 그저 스쳐간 학생일 뿐이죠. 이제 그만 돌아가세요. 당신에게 어울리는 평범한 삶으로.",
+      "아아… 당신이었군요. B+라, 나쁘진 않지만 결정적이진 않았어요. 유감이지만… 당신은 제 기억에 남지 않는 수준이에요. 결국 당신은, 제게 그저 스쳐간 학생일 뿐이겠네요.",
   },
   ending_cplus_main: {
     남자:
-      "C+… C+이라. 자네, 이 점수가 뭘 의미하는지 아나? 합격도 탈락도 아닌… 내가 아직 자네에게 할 말이 남았다는 뜻일세. 학점은 거짓말을 하지 않거든. 자네, 아직 다 보여주지 않았어. 이번 학기 인연은 여기까지지만… 걱정 말게. 우린 곧, 재수강이라는 이름으로 다시 만나게 될 테니까.",
+      "C+… C+이라. 자네, 이 점수가 뭘 의미하는지 아나? 합격도 탈락도 아닌… 내가 아직 자네에게 할 말이 남았다는 뜻일세. 이번 학기 인연은 여기까지지만… 걱정 말게. 우린 곧, 재수강이라는 이름으로 다시 만나게 될 테니까.",
     여자:
-      "C+… C+이라. 당신, 이 점수가 뭘 의미하는지 아나요? 합격도 탈락도 아닌… 제가 아직 당신에게 할 말이 남았다는 뜻이에요. 학점은 거짓말을 하지 않거든요. 당신, 아직 다 보여주지 않았어요. 이번 학기 인연은 여기까지지만… 걱정 마세요. 우린 곧, 재수강이라는 이름으로 다시 만나게 될 테니까요.",
+      "C+… C+이라. 당신, 이 점수가 뭘 의미하는지 아나요? 합격도 탈락도 아닌… 제가 아직 당신에게 할 말이 남았다는 뜻이에요. 이번 학기 인연은 여기까지지만… 걱정 마세요. 우린 곧, 재수강이라는 이름으로 다시 만나게 될 테니까요.",
   },
   hidden_splus_01: {
     남자:
-      "답안지… 아주 인상 깊었네. 정답은 하나도 맞지 않았지만, 이 빽빽한 글씨… 자네의 열정과 집요함은 충분히 전해졌어. 그래서 말인데— 자네 같은 인재라면… 멋쟁이사자처럼 활동도 문제없겠어. 애니멀리그, 여름 연합 해커톤, 겨울 해커톤, 실리콘밸리 체험까지— 단 하루 만에 전부 경험하게 해주지. 자, 선택은 하나야. 지금 따라올 건가… 아니면 여기서 평범하게 남을 건가.",
+      "답안지… 아주 인상 깊었네. 정답은 하나도 맞지 않았지만, 이 빽빽한 글씨… 자네의 열정과 집요함은 충분히 전해졌어. 그래서 말인데— 자네 같은 인재라면… 멋쟁이사자가 될 수 있을 것 같네. 선택은 하나야, 지금 나와 함께 가겠나?",
     여자:
-      "답안지… 아주 인상 깊었어요. 정답은 하나도 맞지 않았지만, 이 빽빽한 글씨… 당신의 열정과 집요함은 충분히 전해졌어요. 그래서 말인데— 이런 방식으로 밀어붙이는 사람, 저는 꽤 마음에 들어요. 당신 같은 인재라면… 멋쟁이사자처럼 활동도 문제없겠죠. 애니멀리그, 여름 연합 해커톤, 겨울 해커톤, 실리콘밸리 체험까지— 단 하루 만에 전부 경험하게 해줄게요. 자, 선택은 하나예요. 지금 저랑 같이 갈래요? 아니면 여기서 평범하게 남을래요?",
+      "답안지… 아주 인상 깊었어요. 정답은 하나도 맞지 않았지만, 이 빽빽한 글씨… 당신의 열정과 집요함은 충분히 전해졌어요. 그래서 말인데— 당신 같은 인재라면… 멋쟁이사자가 되기에 충분해요. 자, 선택은 하나예요. 지금 저랑 같이 갈래요?",
   },
   hidden_splus_02: {
     남자:
-      "그… 자네 답안지의 마지막 서술형 답안 말이야. 이걸 도대체 어디서 본 거지? 그건 내가 아무에게도 공개하지 않은… 미발표 논문의 1급 기밀인데. 이런, 똑똑한 제자를 두는 건 언제나 위험이 따르는 법이지. 자네는… 너무 많은 걸 알아버렸어. …어쩔 수 없군. 여기서 정리해야겠네. 잠깐이면 끝나네. 너무 걱정하진 말게. 이건… 자네를 위한 선택이기도 하니까.",
+      "그… 자네 답안지의 마지막 서술형 답안 말이야. 이걸 도대체 어디서 본 거지? 그건 내가 아무에게도 공개하지 않은… 미발표 논문의 1급 기밀인데. 자네는… 너무 많은 걸 알아버렸어. …어쩔 수 없군. 여기서 정리해야겠네. 잠깐이면 끝나네. 너무 걱정하진 말게. 자, 눈을 감아보게나.",
     여자:
-      "그… 당신 답안지의 마지막 서술형 답안 말이에요. 이걸 도대체 어디서 본 거죠? 그건 제가 아무에게도 공개하지 않은… 미발표 논문의 1급 기밀인데요. 이런, 똑똑한 제자를 두는 건 언제나 위험이 따르는 법이네요. 당신은… 너무 많은 걸 알아버렸어요. …어쩔 수 없겠네요. 여기서 정리해야겠어요. 잠깐이면 끝나요. 너무 걱정하진 마세요. 이건… 당신을 위한 선택이기도 하니까요.",
+      "그… 당신 답안지의 마지막 서술형 답안 말이에요. 이걸 도대체 어디서 본 거죠? 그건 제가 아무에게도 공개하지 않은… 미발표 논문의 1급 기밀인데요. 당신은… 너무 많은 걸 알아버렸어요. …어쩔 수 없겠네요. 여기서 정리해야겠어요. 잠깐이면 끝나요. 너무 걱정하진 마세요. 눈을 감아볼까요?",
   },
+};
+
+const ENDING_VOICE_SLOT_BY_VARIANT: Record<string, string> = {
+  ending_aplus_main: "087",
+  ending_b_main: "088",
+  ending_cplus_main: "089",
+  hidden_splus_01: "090",
+  hidden_splus_02: "091",
 };
 
 function toDisplayPlayerName(name: string) {
@@ -854,7 +862,12 @@ function resolveProfessorScriptProfileKey(gender: string, speakingStyle: string)
 }
 
 function buildProfessorVoiceSlotPath(profileKey: string, professorLineIndex: number) {
-  return `${VOICE_BASE_URL}/${profileKey}/${String(professorLineIndex + 1).padStart(3, "0")}.wav`;
+  return `${VOICE_BASE_URL}/${profileKey}/${String(professorLineIndex + 1).padStart(3, "0")}.ogg`;
+}
+
+function buildEndingVoiceSlotPath(profileKey: string, variantId?: string) {
+  const slotNumber = variantId ? ENDING_VOICE_SLOT_BY_VARIANT[variantId] : undefined;
+  return slotNumber ? `${VOICE_BASE_URL}/${profileKey}/${slotNumber}.ogg` : "";
 }
 
 function resolveSceneLines(
@@ -1753,6 +1766,10 @@ export default function Home() {
     typeof currentLine?.professorLineIndex === "number"
       ? buildProfessorVoiceSlotPath(activeProfessorScriptProfileKey, currentLine.professorLineIndex)
       : "";
+  const currentEndingVoiceSlotPath =
+    phase === "screen9_ending" && ending?.variantId
+      ? buildEndingVoiceSlotPath(activeProfessorScriptProfileKey, ending.variantId)
+      : "";
   const professorVisualSrc =
     generatedProfessorStorySpriteUrl || generatedProfessorCutoutUrl || generatedProfessorImageUrl;
   const professorDialoguePortraitSrc =
@@ -2091,19 +2108,33 @@ export default function Home() {
   }, [currentLineSerial, effectiveSfxVolume, isSfxEnabled, phase]);
 
   useEffect(() => {
-    if (phase !== "screen4_8_chapter" || !storyCursor || pendingChoice || !isProfessorVoiceEnabled) {
+    if (!isProfessorVoiceEnabled) {
       lastProfessorVoiceTriggerRef.current = "";
       stopProfessorVoice();
       return;
     }
 
-    if (currentLine?.speaker !== "교수" || !currentProfessorVoiceSlotPath) {
+    let triggerKey = "";
+    let voicePath = "";
+
+    if (
+      phase === "screen4_8_chapter" &&
+      storyCursor &&
+      !pendingChoice &&
+      currentLine?.speaker === "교수" &&
+      currentProfessorVoiceSlotPath
+    ) {
+      triggerKey = `${storyCursor.episodeId}:${storyCursor.sceneId}:${storyCursor.lineIndex}:${currentProfessorVoiceSlotPath}`;
+      voicePath = currentProfessorVoiceSlotPath;
+    } else if (phase === "screen9_ending" && ending?.variantId && currentEndingVoiceSlotPath) {
+      triggerKey = `ending:${ending.variantId}:${currentEndingVoiceSlotPath}`;
+      voicePath = currentEndingVoiceSlotPath;
+    } else {
       lastProfessorVoiceTriggerRef.current = "";
       stopProfessorVoice();
       return;
     }
 
-    const triggerKey = `${storyCursor.episodeId}:${storyCursor.sceneId}:${storyCursor.lineIndex}:${currentProfessorVoiceSlotPath}`;
     if (lastProfessorVoiceTriggerRef.current === triggerKey) {
       return;
     }
@@ -2111,7 +2142,7 @@ export default function Home() {
     lastProfessorVoiceTriggerRef.current = triggerKey;
     stopProfessorVoice();
 
-    const voice = new Audio(currentProfessorVoiceSlotPath);
+    const voice = new Audio(voicePath);
     voice.preload = "auto";
     voice.volume = effectiveVoiceVolume;
     setIsProfessorVoicePlaying(true);
@@ -2131,8 +2162,10 @@ export default function Home() {
     });
   }, [
     currentLine?.speaker,
+    currentEndingVoiceSlotPath,
     currentProfessorVoiceSlotPath,
     effectiveVoiceVolume,
+    ending?.variantId,
     isProfessorVoiceEnabled,
     pendingChoice,
     phase,
@@ -4409,8 +4442,8 @@ export default function Home() {
               )}
 
               <div className="mt-24">
-                <p className="font-credit text-[clamp(26px,5.5vw,52px)] leading-[1.4] text-[#ffe0ec]">
-                  모두 중간고사 결과가 잘 나오길 바랍니다.
+                <p className="font-credit whitespace-nowrap text-[clamp(22px,4vw,52px)] leading-[1.4] text-[#ffe0ec]">
+                  모두 중간고사 잘 보세요 !!
                 </p>
                 <p className="mt-8 font-credit text-[clamp(34px,7vw,72px)] leading-none tracking-[0.04em] text-[#ffe0ec]">
                   THE END

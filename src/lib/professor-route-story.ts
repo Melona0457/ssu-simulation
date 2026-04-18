@@ -1084,7 +1084,7 @@ export const storyEndingCatalog: Record<StoryEndingRankKey, StoryEndingCatalogEn
         lines: [
           {
             role: "professor",
-            text: "자네의 사고방식은... 딱 내 연구실에 필요한 수준이야. 졸업장? 그게 무슨 의미가 있나. 내 옆에서 나와 함께 인류의 지성을 한 단계 높여보지 않겠나? 자네 자리는 이미 내 방 바로 옆에 마련해 두었네. 자, 도망갈 생각은 말고.",
+            text: "자네의 사고방식은... 딱 내 연구실에 필요한 수준이야. 졸업장? 그게 무슨 의미가 있나. 내 옆에서 나와 함께 세계를 구해보지 않겠나? 자, 도망갈 생각은 말고.",
           },
         ],
       },
@@ -1100,7 +1100,7 @@ export const storyEndingCatalog: Record<StoryEndingRankKey, StoryEndingCatalogEn
         lines: [
           {
             role: "professor",
-            text: "아아… 자네였군. B+라, 나쁘진 않지만 결정적이진 않았어. 유감이지만… 자네는 내 기억에 남지 않는 수준이네. 결국 자네는, 내게 그저 스쳐간 학생일 뿐이지. 자, 돌아가게. 자네에게 어울리는 평범한 삶으로.",
+            text: "아아… 자네였군. B+라, 나쁘진 않지만 결정적이진 않았어. 유감이지만… 자네는 내 기억에 남지 않는 수준이네. 결국 자네는, 내게 그저 스쳐간 학생일 뿐이지.",
           },
         ],
       },
@@ -1116,7 +1116,7 @@ export const storyEndingCatalog: Record<StoryEndingRankKey, StoryEndingCatalogEn
         lines: [
           {
             role: "professor",
-            text: "C+… C+이라. 자네, 이 점수가 뭘 의미하는지 아나? 합격도 탈락도 아닌… 내가 아직 자네에게 할 말이 남았다는 뜻일세. 학점은 거짓말을 하지 않거든. 자네, 아직 다 보여주지 않았어. 이번 학기 인연은 여기까지지만… 걱정 말게. 우린 곧, 재수강이라는 이름으로 다시 만나게 될 테니까.",
+            text: "C+… C+이라. 자네, 이 점수가 뭘 의미하는지 아나? 합격도 탈락도 아닌… 내가 아직 자네에게 할 말이 남았다는 뜻일세. 이번 학기 인연은 여기까지지만… 걱정 말게. 우린 곧, 재수강이라는 이름으로 다시 만나게 될 테니까.",
           },
         ],
       },
@@ -1132,7 +1132,7 @@ export const storyEndingCatalog: Record<StoryEndingRankKey, StoryEndingCatalogEn
         lines: [
           {
             role: "professor",
-            text: "답안지… 아주 인상 깊었네. 정답은 하나도 맞지 않았지만, 이 빽빽한 글씨… 자네의 열정과 집요함은 충분히 전해졌어. 그래서 말인데— 자네 같은 인재라면… 멋쟁이사자처럼 활동도 문제없겠어. 애니멀리그, 여름 연합 해커톤, 겨울 해커톤, 실리콘밸리 체험까지— 단 하루 만에 전부 경험하게 해주지. 자, 선택은 하나야. 지금 따라올 건가… 아니면 여기서 평범하게 남을 건가.",
+            text: "답안지… 아주 인상 깊었네. 정답은 하나도 맞지 않았지만, 이 빽빽한 글씨… 자네의 열정과 집요함은 충분히 전해졌어. 그래서 말인데— 자네 같은 인재라면… 멋쟁이사자가 될 수 있을 것 같네. 선택은 하나야, 지금 나와 함께 가겠나?",
           },
         ],
       },
@@ -1147,11 +1147,11 @@ export const storyEndingCatalog: Record<StoryEndingRankKey, StoryEndingCatalogEn
           },
           {
             role: "professor",
-            text: "이런, 똑똑한 제자를 두는 건 언제나 위험이 따르는 법이지. 자네는… 너무 많은 걸 알아버렸어. …어쩔 수 없군. 여기서 정리해야겠네.",
+            text: "자네는… 너무 많은 걸 알아버렸어. …어쩔 수 없군. 여기서 정리해야겠네.",
           },
           {
             role: "professor",
-            text: "잠깐이면 끝나네. 너무 걱정하진 말게. 이건… 자네를 위한 선택이기도 하니까.",
+            text: "잠깐이면 끝나네. 너무 걱정하진 말게. 자, 눈을 감아보게나.",
           },
         ],
       },
