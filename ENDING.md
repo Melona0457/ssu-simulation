@@ -1,3 +1,10 @@
+
+# 엔딩
+
+![image.png](attachment:faf24f33-596c-42dd-8a07-9ef637c31609:image.png)
+
+![image.png](attachment:0c26d96b-2f2d-4e22-8f83-3722356268eb:image.png)
+
 ## A엔딩
 
 <aside>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { heartParticle } from "@/lib/heart-particle";
 import {
@@ -111,7 +111,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   MORNING_CLASSROOM: [
     {
       dialogue:
-        "(장소: 강의실, 마지막 총정리 수업. 반쯤 열린 창문으로 바람이 들어오고 교수님이 서류를 정리하며 이쪽을 쳐다본다.) 터벅터벅 강의실 문을 열자마자 차가운 에어컨 바람과 함께 교수님의 시선이 내리꽂힌다. 시험 전날의 공기는 평소보다 두 배는 무겁다. 교수님은 (시계를 보지도 않고) 말한다. \"민상군, 15분 늦었군. 자네의 성실함이 시험 점수와 반비례하지 않길 빌어야겠어. 어서 앉게, 벌써 중요한 대목을 지나치고 있으니까.\"",
+        "(장소: 강의실, 마지막 총정리 수업. 반쯤 열린 창문으로 바람이 들어오고 교수님이 서류를 정리하며 이쪽을 쳐다본다.) 터벅터벅 강의실 문을 열자마자 차가운 에어컨 바람과 함께 교수님의 시선이 내리꽂힌다. 시험 전날의 공기는 평소보다 두 배는 무겁다. 교수님은 (시계를 보지도 않고) 말한다. \"__, 15분 늦었군. 자네의 성실함이 시험 점수와 반비례하지 않길 빌어야겠어. 어서 앉게, 벌써 중요한 대목을 지나치고 있으니까.\"",
       choices: [
         {
           text: "\"교수님 수업은 1분 1초가 꿀잼이라, 앞부분 놓친 게 제 인생의 최대 손실입니다.\"",
@@ -133,7 +133,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
           text: "(아무 말 없이 구석 자리로 가서 책을 편다.)",
           preview: "조용한 회피",
           reaction:
-            "\"민상군, 구석으로 숨는다고 내가 못 볼 거라 생각하나? 자네가 거기 앉으면 내 시야의 사각지대가 사라져서 더 잘 보인다네. 자, 그럼 '사각지대'에 앉은 기념으로 질문 하나 하지.\" 교수님의 강렬한 눈빛이 정면으로 향한다. 긴장감 때문에 심장이 필요 이상으로 뛴다.",
+            "\"__, 구석으로 숨는다고 내가 못 볼 거라 생각하나? 자네가 거기 앉으면 내 시야의 사각지대가 사라져서 더 잘 보인다네. 자, 그럼 '사각지대'에 앉은 기념으로 질문 하나 하지.\" 교수님의 강렬한 눈빛이 정면으로 향한다. 긴장감 때문에 심장이 필요 이상으로 뛴다.",
           emotion: "stern",
           effects: { affinity: 6, intellect: 8 },
         },
@@ -163,7 +163,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
     },
     {
       dialogue:
-        "(에피소드 종료 직전) 교수님이 짐을 챙기다 멈칫하며 펜을 내민다. \"아, 민상군. 나가기 전에 이것 좀 받아가게. 아까 보니까 볼펜 잉크가 다 됐더군. 시험 보다가 멈추면 곤란할 테니, 내 걸로 빌려주지. 내일 시험 끝나고 연구실로 직접 반납하러 오게.\" 건네받은 펜엔 아직 온기가 남아 있는 것 같다. 단순한 친절일까, 아니면...? 머릿속이 복잡해진 채 점심 장소를 고른다.",
+        "(에피소드 종료 직전) 교수님이 짐을 챙기다 멈칫하며 펜을 내민다. \"아, __. 나가기 전에 이것 좀 받아가게. 아까 보니까 볼펜 잉크가 다 됐더군. 시험 보다가 멈추면 곤란할 테니, 내 걸로 빌려주지. 내일 시험 끝나고 연구실로 직접 반납하러 오게.\" 건네받은 펜엔 아직 온기가 남아 있는 것 같다. 단순한 친절일까, 아니면...? 머릿속이 복잡해진 채 점심 장소를 고른다.",
       choices: [
         {
           text: "학생 식당으로 향한다.",
@@ -192,7 +192,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   LUNCH_STUDENT_CAFETERIA: [
     {
       dialogue:
-        "(장소: 학생 식당, 북적거리는 소음. 식판 앞 1인칭 시점.) 역시 시험 전날 점심은 혼밥이지. 대충 한 끼 때우고 도서관 가려는데 내 앞자리에 낯익은 정장 소매가 보인다. 설마. 교수님이 식판을 내려놓으며 자연스럽게 묻는다. \"여긴 늘 붐비는군. 민상군, 앞자리 비어있나? 자네 식사 속도를 보니 시험 공부하러 마음이 급한 모양이야.\"",
+        "(장소: 학생 식당, 북적거리는 소음. 식판 앞 1인칭 시점.) 역시 시험 전날 점심은 혼밥이지. 대충 한 끼 때우고 도서관 가려는데 내 앞자리에 낯익은 정장 소매가 보인다. 설마. 교수님이 식판을 내려놓으며 자연스럽게 묻는다. \"여긴 늘 붐비는군. __, 앞자리 비어있나? 자네 식사 속도를 보니 시험 공부하러 마음이 급한 모양이야.\"",
       choices: [
         {
           text: "\"커흑! 교, 교수님? 여기서 식사를 하신다고요?\"",
@@ -228,7 +228,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
           text: "\"감사합니다... 근데 교수님, 방금 좀 머릿속에 슬로우 모션 걸린 것 같아요.\"",
           preview: "솔직한 당황",
           reaction:
-            "(먼저 자리에서 일어나며) \"먼저 일어나지. 아, 민상군. 입가에 소스 묻었네. 칠칠치 못하게... 내일 시험지에 답안도 그렇게 묻히고 나오지 말게나.\" 손수건을 꺼내려다 멈추고 휴지 한 장을 툭 두고 식당을 나간다.",
+            "(먼저 자리에서 일어나며) \"먼저 일어나지. 아, __. 입가에 소스 묻었네. 칠칠치 못하게... 내일 시험지에 답안도 그렇게 묻히고 나오지 말게나.\" 손수건을 꺼내려다 멈추고 휴지 한 장을 툭 두고 식당을 나간다.",
           emotion: "warm",
           effects: { affinity: 9, intellect: 8 },
         },
@@ -246,13 +246,13 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   LUNCH_OFFCAMPUS_RESTAURANT: [
     {
       dialogue:
-        "(장소: 학교 앞 작은 한식당. 창가 2인 테이블 1인칭 시점.) 학식 줄이 길어 조용히 밥 먹으러 왔는데, 문종이 딸랑 울리고 입구에서 교수님과 눈이 정확히 마주친다. 교수님이 별일 아니라는 듯 다가와 맞은편 의자를 당긴다. \"학생이군. 학식 줄이 길었나? 나도 오늘은 그쪽이 내키지 않아서. 1인 테이블이 없는데, 합석해도 되겠나.\"",
+        "(장소: 학교 앞 작은 한식당. 창가 2인 테이블 1인칭 시점.) 학식 줄이 길어 조용히 밥 먹으러 왔는데, 문종이 딸랑 울리고 입구에서 교수님과 눈이 정확히 마주친다. 교수님이 별일 아니라는 듯 다가와 맞은편 의자를 당긴다. \"__. 학식 줄이 길었나? 나도 오늘은 그쪽이 내키지 않아서. 1인 테이블이 없는데, 합석해도 되겠나.\"",
       choices: [
         {
           text: "\"아, 네! 그, 그럼요. 앉으세요. 메뉴는... 메뉴 다 괜찮아요!\"",
           preview: "당황",
           reaction:
-            "(자리에 앉아 메뉴판을 집어 든다.) \"메뉴가 다 괜찮다는 건 아무거나 먹어도 된다는 말인가, 아직 못 정했다는 말인가.\" (잠깐의 침묵) \"여기 된장찌개가 무난하네. 나는 늘 그걸로 하는 편이야.\"",
+            "(자리에 앉아 메뉴판을 집어 든다.) \"메뉴가 다 괜찮다는 건 아무거나 먹어도 된다는 말인가, 아직 못 정했다는 말인가.\" (잠깐의 침묵) \"여기 김치찌개가 무난하네. 나는 늘 그걸로 하는 편이야.\"",
           emotion: "warm",
           effects: { affinity: 8, intellect: 8 },
         },
@@ -308,7 +308,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
     },
     {
       dialogue:
-        "(중간 연출: 화장실 세면대 앞) 교수님이 손을 씻고 수건으로 닦으며 한숨을 내쉰다. \"인터넷에 떠도는 변기통 혼밥이 괴담인 줄 알았는데... 그걸 내 제자가 몸소 실천하고 있을 줄이야. 당장 그 차갑고 눅눅한 김밥은 버리게. 따라와. 정문 앞 Delicious Lion Steak House로 가지. 교육자의 도리야.\"",
+        "(중간 연출: 화장실 세면대 앞) 교수님이 손을 씻고 수건으로 닦으며 한숨을 내쉰다. \"인터넷에 떠도는 변기통 혼밥이 괴담인 줄 알았는데... 그걸 내 제자가 몸소 실천하고 있을 줄이야. 당장 그 차갑고 눅눅한 김밥은 버리게. 따라와. 정문 앞 멋쟁이 사지의 스테이크 하우스로 가지. 교육자의 도리야.\"",
       choices: [
         {
           text: "\"교수님의 참된 가르침(물리)을 기꺼이 받들겠습니다. 사실 스테이크를 먹기 위해 위장을 비워두는 중이었습니다.\"",
@@ -340,7 +340,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   AFTERNOON_LIBRARY: [
     {
       dialogue:
-        "(장소: 도서관 열람실, 창가 자리) 밥도 먹었겠다 이제 집중할 시간인데, 교재가 눈에 안 들어온다. 아까 받은 펜이 자꾸 시야에 걸린다. 형광펜 줄도 삐뚤고, 마음은 더 삐뚤다. 결국 서가로 걸어가 참고 도서를 찾다가 코너에서 익숙한 뒷모습과 마주친다. 교수님이 고개를 돌린다. \"...학생이군. 여기도 오나?\"",
+        "(장소: 도서관 열람실, 창가 자리) 밥도 먹었겠다 이제 집중할 시간인데, 교재가 눈에 안 들어온다. 아까 받은 펜이 자꾸 시야에 걸린다. 형광펜 줄도 삐뚤고, 마음은 더 삐뚤다. 결국 서가로 걸어가 참고 도서를 찾다가 코너에서 익숙한 뒷모습과 마주친다. 교수님이 고개를 돌린다. \"... __. 여기도 오나?\"",
       choices: [
         {
           text: "아— 네, 참고 도서 좀 찾으러요. (책을 떨어뜨린다.)",
@@ -445,31 +445,15 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
     },
     {
       dialogue:
-        "(공통 연구실 파트 이후) 커피와 대화를 마친 뒤 교수님은 진지하게 이름을 부른다. \"내일 시험, 자네가 노력한 만큼의 결과가 나오길 바라네. 너무 긴장하지 말고. 자, 우산 받아가게.\" 연구실을 나와 빗속을 걷는데 묵직한 엔진음과 함께 순백의 롤스로이스가 멈춘다. 창문이 내려가고 교수님이 선글라스를 내리며 말한다. \"거 우산 받아 가라는 게, 나 차 타고 가니까 자네는 걸어가라는 뜻이었는데. 이 비를 뚫고 걸어갈 자신은 있나 보군? 너만 괜찮다면, 이 백마에 타는 영광을 주지. 집까지 데려다주겠네.\"",
+        "(공통 연구실 파트 이후) 커피와 대화를 마친 뒤 교수님은 진지하게 이름을 부른다. \"__ 학생.\" \"내일 시험, 자네가 노력한 만큼의 결과가 나오길 바라네. 너무 긴장하지 말고. 자, 우산 받아가게.\" 연구실을 나서자 손잡이에 남은 온기와 향기가 쉽게 가시지 않는다. 이제 모든 것은 내일 시험 강의실에서 달렸다.",
       choices: [
         {
-          text: "마음만 감사히 받을게요. 우산 쓰고 천천히 가겠습니다.",
-          preview: "엔딩 A",
+          text: "우산을 꼭 쥔 채 내일 시험을 떠올린다.",
+          preview: "시험 전야",
           reaction:
-            "(조금 의외라는 듯 눈을 둥그렇게 떴다가 빙그레 웃는다.) \"허! 자네, 의외로 고집이 있군. 좋아, 그 독립심은 높이 사지. 대신 감기 걸려서 내일 시험지에 콧물 흘리면 F니까 조심하게. 그럼, 내일 보세.\" 롤스로이스는 매끄럽게 사라지고, 손에 쥔 우산은 더 묵직해진다.",
+            "교수님이 처음으로 또렷하게 이름을 불러 주던 순간이 자꾸만 떠오른다. 손에 남은 우산의 감촉과 연구실 향기를 붙든 채, 마지막 결전지인 시험 강의실을 향할 마음을 다잡는다.",
           emotion: "warm",
-          effects: { affinity: 9, intellect: 10 },
-        },
-        {
-          text: "실례하겠습니다. 태워 주세요.",
-          preview: "엔딩 B",
-          reaction:
-            "(헛웃음을 터뜨리며) \"하! 자네의 그 뻔뻔함과 솔직함은 정말 학계에서 연구 대상이야. 그래, 타게.\" 롤스로이스 안은 고급 가죽 향과 고요함으로 가득하고, 교수님은 운전 중 내일 시험 핵심 포인트를 은밀하게 흘려준다.",
-          emotion: "teasing",
-          effects: { affinity: 12, intellect: 7 },
-        },
-        {
-          text: "오늘은 좀 부담스럽습니다. 거리를 두고 싶어요.",
-          preview: "엔딩 C",
-          reaction:
-            "(잠시 당황한 듯 선글라스를 고쳐 쓴다.) \"허... 자네, 아주 칼 같군. 오해는 말게. 단지 제자가 이 비에 젖어 고생하는 게 안타까워 교육자로서 배푼 호의였네. 거리라... 그래, 그 선을 넘지 않는 것도 중요하지.\" 차 문이 닫히고 롤스로이스는 빗속으로 사라진다.",
-          emotion: "stern",
-          effects: { affinity: 6, intellect: 9 },
+          effects: { affinity: 10, intellect: 9 },
         },
       ],
     },
@@ -477,13 +461,13 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   NIGHT_CAMPUS_WALK: [
     {
       dialogue:
-        "(장소: 인문대 뒤편 벤치, 노란 가로등 불빛) 도서관에서 나와 머리를 식히려 걷는데 늘 그 자리에 교수님이 앉아 있다. 밤에 보는 교수님은 강의실에서보다 조금 더 사람 냄새가 난다. 교수님이 고개를 들며 묻는다. \"이 시간에 여기서 자네를 다 보군. 민상군, 공부하다 막히는 거라도 있나? 얼굴에 고민이라고 쓰여 있는데.\"",
+        "(장소: 인문대 뒤편 벤치, 노란 가로등 불빛) 도서관에서 나와 머리를 식히려 걷는데 늘 그 자리에 교수님이 앉아 있다. 밤에 보는 교수님은 강의실에서보다 조금 더 사람 냄새가 난다. 교수님이 고개를 들며 묻는다. \"이 시간에 여기서 자네를 다 보군. __, 공부하다 막히는 거라도 있나? 얼굴에 고민이라고 쓰여 있는데.\"",
       choices: [
         {
           text: "\"사실... 제가 이 길(전공)이 맞는지 갑자기 확신이 안 서서요.\"",
           preview: "진지한 상담",
           reaction:
-            "\"확신이라... 그건 나도 아직 매일 고민하는 문제라네. 하지만 민상군, 자네가 지난 학기에 낸 레포트의 그 문장들... 난 자네가 이 길에 소질이 있다고 꽤 확신하고 있었어.\" 이름을 부르는 순간 가슴 한구석이 찌릿해진다.",
+            "\"확신이라... 그건 나도 아직 매일 고민하는 문제라네. 하지만 __, 자네가 지난 학기에 낸 레포트의 그 문장들... 난 자네가 이 길에 소질이 있다고 꽤 확신하고 있었어.\" 이름을 부르는 순간 가슴 한구석이 찌릿해진다.",
           emotion: "warm",
           effects: { affinity: 10, intellect: 8 },
         },
@@ -507,7 +491,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
     },
     {
       dialogue:
-        "(중간 연출) 상담을 이어가다 목소리가 떨리고 눈시울이 붉어진다. \"그냥... 잘하고 싶은데 마음처럼 안 돼서 울컥하네요.\" 당황해 고개를 숙이자 교수님이 말없이 자리를 옮겨 옆에 앉는다. 일정한 거리를 유지한 채 곁을 내주며 말한다. \"울어도 되네. 여긴 강의실이 아니니까. 자네가 얼마나 애쓰고 있는지... 내가 다 보고 있었어. 민상군, 자네는 생각보다 훨씬 더 잘하고 있어. 내 이름 걸고 보증하지.\"",
+        "(중간 연출) 상담을 이어가다 목소리가 떨리고 눈시울이 붉어진다. \"그냥... 잘하고 싶은데 마음처럼 안 돼서 울컥하네요.\" 당황해 고개를 숙이자 교수님이 말없이 자리를 옮겨 옆에 앉는다. 일정한 거리를 유지한 채 곁을 내주며 말한다. \"울어도 되네. 여긴 강의실이 아니니까. 자네가 얼마나 애쓰고 있는지... 내가 다 보고 있었어. __, 자네는 생각보다 훨씬 더 잘하고 있어. 내 이름 걸고 보증하지.\"",
       choices: [
         {
           text: "교수님이 보증하시면... 저 진짜 믿어도 되는 거죠?",
@@ -591,6 +575,10 @@ const DEBUG_PASSWORD = "ssulikelion";
 const BGM_BASE_URL = process.env.NEXT_PUBLIC_SUPABASE_BGM_BASE_URL?.replace(/\/+$/, "") || "/bgm";
 const VOICE_BASE_URL = process.env.NEXT_PUBLIC_SUPABASE_VOICE_BASE_URL?.replace(/\/+$/, "") || "/voice";
 const AUDIO_LEVEL_STORAGE_KEY = "ssu-simulation-audio-levels-v1";
+const VIEWPORT_SCALE_STORAGE_KEY = "ssu-simulation-viewport-scale-v1";
+const MIN_VIEWPORT_SCALE = 70;
+const MAX_VIEWPORT_SCALE = 140;
+const VIEWPORT_SCALE_STEP = 5;
 const DEFAULT_AUDIO_LEVELS: AudioLevels = {
   master: 50,
   bgm: 25,
@@ -620,8 +608,16 @@ const STORY_BGM_URLS = {
 } as const;
 
 const ENDING_BACKGROUND_URL = "/ui/ending-screen/background.webp";
-const SCREEN10_BACKGROUND_URL = "/ui/debug-screen10/background.png";
-const SCREEN10_DESK_URL = "/ui/debug-screen10/overlay.png";
+const SCREEN10_TYPING_TEXT = `그렇게 다음날 아침이 밝았고...
+난 최대한 교수님을 떠오르지 않으려 노력하며
+중간고사 시험지를 풀어냈다.
+
+교수님께서는 교수연구실로 오면
+시험성적을 알려주시겠다 하셨고
+나는 알 수 없는 마음에 이끌려
+교수 연구실 문 앞에 도착했다.
+
+과연 이 문 뒤에 어떤 결과가 기다리고 있을까?`;
 
 const STORY_SFX_URLS = {
   heartbeat: "/sfx/story/heartbeat.ogg",
@@ -688,12 +684,12 @@ const GENDERED_ENDING_PROFESSOR_LINES: Record<
   },
 };
 
-const ENDING_VOICE_SLOT_BY_VARIANT: Record<string, string> = {
-  ending_aplus_main: "087",
-  ending_b_main: "088",
-  ending_cplus_main: "089",
-  hidden_splus_01: "090",
-  hidden_splus_02: "091",
+const ENDING_VOICE_SLOT_OFFSET_BY_VARIANT: Record<string, number> = {
+  ending_aplus_main: 0,
+  ending_b_main: 1,
+  ending_cplus_main: 2,
+  hidden_splus_01: 3,
+  hidden_splus_02: 4,
 };
 
 function toDisplayPlayerName(name: string) {
@@ -703,6 +699,15 @@ function toDisplayPlayerName(name: string) {
   }
 
   return trimmed.slice(0, 3);
+}
+
+function toPlayerCallName(name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return "멋사";
+  }
+
+  return trimmed.length <= 2 ? trimmed : trimmed.slice(-2);
 }
 
 function toDisplayProfessorName(name: string) {
@@ -806,10 +811,16 @@ function getFirstSceneId(episodeId: string) {
 }
 
 function replaceStoryPlaceholders(text: string, playerName: string, professorName: string) {
+  const playerCallName = toPlayerCallName(playerName);
+  const playerVocative = `${playerCallName}군`;
+  const playerStudentLabel = `${playerCallName} 학생`;
+
   return text
     .replace(/__(?=님의|님의|님\b| 교수님| 교수|의 연구실)/g, professorName)
-    .replace(/__ 학생/g, `${playerName} 학생`)
-    .replace(/__/g, playerName);
+    .replace(/(?:OOO|000|__)학생/g, playerStudentLabel)
+    .replace(/(?:OOO|000|__) 학생/g, playerStudentLabel)
+    .replace(/민상군/g, playerVocative)
+    .replace(/(?:OOO|000|__)/g, playerVocative);
 }
 
 function storyRoleToSpeaker(role: StoryRole): DialogueSpeakerLabel {
@@ -876,12 +887,34 @@ function resolveProfessorScriptProfileKey(gender: string, speakingStyle: string)
   return `${genderPrefix}_${ageSuffix}`;
 }
 
+function mapProfessorStorySlotToVoiceSlot(
+  _profileKey: string,
+  professorLineIndex: number,
+) {
+  const storySlotNumber = professorLineIndex + 1;
+
+  if (storySlotNumber < 1 || storySlotNumber > 79) {
+    return "";
+  }
+
+  return String(storySlotNumber).padStart(3, "0");
+}
+
 function buildProfessorVoiceSlotPath(profileKey: string, professorLineIndex: number) {
-  return `${VOICE_BASE_URL}/${profileKey}/${String(professorLineIndex + 1).padStart(3, "0")}.ogg`;
+  const voiceSlotNumber = mapProfessorStorySlotToVoiceSlot(profileKey, professorLineIndex);
+  return voiceSlotNumber ? `${VOICE_BASE_URL}/${profileKey}/${voiceSlotNumber}.ogg` : "";
 }
 
 function buildEndingVoiceSlotPath(profileKey: string, variantId?: string) {
-  const slotNumber = variantId ? ENDING_VOICE_SLOT_BY_VARIANT[variantId] : undefined;
+  const endingOffset = variantId
+    ? ENDING_VOICE_SLOT_OFFSET_BY_VARIANT[variantId]
+    : undefined;
+  if (endingOffset === undefined) {
+    return "";
+  }
+
+  const firstEndingSlot = 80;
+  const slotNumber = String(firstEndingSlot + endingOffset).padStart(3, "0");
   return slotNumber ? `${VOICE_BASE_URL}/${profileKey}/${slotNumber}.ogg` : "";
 }
 
@@ -917,10 +950,14 @@ function resolveSceneLines(
     const professorLineIndex = professorLineKeyToIndexMap.get(key) ?? null;
     const overriddenProfessorLine =
       professorLineIndex !== null ? professorScriptLines[professorLineIndex] : undefined;
+    const resolvedProfessorLine =
+      overriddenProfessorLine?.trim()
+        ? replaceStoryPlaceholders(overriddenProfessorLine.trim(), playerName, professorName)
+        : undefined;
 
     return {
       speaker,
-      text: overriddenProfessorLine?.trim() ? overriddenProfessorLine.trim() : fallbackText,
+      text: resolvedProfessorLine ?? fallbackText,
       professorLineIndex,
     };
   });
@@ -1373,12 +1410,6 @@ function resolveStoryVisualCue(
       subtitle: "연구실 향기와 온기가 남은 우산을 건네는 순간",
       variant: "prop",
     },
-    "ep06o_scene06_rolls_intro:4": {
-      key: cueKey,
-      title: "롤스로이스 등장",
-      subtitle: "빗속에서 차창이 내려가며 시선이 마주치는 장면",
-      variant: "mood",
-    },
     "ep06b_scene05_emotion:2": {
       key: cueKey,
       title: "곁을 내주는 거리",
@@ -1585,6 +1616,7 @@ export default function Home() {
   const [professorSpeakingStyleError, setProfessorSpeakingStyleError] = useState("");
 
   const [audioLevels, setAudioLevels] = useState<AudioLevels>(DEFAULT_AUDIO_LEVELS);
+  const [viewportScale, setViewportScale] = useState(100);
   const [isSoundPanelOpen, setIsSoundPanelOpen] = useState(false);
   const soundPanelRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -1632,6 +1664,14 @@ export default function Home() {
     }));
   };
 
+  const updateViewportScale = (nextValue: number) => {
+    const safeValue = Math.max(
+      MIN_VIEWPORT_SCALE,
+      Math.min(MAX_VIEWPORT_SCALE, Math.round(nextValue)),
+    );
+    setViewportScale(safeValue);
+  };
+
   tryPlayBgmRef.current = () => {
     if (!audioRef.current || !isBgmEnabled) {
       return;
@@ -1664,7 +1704,12 @@ export default function Home() {
   const particleImageRef = useRef<HTMLImageElement | null>(null);
   const particleFrameRef = useRef<number | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const screen10TypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const screen10UnlockSequenceRunRef = useRef(0);
+  const screen10TransitionSfxRef = useRef<HTMLAudioElement[]>([]);
+  const screen9DoorFxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endingTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousPhaseRef = useRef<Phase | null>(null);
   const moveNextChapterRef = useRef<() => void>(() => {});
   const revealCurrentDialogueImmediatelyRef = useRef<() => void>(() => {});
   const isDialogueLineTypingRef = useRef(false);
@@ -1686,6 +1731,9 @@ export default function Home() {
   const [isSubmittingCreditMessage, setIsSubmittingCreditMessage] = useState(false);
   const [creditMessageEntries, setCreditMessageEntries] = useState<CreditMessageEntry[]>([]);
   const [typedProfessorLine, setTypedProfessorLine] = useState("");
+  const [screen10TypedNarration, setScreen10TypedNarration] = useState("");
+  const [isScreen10ActionReady, setIsScreen10ActionReady] = useState(false);
+  const [isScreen9DoorOpening, setIsScreen9DoorOpening] = useState(false);
   const [isAutoPlayOn, setIsAutoPlayOn] = useState(false);
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [isMobileNoticeDismissed, setIsMobileNoticeDismissed] = useState(false);
@@ -1702,15 +1750,14 @@ export default function Home() {
   const [debugPlayerGender, setDebugPlayerGender] = useState<PlayerFormState["gender"]>(initialPlayerState.gender);
   const [debugProfessorGender, setDebugProfessorGender] = useState<ProfessorFormState["gender"]>(initialProfessorState.gender);
   const [debugProfessorSpeakingStyle, setDebugProfessorSpeakingStyle] = useState<ProfessorFormState["speakingStyle"]>("TONE_30S");
-  const eyeBlinkMaskId = useId();
 
   const debugPhaseButtons: Array<{ phase: Phase; label: string }> = [
     { phase: "screen1_title", label: "화면1 타이틀" },
     { phase: "screen2_player", label: "화면2 플레이어" },
     { phase: "screen3_professor", label: "화면3 교수 설정" },
     { phase: "screen4_8_chapter", label: "화면4~8 스토리" },
-    { phase: "screen9_ending", label: "화면9 엔딩" },
-    { phase: "screen10_temp", label: "화면10 임시" },
+    { phase: "screen9_ending", label: "화면10 엔딩2" },
+    { phase: "screen10_temp", label: "화면9 엔딩1" },
     { phase: "screen11_credit", label: "화면11 크레딧" },
   ];
 
@@ -1902,6 +1949,32 @@ export default function Home() {
         : debugEndingCatalog.variants,
     [debugEndingCatalog.variants, debugEndingSelect],
   );
+  const isScreen10Typing = useMemo(
+    () =>
+      phase === "screen10_temp" &&
+      screen10TypedNarration.length < SCREEN10_TYPING_TEXT.length,
+    [phase, screen10TypedNarration.length],
+  );
+
+  useEffect(() => {
+    if (screen9DoorFxTimerRef.current) {
+      clearTimeout(screen9DoorFxTimerRef.current);
+      screen9DoorFxTimerRef.current = null;
+    }
+
+    const previousPhase = previousPhaseRef.current;
+    if (phase === "screen9_ending" && previousPhase === "screen10_temp") {
+      setIsScreen9DoorOpening(true);
+      screen9DoorFxTimerRef.current = setTimeout(() => {
+        setIsScreen9DoorOpening(false);
+        screen9DoorFxTimerRef.current = null;
+      }, 920);
+    } else {
+      setIsScreen9DoorOpening(false);
+    }
+
+    previousPhaseRef.current = phase;
+  }, [phase]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1931,8 +2004,35 @@ export default function Home() {
       return;
     }
 
+    const savedScale = window.localStorage.getItem(VIEWPORT_SCALE_STORAGE_KEY);
+    if (!savedScale) {
+      return;
+    }
+
+    const parsedScale = Number(savedScale);
+    if (!Number.isFinite(parsedScale)) {
+      window.localStorage.removeItem(VIEWPORT_SCALE_STORAGE_KEY);
+      return;
+    }
+
+    updateViewportScale(parsedScale);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     window.localStorage.setItem(AUDIO_LEVEL_STORAGE_KEY, JSON.stringify(audioLevels));
   }, [audioLevels]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(VIEWPORT_SCALE_STORAGE_KEY, String(viewportScale));
+  }, [viewportScale]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -2202,6 +2302,20 @@ export default function Home() {
         clearTimeout(typingTimerRef.current);
         typingTimerRef.current = null;
       }
+      if (screen10TypingTimerRef.current) {
+        clearTimeout(screen10TypingTimerRef.current);
+        screen10TypingTimerRef.current = null;
+      }
+      screen10UnlockSequenceRunRef.current += 1;
+      screen10TransitionSfxRef.current.forEach((audio) => {
+        audio.pause();
+        audio.currentTime = 0;
+      });
+      screen10TransitionSfxRef.current = [];
+      if (screen9DoorFxTimerRef.current) {
+        clearTimeout(screen9DoorFxTimerRef.current);
+        screen9DoorFxTimerRef.current = null;
+      }
       if (endingTransitionTimerRef.current) {
         clearTimeout(endingTransitionTimerRef.current);
         endingTransitionTimerRef.current = null;
@@ -2368,6 +2482,116 @@ export default function Home() {
       }
     };
   }, [activeDialogueLine, phase]);
+
+  useEffect(() => {
+    screen10UnlockSequenceRunRef.current += 1;
+    setIsScreen10ActionReady(false);
+    screen10TransitionSfxRef.current.forEach((audio) => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
+    screen10TransitionSfxRef.current = [];
+
+    if (screen10TypingTimerRef.current) {
+      clearTimeout(screen10TypingTimerRef.current);
+      screen10TypingTimerRef.current = null;
+    }
+
+    if (phase !== "screen10_temp") {
+      setScreen10TypedNarration("");
+      return;
+    }
+
+    setScreen10TypedNarration("");
+    let characterIndex = 0;
+
+    const tick = () => {
+      characterIndex += 1;
+      setScreen10TypedNarration(SCREEN10_TYPING_TEXT.slice(0, characterIndex));
+
+      if (characterIndex >= SCREEN10_TYPING_TEXT.length) {
+        screen10TypingTimerRef.current = null;
+        return;
+      }
+
+      screen10TypingTimerRef.current = setTimeout(tick, 52);
+    };
+
+    screen10TypingTimerRef.current = setTimeout(tick, 300);
+
+    return () => {
+      if (screen10TypingTimerRef.current) {
+        clearTimeout(screen10TypingTimerRef.current);
+        screen10TypingTimerRef.current = null;
+      }
+    };
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "screen10_temp" || isScreen10Typing || isScreen10ActionReady) {
+      return;
+    }
+
+    const runId = screen10UnlockSequenceRunRef.current;
+    const fallbackDurationMs = 700;
+
+    const playTransitionSfx = async (key: "doorKnock" | "doorOpen") => {
+      if (!isSfxEnabled || effectiveSfxVolume <= 0) {
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, fallbackDurationMs);
+        });
+        return;
+      }
+
+      await new Promise<void>((resolve) => {
+        const audio = new Audio(STORY_SFX_URLS[key]);
+        audio.preload = "auto";
+        audio.volume = effectiveSfxVolume;
+        screen10TransitionSfxRef.current.push(audio);
+
+        let settled = false;
+        const finish = () => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          audio.onended = null;
+          audio.onerror = null;
+          screen10TransitionSfxRef.current = screen10TransitionSfxRef.current.filter(
+            (item) => item !== audio,
+          );
+          resolve();
+        };
+
+        const timeoutId = window.setTimeout(finish, fallbackDurationMs + 500);
+
+        audio.onended = () => {
+          window.clearTimeout(timeoutId);
+          finish();
+        };
+        audio.onerror = () => {
+          window.clearTimeout(timeoutId);
+          finish();
+        };
+
+        void audio.play().catch(() => {
+          window.clearTimeout(timeoutId);
+          window.setTimeout(finish, fallbackDurationMs);
+        });
+      });
+    };
+
+    const runSequence = async () => {
+      await playTransitionSfx("doorKnock");
+      await playTransitionSfx("doorOpen");
+
+      if (screen10UnlockSequenceRunRef.current === runId) {
+        setIsScreen10ActionReady(true);
+      }
+    };
+
+    void runSequence();
+  }, [effectiveSfxVolume, isScreen10ActionReady, isScreen10Typing, isSfxEnabled, phase]);
 
   useEffect(() => {
     if (phase !== "screen4_8_chapter") {
@@ -2788,10 +3012,10 @@ export default function Home() {
     setIsEndingTransition(true);
     endingTransitionTimerRef.current = setTimeout(() => {
       setEnding(nextEnding);
-      setPhase("screen9_ending");
+      setPhase("screen10_temp");
       setIsEndingTransition(false);
       endingTransitionTimerRef.current = null;
-    }, 1800);
+    }, 2200);
   }
 
   function chooseOption(choiceIndex: number) {
@@ -3087,6 +3311,24 @@ export default function Home() {
     setIsSubmittingCreditMessage(false);
     setCreditMessageEntries([]);
     setIsAutoPlayOn(false);
+    setScreen10TypedNarration("");
+    setIsScreen10ActionReady(false);
+    setIsScreen9DoorOpening(false);
+    previousPhaseRef.current = null;
+    if (screen10TypingTimerRef.current) {
+      clearTimeout(screen10TypingTimerRef.current);
+      screen10TypingTimerRef.current = null;
+    }
+    screen10UnlockSequenceRunRef.current += 1;
+    screen10TransitionSfxRef.current.forEach((audio) => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
+    screen10TransitionSfxRef.current = [];
+    if (screen9DoorFxTimerRef.current) {
+      clearTimeout(screen9DoorFxTimerRef.current);
+      screen9DoorFxTimerRef.current = null;
+    }
     if (endingTransitionTimerRef.current) {
       clearTimeout(endingTransitionTimerRef.current);
       endingTransitionTimerRef.current = null;
@@ -3101,6 +3343,24 @@ export default function Home() {
     { key: "voice", label: "대사", hint: "교수 대사" },
     { key: "sfx", label: "효과", hint: "효과음" },
   ];
+  const isEndingScaleLocked = phase === "screen9_ending" || phase === "screen11_credit";
+  const effectiveViewportScale = isEndingScaleLocked ? 100 : viewportScale;
+  const uiScaleCenterStyle = {
+    transform: `scale(${effectiveViewportScale / 100})`,
+    transformOrigin: "center center" as const,
+  };
+  const uiScaleBottomStyle = {
+    transform: `scale(${effectiveViewportScale / 100})`,
+    transformOrigin: "bottom center" as const,
+  };
+  const uiScaleTopCenterStyle = {
+    transform: `scale(${effectiveViewportScale / 100})`,
+    transformOrigin: "top center" as const,
+  };
+  const uiScaleTopRightStyle = {
+    transform: `scale(${effectiveViewportScale / 100})`,
+    transformOrigin: "top right" as const,
+  };
 
   return (
     <main className="min-h-screen text-black">
@@ -3131,15 +3391,18 @@ export default function Home() {
       )}
 
       {/* 상단 HUD 컨트롤 */}
-      <div className="top-hud-controls">
+      <div className="top-hud-controls" style={uiScaleTopRightStyle}>
         <button
           type="button"
           onClick={handleDebugButtonClick}
           className={`top-hud-button top-hud-secret-button ${isDebugUnlocked ? "is-active" : ""}`}
         >
-          <span className="top-hud-button-label">♡교수님의 비밀 에피소드를 발견해!♡</span>
+          <span className="top-hud-button-label">♡에피소드 비밀 열쇠♡</span>
         </button>
         <div ref={soundPanelRef} className="top-hud-sound-stack">
+          {phase === "screen1_title" && !isSoundPanelOpen && (
+            <p className="top-hud-sound-hint">소리 조절과 화면배율 조절이 가능합니다! ↲</p>
+          )}
           <button
             type="button"
             onClick={() => setIsSoundPanelOpen((current) => !current)}
@@ -3151,7 +3414,6 @@ export default function Home() {
               <SlidersHorizontal size={18} strokeWidth={2.5} />
             </span>
             <span className="top-hud-sound-copy">
-              <span className="top-hud-button-label">Sound</span>
               <span className="top-hud-button-value">설정</span>
             </span>
             <span className="top-hud-sound-percent">{audioLevels.master}%</span>
@@ -3184,6 +3446,34 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
+                <div className="top-hud-sound-card top-hud-zoom-card">
+                  <div className="top-hud-zoom-row">
+                    <div className="top-hud-sound-text">
+                      <p>화면 배율</p>
+                    </div>
+                    <div className="top-hud-zoom-input-wrap">
+                      <input
+                        type="number"
+                        min={MIN_VIEWPORT_SCALE}
+                        max={MAX_VIEWPORT_SCALE}
+                        step={VIEWPORT_SCALE_STEP}
+                        value={viewportScale}
+                        onChange={(event) => {
+                          const nextValue = Number(event.target.value);
+                          if (Number.isFinite(nextValue)) {
+                            updateViewportScale(nextValue);
+                          }
+                        }}
+                        className="top-hud-zoom-input"
+                        aria-label="화면 배율 입력"
+                      />
+                      <span className="top-hud-zoom-unit">%</span>
+                    </div>
+                  </div>
+                  <div className="top-hud-zoom-range-note">
+                    {MIN_VIEWPORT_SCALE}% ~ {MAX_VIEWPORT_SCALE}%
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -3524,7 +3814,10 @@ export default function Home() {
             aria-hidden
           />
 
-          <div className="screen1-stage relative z-10 mx-auto flex w-full max-w-[1360px] flex-col items-center justify-center">
+          <div
+            className="screen1-stage relative z-10 mx-auto flex w-full max-w-[1360px] flex-col items-center justify-center"
+            style={uiScaleCenterStyle}
+          >
             <div className="screen1-hero-frame">
               <div className="screen1-title-wrap">
                 <h1 className="sr-only">오 나의 교수님! 비밀 에피소드</h1>
@@ -3559,7 +3852,7 @@ export default function Home() {
         >
           <div className="pointer-events-none absolute inset-0 z-0 bg-[rgba(255,214,231,0.08)] backdrop-blur-[2px]" />
           <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_18%_22%,rgba(255,255,255,0.28),rgba(255,255,255,0)_18%),radial-gradient(circle_at_76%_18%,rgba(255,255,255,0.2),rgba(255,255,255,0)_14%),radial-gradient(circle_at_84%_72%,rgba(255,255,255,0.16),rgba(255,255,255,0)_12%),radial-gradient(circle_at_30%_78%,rgba(255,255,255,0.14),rgba(255,255,255,0)_10%)] opacity-80" />
-          <div className="font-pretendard relative z-10 w-full max-w-[980px] text-center">
+          <div className="font-pretendard relative z-10 w-full max-w-[980px] text-center" style={uiScaleCenterStyle}>
             <h2
               className="bg-[linear-gradient(180deg,#fffdfd_0%,#fff7fb_14%,#ffeef6_30%,#ffcbe1_48%,#ff86bb_66%,#ea4ca1_84%,#bf0d71_100%)] bg-clip-text text-[clamp(56px,8vw,108px)] font-black leading-none tracking-[-0.03em] text-transparent [text-shadow:_0_1px_0_rgba(255,240,247,0.52),_0_2px_0_rgba(208,96,149,0.42),_0_4px_0_rgba(176,58,119,0.42),_0_10px_18px_rgba(154,42,103,0.22)]"
               style={{ WebkitTextStroke: "0.9px rgba(0,0,0,0.55)" }}
@@ -3593,10 +3886,10 @@ export default function Home() {
                 ))}
               </div>
 
-              <p className="mt-6 text-[clamp(28px,3vw,46px)] font-bold leading-[1.3] text-[#6a2a49]">
-                이름을 입력하지 않을 시
+              <p className="mt-6 text-[clamp(22px,2.2vw,32px)] font-bold leading-[1.4] text-[#6a2a49]">
+                이름을 입력하지 않을 시 [김멋사]로 자동 설정 됩니다.
                 <br />
-                [김멋사]로 자동 설정 됩니다.
+                [김멋사]와 같이 입력하면 호칭이 [멋사군]과 같이 적용됩니다.
               </p>
             </div>
 
@@ -3633,7 +3926,7 @@ export default function Home() {
         >
           <div className="pointer-events-none absolute inset-0 z-0 bg-[rgba(255,214,231,0.08)] backdrop-blur-[2px]" />
           <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_16%_18%,rgba(255,255,255,0.28),rgba(255,255,255,0)_18%),radial-gradient(circle_at_72%_14%,rgba(255,255,255,0.22),rgba(255,255,255,0)_14%),radial-gradient(circle_at_86%_76%,rgba(255,255,255,0.14),rgba(255,255,255,0)_12%),radial-gradient(circle_at_24%_70%,rgba(255,255,255,0.12),rgba(255,255,255,0)_10%)] opacity-80" />
-          <div className="font-pretendard relative z-10 w-full max-w-[1240px] text-center">
+          <div className="font-pretendard relative z-10 w-full max-w-[1240px] text-center" style={uiScaleCenterStyle}>
             <h2
               className="bg-[linear-gradient(180deg,#fffdfd_0%,#fff7fb_14%,#ffeef6_30%,#ffcbe1_48%,#ff86bb_66%,#ea4ca1_84%,#bf0d71_100%)] bg-clip-text text-[clamp(56px,8vw,108px)] font-black leading-none tracking-[-0.03em] text-transparent [text-shadow:_0_1px_0_rgba(255,240,247,0.52),_0_2px_0_rgba(208,96,149,0.42),_0_4px_0_rgba(176,58,119,0.42),_0_10px_18px_rgba(154,42,103,0.22)]"
               style={{ WebkitTextStroke: "0.9px rgba(0,0,0,0.55)" }}
@@ -3836,66 +4129,17 @@ export default function Home() {
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(44,14,33,0.22),rgba(34,10,27,0.58))]" />
           <div className="episode-soft-pink-tint absolute inset-0" />
           {isNightEpisodeEndingTransition && (
-            <div className="episode-eye-blink-overlay absolute inset-0 z-40" aria-hidden>
-              <svg
-                className="episode-eye-blink-svg"
-                viewBox="0 0 100 100"
-                preserveAspectRatio="none"
-              >
-                <defs>
-                  <mask id={eyeBlinkMaskId} maskUnits="userSpaceOnUse">
-                    <rect width="100" height="100" fill="white" />
-                    <ellipse
-                      className="episode-eye-blink-ellipse"
-                      cx="50"
-                      cy="50"
-                      rx="47"
-                      ry="27"
-                      fill="black"
-                    />
-                  </mask>
-                  <radialGradient id={`${eyeBlinkMaskId}-iris-glow`} cx="50%" cy="50%" r="62%">
-                    <stop offset="0%" stopColor="rgba(255,255,255,0.12)" />
-                    <stop offset="58%" stopColor="rgba(255,255,255,0.04)" />
-                    <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-                  </radialGradient>
-                </defs>
-                <rect
-                  width="100"
-                  height="100"
-                  fill="rgba(0,0,0,0.992)"
-                  mask={`url(#${eyeBlinkMaskId})`}
-                />
-                <ellipse
-                  className="episode-eye-blink-ellipse episode-eye-blink-ellipse-texture"
-                  cx="50"
-                  cy="50"
-                  rx="47"
-                  ry="27"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.12)"
-                  strokeWidth="0.45"
-                />
-                <ellipse
-                  className="episode-eye-blink-ellipse episode-eye-blink-ellipse-soft"
-                  cx="50"
-                  cy="50"
-                  rx="45.5"
-                  ry="24"
-                  fill={`url(#${eyeBlinkMaskId}-iris-glow)`}
-                />
-              </svg>
-            </div>
+            <div className="episode-night-fade-overlay absolute inset-0 z-40" aria-hidden />
           )}
           {shouldShowChoiceOverlay && (
             <div
-              className="absolute inset-0 z-10 bg-[rgba(32,8,21,0.36)] backdrop-blur-[2.4px]"
+              className="absolute inset-0 z-[180] bg-[rgba(32,8,21,0.36)] backdrop-blur-[2.4px]"
               aria-hidden
             />
           )}
 
           <div className="relative z-20 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-4 pt-8 md:px-8">
-            <div className="flex flex-col items-start gap-3">
+            <div className="flex flex-col items-start gap-3" style={uiScaleTopCenterStyle}>
               <div className={`w-full max-w-[1040px] rounded-xl border px-4 py-3 text-white relative shadow-lg heart-gauge-container transition-all duration-700 ${
                 affinityPercent >= 100 
                   ? "border-[#ff4f81] bg-black/60 shadow-[0_0_30px_rgba(255,79,129,0.7)]" 
@@ -3986,7 +4230,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="relative mt-4 flex flex-1 items-end justify-center pb-[260px] md:pb-[300px]">
+            <div className="relative mt-4 flex flex-1 items-end justify-center pb-[260px] md:pb-[300px]" style={uiScaleCenterStyle}>
               {currentVisualCue && !shouldShowChoiceOverlay && (
                 <div className="pointer-events-none absolute inset-x-0 top-[8%] z-20 flex justify-center px-4">
                   <div
@@ -4027,27 +4271,27 @@ export default function Home() {
               )}
             </div>
 
-            {shouldShowChoiceOverlay && (
-              <div className="absolute inset-0 z-30 flex items-center justify-center px-4 md:px-10">
-                <div className="w-full max-w-5xl space-y-4 md:space-y-6">
-                  {currentChoiceList.map((choice, index) => (
-                    <button
-                      key={`${choice.text}-${index}`}
-                      type="button"
-                      onClick={() => chooseOption(index)}
-                      className="font-story block w-full rounded-[12px] border border-[#b7b7b7] bg-[rgba(255,255,255,0.94)] px-6 py-4 text-center text-[clamp(22px,2.4vw,52px)] font-medium leading-[1.2] text-[#2f2f2f] shadow-[0_10px_28px_rgba(0,0,0,0.18)] transition duration-150 hover:translate-y-[-1px] hover:brightness-[1.01] active:translate-y-0"
-                    >
-                      {choice.text}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
           </div>
 
+          {shouldShowChoiceOverlay && (
+            <div className="absolute inset-0 z-[190] flex items-center justify-center px-4 md:px-10" style={uiScaleCenterStyle}>
+              <div className="w-full max-w-5xl space-y-4 md:space-y-6">
+                {currentChoiceList.map((choice, index) => (
+                  <button
+                    key={`${choice.text}-${index}`}
+                    type="button"
+                    onClick={() => chooseOption(index)}
+                    className="font-story block w-full rounded-[12px] border border-[#b7b7b7] bg-[rgba(255,255,255,0.94)] px-6 py-4 text-center text-[clamp(22px,2.4vw,52px)] font-medium leading-[1.2] text-[#2f2f2f] shadow-[0_10px_28px_rgba(0,0,0,0.18)] transition duration-150 hover:translate-y-[-1px] hover:brightness-[1.01] active:translate-y-0"
+                  >
+                    {choice.text}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {shouldShowProfessorBaseVisual && (
-            <div className="pointer-events-none fixed inset-x-4 top-[182px] bottom-[14px] z-[68] md:top-[196px] md:bottom-[18px]">
+            <div className="pointer-events-none fixed inset-x-4 top-[182px] bottom-[14px] z-[68] md:top-[196px] md:bottom-[18px]" style={uiScaleCenterStyle}>
               <div className="mx-auto relative h-full max-w-6xl">
                 <div className="absolute inset-x-0 bottom-0 flex h-full items-end justify-center">
                   <div className="relative flex h-full w-full items-end justify-center">
@@ -4066,9 +4310,9 @@ export default function Home() {
           )}
 
           {shouldShowProfessorBaseVisual && professorDialoguePortraitSrc && (
-            <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[88] hidden md:block md:bottom-8">
+            <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[88] hidden md:block md:bottom-8" style={uiScaleBottomStyle}>
               <div className="mx-auto relative h-[290px] max-w-6xl">
-                <div className="absolute left-[-193px] top-1/2 flex h-[188px] w-[150px] -translate-y-1/2 items-center justify-center overflow-visible">
+                <div className="absolute left-[-253px] top-1/2 flex h-[282px] w-[225px] -translate-y-1/2 items-center justify-center overflow-visible">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={professorDialoguePortraitSrc}
@@ -4081,7 +4325,7 @@ export default function Home() {
             </div>
           )}
 
-          <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[90] md:bottom-8">
+          <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[90] md:bottom-8" style={uiScaleBottomStyle}>
             <div className="mx-auto flex w-full max-w-6xl justify-center pointer-events-auto">
               <div
                 className="relative flex h-[250px] w-full flex-col rounded-[30px] border border-white/20 bg-[linear-gradient(180deg,rgba(22,20,28,0.74),rgba(12,10,18,0.88))] p-5 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] backdrop-blur-md md:h-[290px] md:p-8"
@@ -4153,6 +4397,13 @@ export default function Home() {
             className="absolute inset-0 bg-center bg-cover bg-no-repeat"
             style={{ backgroundImage: `url('${ENDING_BACKGROUND_URL}')` }}
           />
+          {isScreen9DoorOpening && (
+            <div className="pointer-events-none absolute inset-0 z-[45] overflow-hidden" aria-hidden>
+              <div className="screen9-door-panel screen9-door-panel-left" />
+              <div className="screen9-door-panel screen9-door-panel-right" />
+            </div>
+          )}
+          <div className="absolute inset-0 z-20" style={uiScaleCenterStyle}>
 
           {professorVisualSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -4209,6 +4460,7 @@ export default function Home() {
                 다음
               </button>
             </div>
+          </div>
           </div>
         </section>
       )}
@@ -4326,42 +4578,27 @@ export default function Home() {
       )}
 
       {phase === "screen10_temp" && (
-        <section className="relative min-h-screen overflow-hidden bg-[#1b1312]">
-          <div
-            className="absolute inset-0 bg-center bg-cover bg-no-repeat"
-            style={{ backgroundImage: `url('${SCREEN10_BACKGROUND_URL}')` }}
-          />
-
-          <div className="absolute inset-x-0 bottom-0 z-20 h-[24vh] bg-[linear-gradient(180deg,rgba(25,15,11,0),rgba(20,12,10,0.18)_42%,rgba(16,9,8,0.36))]" />
-
-          {professorVisualSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={professorVisualSrc}
-              alt="교수님 이미지2"
-              className="absolute bottom-[11vh] left-[43.4%] z-10 h-auto w-[clamp(280px,24vw,460px)] max-w-none -translate-x-1/2 object-contain opacity-[0.96] drop-shadow-[0_20px_28px_rgba(0,0,0,0.28)]"
-              draggable={false}
-            />
-          ) : (
-            <div className="absolute left-4 top-4 z-30 max-w-[min(92vw,420px)] rounded-[22px] border border-white/30 bg-[rgba(29,18,17,0.68)] px-4 py-3 text-sm leading-[1.6] text-white/90 shadow-[0_14px_32px_rgba(0,0,0,0.28)] backdrop-blur-md">
-              화면10 임시 배치입니다. 교수님 생성 전이라 현재는 `이미지2` 자리에 들어갈 비주얼이 없어서,
-              화면3에서 교수 이미지를 먼저 생성하면 이 자리에 자동으로 들어옵니다.
+        <section className="relative min-h-screen overflow-hidden bg-black text-white">
+          <div className="absolute inset-0 z-20" style={uiScaleCenterStyle}>
+            <div className="mx-auto flex min-h-screen w-full max-w-5xl items-center px-6 py-12 md:px-10">
+              <p className="font-story whitespace-pre-line text-[clamp(23px,2.15vw,38px)] font-medium leading-[1.78] tracking-[0.01em]">
+                {screen10TypedNarration}
+                {isScreen10Typing ? <span className="animate-pulse">▌</span> : null}
+              </p>
             </div>
-          )}
-
-          <div className="absolute inset-0 z-20 flex items-end justify-center overflow-hidden" aria-hidden="true">
-            {/* 화면 전체를 쓰되 오버레이 원본은 잘리지 않도록 contain으로 유지한다. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={SCREEN10_DESK_URL}
-              alt=""
-              className="h-full w-full object-contain object-bottom"
-              draggable={false}
-            />
-          </div>
-
-          <div className="absolute left-4 top-4 z-30 rounded-full border border-white/45 bg-[rgba(255,247,242,0.88)] px-4 py-2 text-xs font-black tracking-[0.14em] text-[#6b3a2a] shadow-[0_10px_20px_rgba(0,0,0,0.12)]">
-            SCREEN 10 TEMP
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[20vh] bg-[linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,0.72))]" />
+            <div className="absolute inset-x-0 bottom-0 z-20 flex justify-end px-4 pb-6 md:px-8 md:pb-8">
+              <button
+                type="button"
+                onClick={() => {
+                  setPhase("screen9_ending");
+                }}
+                disabled={isScreen10Typing || !isScreen10ActionReady}
+                className="rounded-full border border-white/70 bg-white/92 px-7 py-3 text-lg font-black text-[#25131c] shadow-[0_10px_24px_rgba(0,0,0,0.24)] transition hover:bg-[#fff5fa] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                성적 확인하러 가기
+              </button>
+            </div>
           </div>
         </section>
       )}
@@ -4382,12 +4619,13 @@ export default function Home() {
             }
           }}
         >
-          <div className="credit-roll-track">
-            <div
-              className="credit-roll-content"
-              onAnimationEnd={() => setIsCreditFinished(true)}
-              style={{ animationDuration: `${creditRollDuration}s` }}
-            >
+          <div className="absolute inset-0 z-10" style={uiScaleCenterStyle}>
+            <div className="credit-roll-track">
+              <div
+                className="credit-roll-content"
+                onAnimationEnd={() => setIsCreditFinished(true)}
+                style={{ animationDuration: `${creditRollDuration}s` }}
+              >
               <div
                 className="credit-title-logo mx-auto h-[clamp(280px,42vw,760px)] w-full max-w-[min(98vw,1800px)] bg-center bg-contain bg-no-repeat"
                 style={{ backgroundImage: "url('/ui/title-screen/end-logo.webp')" }}
@@ -4462,11 +4700,12 @@ export default function Home() {
                   THE END
                 </p>
               </div>
+              </div>
             </div>
           </div>
 
           {isCreditFinished && (
-            <div className="credit-touch-guide">
+            <div className="credit-touch-guide" style={uiScaleCenterStyle}>
               화면 터치시 메인 화면으로 돌아갑니다
             </div>
           )}
