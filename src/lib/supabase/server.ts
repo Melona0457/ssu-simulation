@@ -28,6 +28,7 @@ export type CreditMessageRecord = {
   message_text: string;
   ending_key: string | null;
   ending_title: string | null;
+  professor_image_url: string | null;
 };
 
 export function createSupabaseServerClient() {

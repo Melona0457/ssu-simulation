@@ -26,9 +26,13 @@ create table if not exists public.credit_messages (
   created_at timestamptz not null default now(),
   player_name text not null,
   message_text text not null check (char_length(message_text) between 1 and 80),
+  professor_image_url text,
   ending_key text,
   ending_title text
 );
+
+alter table public.credit_messages
+add column if not exists professor_image_url text;
 
 alter table public.credit_messages enable row level security;
 
