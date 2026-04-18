@@ -595,8 +595,9 @@ const STORY_BGM_URLS = {
   endingCredit: `${BGM_BASE_URL}/ending_credit.ogg`,
 } as const;
 
-const SCREEN10_DEBUG_BACKGROUND_URL = "/ui/debug-screen10/background.png";
-const SCREEN10_DEBUG_OVERLAY_URL = "/ui/debug-screen10/overlay.png";
+const ENDING_BACKGROUND_URL = "/ui/ending-screen/background.webp";
+const SCREEN10_BACKGROUND_URL = "/ui/debug-screen10/background.png";
+const SCREEN10_DESK_URL = "/ui/debug-screen10/overlay.png";
 
 const STORY_SFX_URLS = {
   heartbeat: "/sfx/story/heartbeat.ogg",
@@ -1420,19 +1421,28 @@ function pickEndingVariant(
   return hiddenVariants[randomIndex];
 }
 
-function getEndingScreenImagePath(rank: EndingRank | undefined, professorGender: string) {
-  const genderPrefix = professorGender === "여자" ? "female" : "male";
-
+function getEndingOverlayAssetPath(
+  rank: EndingRank | undefined,
+  professorGender: string,
+  variantId?: string,
+) {
   if (rank === "ENDING_A_PLUS") {
-    return `/ui/ending-screen/${genderPrefix}A+.webp`;
+    return professorGender === "여자" ? "/ui/ending-screen/femaleA.webp" : "/ui/ending-screen/maleA+.webp";
   }
 
   if (rank === "ENDING_B_PLUS") {
-    return `/ui/ending-screen/${genderPrefix}B+.webp`;
+    return professorGender === "여자" ? "/ui/ending-screen/femaleB.webp" : "/ui/ending-screen/maleB.webp";
   }
 
   if (rank === "ENDING_C_PLUS") {
-    return `/ui/ending-screen/${genderPrefix}C+.webp`;
+    return professorGender === "여자" ? "/ui/ending-screen/femaleC.webp" : "/ui/ending-screen/maleC.webp";
+  }
+
+  if (rank === "ENDING_F") {
+    const hiddenVariantSuffix = variantId === "hidden_splus_02" ? "2" : "1";
+    return professorGender === "여자"
+      ? `/ui/ending-screen/femaleS${hiddenVariantSuffix}.webp`
+      : `/ui/ending-screen/maleS${hiddenVariantSuffix}.webp`;
   }
 
   return null;
@@ -1819,9 +1829,9 @@ export default function Home() {
   const affinityKnobPercent = Math.max(3, Math.min(97, visibleAffinityPercent));
   const affinityMood = getAffinityMood(affinityPercent);
   const debugEndingCatalog = storyEndingCatalog[storyEndingKeyByRank(debugEndingSelect)];
-  const endingScreenImagePath = useMemo(
-    () => getEndingScreenImagePath(ending?.rank, professor.gender),
-    [ending?.rank, professor.gender],
+  const endingOverlayAssetPath = useMemo(
+    () => getEndingOverlayAssetPath(ending?.rank, professor.gender, ending?.variantId),
+    [ending?.rank, professor.gender, ending?.variantId],
   );
   const creditRollDuration = useMemo(
     () => Math.max(18, 18 + creditMessageEntries.length * 3.1),
@@ -3958,12 +3968,23 @@ export default function Home() {
       )}
 
       {phase === "screen9_ending" && ending && (
-        <section className="relative min-h-screen overflow-hidden">
-          {endingScreenImagePath ? (
-            <div
-              className="absolute inset-0 bg-center bg-cover bg-no-repeat"
-              style={{ backgroundImage: `url('${endingScreenImagePath}')` }}
-            />
+        <section className="relative min-h-screen overflow-hidden bg-[#1b1312]">
+          <div
+            className="absolute inset-0 bg-center bg-cover bg-no-repeat"
+            style={{ backgroundImage: `url('${ENDING_BACKGROUND_URL}')` }}
+          />
+
+          {endingOverlayAssetPath ? (
+            <div className="absolute inset-x-0 bottom-0 z-10 flex justify-end">
+              {/* 엔딩도 화면10과 동일하게 공통 배경 위에 전경 오버레이 이미지를 하단 배치한다. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={endingOverlayAssetPath}
+                alt="엔딩 전경 오버레이"
+                className="h-auto w-[min(118vw,1380px)] min-w-[920px] max-w-none object-contain object-bottom"
+                draggable={false}
+              />
+            </div>
           ) : (
             <>
               <div
@@ -3985,12 +4006,14 @@ export default function Home() {
             </>
           )}
 
-          <div className="pointer-events-none absolute inset-0 z-20">
+          <div className="absolute inset-x-0 bottom-0 z-20 h-[24vh] bg-[linear-gradient(180deg,rgba(25,15,11,0),rgba(20,12,10,0.18)_42%,rgba(16,9,8,0.36))]" />
+
+          <div className="pointer-events-none absolute inset-0 z-30">
             <div className="flex min-h-screen items-end justify-end px-4 pb-6 md:px-8 md:pb-8">
               <button
                 type="button"
                 onClick={openCreditMessageModal}
-                className="pointer-events-auto rounded-full border border-white/70 bg-white px-7 py-3 text-lg font-black text-[#25131c] shadow-[0_10px_24px_rgba(0,0,0,0.24)] transition hover:bg-[#fff5fa]"
+                className="pointer-events-auto rounded-full border border-white/70 bg-white/92 px-7 py-3 text-lg font-black text-[#25131c] shadow-[0_10px_24px_rgba(0,0,0,0.24)] transition hover:bg-[#fff5fa]"
               >
                 다음
               </button>
@@ -4100,16 +4123,17 @@ export default function Home() {
         <section className="relative min-h-screen overflow-hidden bg-[#1b1312]">
           <div
             className="absolute inset-0 bg-center bg-cover bg-no-repeat"
-            style={{ backgroundImage: `url('${SCREEN10_DEBUG_BACKGROUND_URL}')` }}
+            style={{ backgroundImage: `url('${SCREEN10_BACKGROUND_URL}')` }}
           />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(42,23,14,0.08),rgba(25,16,14,0.3))]" />
+
+          <div className="absolute inset-x-0 bottom-0 z-20 h-[24vh] bg-[linear-gradient(180deg,rgba(25,15,11,0),rgba(20,12,10,0.18)_42%,rgba(16,9,8,0.36))]" />
 
           {professorVisualSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={professorVisualSrc}
-              alt="교수님 임시 배치 이미지"
-              className="absolute left-[44%] top-[10.5%] z-10 h-auto w-[clamp(290px,31vw,560px)] max-w-none -translate-x-1/2 object-contain opacity-[0.94] drop-shadow-[0_18px_32px_rgba(0,0,0,0.32)]"
+              alt="교수님 이미지2"
+              className="absolute bottom-[15vh] left-1/2 z-10 h-auto w-[clamp(320px,28vw,520px)] max-w-none -translate-x-1/2 object-contain opacity-[0.96] drop-shadow-[0_20px_28px_rgba(0,0,0,0.28)]"
               draggable={false}
             />
           ) : (
@@ -4120,11 +4144,11 @@ export default function Home() {
           )}
 
           <div className="absolute inset-x-0 bottom-0 z-20 flex justify-end">
-            {/* 배경3 오버레이를 전경으로 고정해 최종 시안처럼 책상/시험지 프레임을 먼저 맞춘다. */}
+            {/* 화면 10은 뒷배경 -> 교수 이미지2 -> 책상 전경 순서로 고정한다. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={SCREEN10_DEBUG_OVERLAY_URL}
-              alt="시험지 전경 오버레이"
+              src={SCREEN10_DESK_URL}
+              alt="책상 전경"
               className="h-auto w-[min(118vw,1380px)] min-w-[920px] max-w-none object-contain object-bottom"
               draggable={false}
             />
