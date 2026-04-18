@@ -16,7 +16,7 @@ create table if not exists public.professor_voice_slots (
   line_index int not null check (line_index >= 0),
   slot_path text not null,
   duration_ms int,
-  mime_type text default 'audio/wav',
+  mime_type text default 'audio/ogg',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (profile_key, line_index)
@@ -59,8 +59,8 @@ insert into public.professor_voice_slots (profile_key, line_index, slot_path, mi
 select
   profile_key,
   slot_index,
-  format('%s/%s.wav', profile_key, lpad((slot_index + 1)::text, 3, '0')),
-  'audio/wav'
+  format('%s/%s.ogg', profile_key, lpad((slot_index + 1)::text, 3, '0')),
+  'audio/ogg'
 from (
   values
     ('male_20s'),
@@ -70,7 +70,7 @@ from (
     ('female_30s'),
     ('female_40s')
 ) as profiles(profile_key)
-cross join generate_series(0, 85) as slot_index
+cross join generate_series(0, 90) as slot_index
 on conflict (profile_key, line_index) do update
 set
   slot_path = excluded.slot_path,
