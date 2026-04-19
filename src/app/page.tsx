@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { heartParticle } from "@/lib/heart-particle";
 import {
@@ -589,6 +589,9 @@ const DEFAULT_AUDIO_LEVELS: AudioLevels = {
 const MIN_TOTAL_AFFINITY_SCORE = -25;
 const MAX_TOTAL_AFFINITY_SCORE = 50;
 const TOTAL_AFFINITY_SCORE_SPAN = MAX_TOTAL_AFFINITY_SCORE - MIN_TOTAL_AFFINITY_SCORE;
+const EPISODE_TRANSITION_FADE_OUT_MS = 1600;
+const EPISODE_TRANSITION_BLACKOUT_MS = 400;
+const EPISODE_TRANSITION_FADE_IN_MS = 1000;
 const debugEndingScoreMap: Record<EndingRank, number> = {
   ENDING_A_PLUS: 76,
   ENDING_B_PLUS: 56,
@@ -769,11 +772,12 @@ function totalScoreToPercent(score: number) {
   return Math.max(0, Math.min(100, Math.round(normalized)));
 }
 
-function percentToTotalScore(percent: number) {
-  const clampedPercent = Math.max(0, Math.min(100, percent));
-  const rawScore =
-    MIN_TOTAL_AFFINITY_SCORE + (TOTAL_AFFINITY_SCORE_SPAN * clampedPercent) / 100;
-  return Math.round(rawScore);
+function totalScoreToGaugePositionPercent(score: number) {
+  const clampedScore = Math.max(
+    MIN_TOTAL_AFFINITY_SCORE,
+    Math.min(MAX_TOTAL_AFFINITY_SCORE, score),
+  );
+  return ((clampedScore - MIN_TOTAL_AFFINITY_SCORE) / TOTAL_AFFINITY_SCORE_SPAN) * 100;
 }
 
 const storyEpisodes = professorRouteStory.episodes as readonly StoryEpisode[];
@@ -1834,7 +1838,11 @@ export default function Home() {
   const [viewportScale, setViewportScale] = useState(100);
   const [isSoundPanelOpen, setIsSoundPanelOpen] = useState(false);
   const soundPanelRef = useRef<HTMLDivElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const bgmPrimaryRef = useRef<HTMLAudioElement | null>(null);
+  const bgmSecondaryRef = useRef<HTMLAudioElement | null>(null);
+  const bgmMixFrameRef = useRef<number | null>(null);
+  const episodeTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const episodeTransitionTimer2Ref = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeSfxRef = useRef<Array<{ audio: HTMLAudioElement; expiresAfterSerial: number }>>([]);
   const professorVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const tryPlayBgmRef = useRef<() => void>(() => {});
@@ -1842,6 +1850,13 @@ export default function Home() {
   const lastProfessorVoiceTriggerRef = useRef<string>("");
   const [needsBgmUnlock, setNeedsBgmUnlock] = useState(false);
   const [isProfessorVoicePlaying, setIsProfessorVoicePlaying] = useState(false);
+  const [bgmPrimaryUrl, setBgmPrimaryUrl] = useState("");
+  const [bgmSecondaryUrl, setBgmSecondaryUrl] = useState("");
+  const [activeBgmLayer, setActiveBgmLayer] = useState<"primary" | "secondary">("primary");
+  const [bgmLayerMix, setBgmLayerMix] = useState({ primary: 1, secondary: 0 });
+  const [episodeTransitionStage, setEpisodeTransitionStage] = useState<"idle" | "fade-out" | "fade-in">("idle");
+  const activeBgmLayerRef = useRef<"primary" | "secondary">("primary");
+  const bgmLayerMixRef = useRef({ primary: 1, secondary: 0 });
 
   const effectiveMasterVolume = audioLevels.master / 100;
   const effectiveBgmVolume = effectiveMasterVolume * (audioLevels.bgm / 100);
@@ -1887,18 +1902,127 @@ export default function Home() {
     setViewportScale(safeValue);
   };
 
-  tryPlayBgmRef.current = () => {
-    if (!audioRef.current || !isBgmEnabled) {
+  const setBgmMix = (nextMix: { primary: number; secondary: number }) => {
+    const normalized = {
+      primary: Math.max(0, Math.min(1, nextMix.primary)),
+      secondary: Math.max(0, Math.min(1, nextMix.secondary)),
+    };
+    bgmLayerMixRef.current = normalized;
+    setBgmLayerMix(normalized);
+  };
+
+  const clearEpisodeTransitionTimers = () => {
+    if (episodeTransitionTimerRef.current) {
+      clearTimeout(episodeTransitionTimerRef.current);
+      episodeTransitionTimerRef.current = null;
+    }
+    if (episodeTransitionTimer2Ref.current) {
+      clearTimeout(episodeTransitionTimer2Ref.current);
+      episodeTransitionTimer2Ref.current = null;
+    }
+  };
+
+  const stopBgmMixAnimation = () => {
+    if (bgmMixFrameRef.current !== null) {
+      cancelAnimationFrame(bgmMixFrameRef.current);
+      bgmMixFrameRef.current = null;
+    }
+  };
+
+  const animateBgmMix = (
+    nextMix: { primary: number; secondary: number },
+    durationMs: number,
+    onComplete?: () => void,
+  ) => {
+    stopBgmMixAnimation();
+
+    const targetMix = {
+      primary: Math.max(0, Math.min(1, nextMix.primary)),
+      secondary: Math.max(0, Math.min(1, nextMix.secondary)),
+    };
+    const startMix = bgmLayerMixRef.current;
+    if (
+      durationMs <= 0 ||
+      (Math.abs(targetMix.primary - startMix.primary) < 0.001 &&
+        Math.abs(targetMix.secondary - startMix.secondary) < 0.001)
+    ) {
+      setBgmMix(targetMix);
+      onComplete?.();
       return;
     }
 
-    audioRef.current
-      .play()
-      .then(() => setNeedsBgmUnlock(false))
-      .catch((err) => {
-        console.error("BGM 재생 실패:", err);
-        setNeedsBgmUnlock(true);
+    const startTime = performance.now();
+    const tick = (timestamp: number) => {
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(1, elapsed / durationMs);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setBgmMix({
+        primary: startMix.primary + (targetMix.primary - startMix.primary) * eased,
+        secondary: startMix.secondary + (targetMix.secondary - startMix.secondary) * eased,
       });
+
+      if (progress < 1) {
+        bgmMixFrameRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      bgmMixFrameRef.current = null;
+      setBgmMix(targetMix);
+      onComplete?.();
+    };
+
+    bgmMixFrameRef.current = requestAnimationFrame(tick);
+  };
+
+  const resolveBgmAudioByLayer = useCallback(
+    (layer: "primary" | "secondary") =>
+      layer === "primary" ? bgmPrimaryRef.current : bgmSecondaryRef.current,
+    [],
+  );
+
+  const pauseBgmAudio = useCallback(
+    (layer: "primary" | "secondary") => {
+      const audio = resolveBgmAudioByLayer(layer);
+      if (!audio) {
+        return;
+      }
+      audio.pause();
+      audio.currentTime = 0;
+    },
+    [resolveBgmAudioByLayer],
+  );
+
+  const playBgmAudio = useCallback(
+    (layer: "primary" | "secondary") => {
+      const audio = resolveBgmAudioByLayer(layer);
+      if (!audio || !audio.src || !isBgmEnabled) {
+        return;
+      }
+
+      audio
+        .play()
+        .then(() => setNeedsBgmUnlock(false))
+        .catch((err) => {
+          if (err instanceof DOMException && err.name === "AbortError") {
+            return;
+          }
+          console.error("BGM 재생 실패:", err);
+          setNeedsBgmUnlock(true);
+        });
+    },
+    [isBgmEnabled, resolveBgmAudioByLayer],
+  );
+
+  tryPlayBgmRef.current = () => {
+    if (!isBgmEnabled) {
+      return;
+    }
+    if (bgmLayerMixRef.current.primary > 0.001) {
+      playBgmAudio("primary");
+    }
+    if (bgmLayerMixRef.current.secondary > 0.001) {
+      playBgmAudio("secondary");
+    }
   };
 
   const [activeProfessorScriptProfileKey, setActiveProfessorScriptProfileKey] = useState("male_30s");
@@ -1995,6 +2119,7 @@ export default function Home() {
     () => resolveBgmUrlByContext(phase, currentEpisode?.id ?? null),
     [currentEpisode?.id, phase],
   );
+  const activeBgmUrl = activeBgmLayer === "primary" ? bgmPrimaryUrl : bgmSecondaryUrl;
   const currentScene = storyCursor ? getStoryScene(storyCursor.episodeId, storyCursor.sceneId) : null;
   const currentSceneLines = useMemo(() => {
     if (!currentEpisode || !currentScene || !storyCursor) {
@@ -2076,11 +2201,15 @@ export default function Home() {
     activeDialogueLine.length > 0 &&
     typedProfessorLine !== activeDialogueLine;
   const shouldShowChoiceOverlay =
-    hasCurrentChoices && !isDialogueLineTyping && !isNightEpisodeEndingTransition;
+    hasCurrentChoices &&
+    !isDialogueLineTyping &&
+    !isNightEpisodeEndingTransition &&
+    episodeTransitionStage === "idle";
   const canAdvanceCurrentStep =
     (!hasCurrentChoices || Boolean(pendingChoice) || currentLine !== null) &&
     !isDialogueLineTyping &&
-    !isNightEpisodeEndingTransition;
+    !isNightEpisodeEndingTransition &&
+    episodeTransitionStage === "idle";
   const futurePotentialScore = useMemo(() => {
     if (!storyCursor || !currentScene) {
       return 0;
@@ -2143,6 +2272,7 @@ export default function Home() {
   const shouldShowProfessorBaseVisual =
     phase === "screen4_8_chapter" &&
     !shouldShowChoiceOverlay &&
+    episodeTransitionStage === "idle" &&
     !currentVisualCue &&
     currentLine?.speaker === "교수";
   const shouldShowCorridorLightOverlay =
@@ -2150,6 +2280,12 @@ export default function Home() {
     storyCursor?.sceneId === "ep06c_scene02_professor_enters" &&
     !pendingChoice &&
     storyCursor?.lineIndex === 0;
+  const episodeTransitionOverlayClassName =
+    episodeTransitionStage === "idle"
+      ? "opacity-0 duration-0"
+      : episodeTransitionStage === "fade-in"
+        ? "opacity-0 duration-[1000ms]"
+        : "opacity-100 duration-[1600ms]";
 
   function revealCurrentDialogueImmediately() {
     const line = activeDialogueLine.trim();
@@ -2173,8 +2309,23 @@ export default function Home() {
   moveNextChapterRef.current = moveNextChapter;
 
   const affinityPercent = totalScoreToPercent(rawScore);
-  const visibleAffinityPercent = affinityPercent > 0 ? Math.max(6, affinityPercent) : 0;
-  const affinityKnobPercent = Math.max(3, Math.min(97, visibleAffinityPercent));
+  const zeroGaugePercent = totalScoreToGaugePositionPercent(0);
+  const rawGaugePositionPercent = totalScoreToGaugePositionPercent(rawScore);
+  const gaugeDeltaPercent = Math.abs(rawGaugePositionPercent - zeroGaugePercent);
+  const minGaugeFillPercent = 1.8;
+  const isNegativeAffinity = rawScore < 0;
+  const visibleGaugeFillWidthPercent =
+    gaugeDeltaPercent === 0
+      ? 0
+      : Math.min(
+          isNegativeAffinity ? zeroGaugePercent : 100 - zeroGaugePercent,
+          Math.max(minGaugeFillPercent, gaugeDeltaPercent),
+        );
+  const gaugeFillLeftPercent = isNegativeAffinity
+    ? zeroGaugePercent - visibleGaugeFillWidthPercent
+    : zeroGaugePercent;
+  const affinityKnobPercent = Math.max(3, Math.min(97, rawGaugePositionPercent));
+  const formattedRawScore = `${rawScore > 0 ? "+" : ""}${rawScore}`;
   const affinityMood = getAffinityMood(affinityPercent);
   const debugEndingCatalog = storyEndingCatalog[storyEndingKeyByRank(debugEndingSelect)];
   const endingOverlayAssetPath = useMemo(
@@ -2218,6 +2369,41 @@ export default function Home() {
 
     previousPhaseRef.current = phase;
   }, [phase]);
+
+  useEffect(() => {
+    activeBgmLayerRef.current = activeBgmLayer;
+  }, [activeBgmLayer]);
+
+  useEffect(() => {
+    if (!currentBgmUrl || episodeTransitionStage !== "idle") {
+      return;
+    }
+
+    if (!activeBgmUrl) {
+      if (activeBgmLayer === "primary") {
+        setBgmPrimaryUrl(currentBgmUrl);
+        setBgmMix({ primary: 1, secondary: 0 });
+      } else {
+        setBgmSecondaryUrl(currentBgmUrl);
+        setBgmMix({ primary: 0, secondary: 1 });
+      }
+      return;
+    }
+
+    if (activeBgmUrl === currentBgmUrl) {
+      return;
+    }
+
+    if (activeBgmLayer === "primary") {
+      pauseBgmAudio("secondary");
+      setBgmPrimaryUrl(currentBgmUrl);
+      setBgmMix({ primary: 1, secondary: 0 });
+    } else {
+      pauseBgmAudio("primary");
+      setBgmSecondaryUrl(currentBgmUrl);
+      setBgmMix({ primary: 0, secondary: 1 });
+    }
+  }, [activeBgmLayer, activeBgmUrl, currentBgmUrl, episodeTransitionStage, pauseBgmAudio]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -2316,25 +2502,27 @@ export default function Home() {
   }, [isSoundPanelOpen]);
 
   useEffect(() => {
-    if (!audioRef.current) {
-      return;
+    if (bgmPrimaryRef.current) {
+      bgmPrimaryRef.current.volume = effectiveBgmVolume * bgmLayerMix.primary;
     }
-
-    audioRef.current.volume = effectiveBgmVolume;
+    if (bgmSecondaryRef.current) {
+      bgmSecondaryRef.current.volume = effectiveBgmVolume * bgmLayerMix.secondary;
+    }
     if (!isBgmEnabled) {
-      audioRef.current.pause();
+      pauseBgmAudio("primary");
+      pauseBgmAudio("secondary");
       setNeedsBgmUnlock(false);
       return;
     }
-  }, [effectiveBgmVolume, isBgmEnabled]);
+  }, [bgmLayerMix.primary, bgmLayerMix.secondary, effectiveBgmVolume, isBgmEnabled, pauseBgmAudio]);
 
   useEffect(() => {
-    if (!audioRef.current || !isBgmEnabled || isBgmSuppressed) {
+    if (!isBgmEnabled || isBgmSuppressed) {
       return;
     }
 
     tryPlayBgmRef.current();
-  }, [currentBgmUrl, isBgmEnabled, isBgmSuppressed]);
+  }, [bgmPrimaryUrl, bgmSecondaryUrl, isBgmEnabled, isBgmSuppressed]);
 
   useEffect(() => {
     if (professorVoiceAudioRef.current) {
@@ -2346,27 +2534,18 @@ export default function Home() {
   }, [effectiveVoiceVolume, isProfessorVoiceEnabled]);
 
   useEffect(() => {
-    if (!audioRef.current) {
-      return;
-    }
-
     if (isBgmSuppressed) {
-      audioRef.current.pause();
+      pauseBgmAudio("primary");
+      pauseBgmAudio("secondary");
       return;
     }
 
-    if (!isBgmEnabled || !audioRef.current.paused) {
+    if (!isBgmEnabled) {
       return;
     }
 
-    audioRef.current
-      .play()
-      .then(() => setNeedsBgmUnlock(false))
-      .catch((err) => {
-        console.error("BGM 재생 실패:", err);
-        setNeedsBgmUnlock(true);
-      });
-  }, [isBgmEnabled, isBgmSuppressed]);
+    tryPlayBgmRef.current();
+  }, [isBgmEnabled, isBgmSuppressed, pauseBgmAudio]);
 
   useEffect(() => {
     if (!needsBgmUnlock || !isBgmEnabled) {
@@ -2743,6 +2922,8 @@ export default function Home() {
         clearTimeout(heartbeatOverlayTimerRef.current);
         heartbeatOverlayTimerRef.current = null;
       }
+      clearEpisodeTransitionTimers();
+      stopBgmMixAnimation();
       stopActiveSfx();
       stopProfessorVoice();
       if (particleFrameRef.current) {
@@ -2770,7 +2951,7 @@ export default function Home() {
     const particleCount = Math.max(8, Math.min(20, affinityDelta.value + 6));
     const startX = Math.max(
       12,
-      Math.min(canvas.width - 12, 8 + (affinityPercent / 100) * (canvas.width - 16)),
+      Math.min(canvas.width - 12, 8 + (rawGaugePositionPercent / 100) * (canvas.width - 16)),
     );
     const startY = canvas.height * 0.52;
     const particles = Array.from({ length: particleCount }).map(() => ({
@@ -2855,7 +3036,7 @@ export default function Home() {
       }
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
-  }, [affinityDelta, affinityPercent, phase]);
+  }, [affinityDelta, phase, rawGaugePositionPercent]);
 
   useEffect(() => {
     if (typingTimerRef.current) {
@@ -3103,8 +3284,8 @@ export default function Home() {
   }, [phase]);
 
   useEffect(() => {
-    setDebugAffinityInput(affinityPercent);
-  }, [affinityPercent]);
+    setDebugAffinityInput(rawScore);
+  }, [rawScore]);
 
   useEffect(() => {
     setDebugEndingVariantIndex(0);
@@ -3226,17 +3407,19 @@ export default function Home() {
   }
 
   function applyDebugAffinity() {
-    const nextPercent = Math.max(0, Math.min(100, Math.round(debugAffinityInput)));
-    const prevPercent = affinityPercent;
-    const nextRawScore = percentToTotalScore(nextPercent);
-    
-    setDebugAffinityInput(nextPercent);
+    const nextRawScore = Math.max(
+      MIN_TOTAL_AFFINITY_SCORE,
+      Math.min(MAX_TOTAL_AFFINITY_SCORE, Math.round(debugAffinityInput)),
+    );
+    const prevRawScore = rawScore;
+
+    setDebugAffinityInput(nextRawScore);
     setRawScore(nextRawScore);
     setMaxScore(Math.max(maxScore, MAX_TOTAL_AFFINITY_SCORE));
     setAffinityDelta(null);
 
-    if (nextPercent !== prevPercent) {
-      setHeartPulse(nextPercent > prevPercent ? "increase" : "decrease");
+    if (nextRawScore !== prevRawScore) {
+      setHeartPulse(nextRawScore > prevRawScore ? "increase" : "decrease");
       if (heartPulseTimerRef.current) clearTimeout(heartPulseTimerRef.current);
       heartPulseTimerRef.current = setTimeout(() => {
         setHeartPulse(null);
@@ -3424,11 +3607,67 @@ export default function Home() {
       return;
     }
 
-    setStoryCursor({
-      episodeId,
-      sceneId: firstSceneId,
-      lineIndex: 0,
-    });
+    const nextEpisodeBgmUrl = resolveBgmUrlByContext("screen4_8_chapter", episodeId);
+
+    if (storyCursor?.episodeId === episodeId || phase !== "screen4_8_chapter") {
+      setStoryCursor({
+        episodeId,
+        sceneId: firstSceneId,
+        lineIndex: 0,
+      });
+      return;
+    }
+
+    clearEpisodeTransitionTimers();
+    stopBgmMixAnimation();
+    setEpisodeTransitionStage("fade-out");
+    const outgoingLayer = activeBgmLayerRef.current;
+    const incomingLayer = outgoingLayer === "primary" ? "secondary" : "primary";
+
+    if (incomingLayer === "primary") {
+      setBgmPrimaryUrl(nextEpisodeBgmUrl);
+    } else {
+      setBgmSecondaryUrl(nextEpisodeBgmUrl);
+    }
+    setBgmMix(
+      outgoingLayer === "primary"
+        ? { primary: 1, secondary: 0 }
+        : { primary: 0, secondary: 1 },
+    );
+    animateBgmMix(
+      outgoingLayer === "primary"
+        ? { primary: 0, secondary: 0 }
+        : { primary: 0, secondary: 0 },
+      EPISODE_TRANSITION_FADE_OUT_MS + EPISODE_TRANSITION_BLACKOUT_MS,
+    );
+
+    episodeTransitionTimerRef.current = setTimeout(() => {
+      setStoryCursor({
+        episodeId,
+        sceneId: firstSceneId,
+        lineIndex: 0,
+      });
+      setEpisodeTransitionStage("fade-in");
+      playBgmAudio(incomingLayer);
+      setBgmMix({ primary: 0, secondary: 0 });
+      animateBgmMix(
+        incomingLayer === "primary"
+          ? { primary: 1, secondary: 0 }
+          : { primary: 0, secondary: 1 },
+        EPISODE_TRANSITION_FADE_IN_MS,
+        () => {
+          pauseBgmAudio(outgoingLayer);
+          setActiveBgmLayer(incomingLayer);
+          activeBgmLayerRef.current = incomingLayer;
+        },
+      );
+
+      episodeTransitionTimer2Ref.current = setTimeout(() => {
+        setEpisodeTransitionStage("idle");
+        episodeTransitionTimer2Ref.current = null;
+      }, EPISODE_TRANSITION_FADE_IN_MS);
+      episodeTransitionTimerRef.current = null;
+    }, EPISODE_TRANSITION_FADE_OUT_MS + EPISODE_TRANSITION_BLACKOUT_MS);
   }
 
   function moveToScene(episodeId: string, sceneId: string) {
@@ -3956,7 +4195,8 @@ export default function Home() {
           )}
         </div>
         {/* 실제 오디오 태그 */}
-        <audio ref={audioRef} src={currentBgmUrl} loop />
+        <audio ref={bgmPrimaryRef} src={bgmPrimaryUrl || undefined} loop />
+        <audio ref={bgmSecondaryRef} src={bgmSecondaryUrl || undefined} loop />
       </div>
 
       {isDebugPasswordModalOpen && (
@@ -4054,7 +4294,7 @@ export default function Home() {
               <span className="font-bold">{activeProfessorScriptLines.length}</span>줄 로드
             </p>
             <p className="text-sm break-all">
-              현재 BGM: <span className="font-bold">{currentBgmUrl}</span>
+              현재 BGM: <span className="font-bold">{activeBgmUrl || currentBgmUrl}</span>
             </p>
           </div>
 
@@ -4186,8 +4426,8 @@ export default function Home() {
             <p className="mb-2 text-sm font-black text-[#5e2341]">호감도 임의 설정</p>
             <input
               type="range"
-              min={0}
-              max={100}
+              min={MIN_TOTAL_AFFINITY_SCORE}
+              max={MAX_TOTAL_AFFINITY_SCORE}
               value={debugAffinityInput}
               onChange={(event) => setDebugAffinityInput(Number(event.target.value))}
               className="w-full accent-[#d86e9a]"
@@ -4195,12 +4435,15 @@ export default function Home() {
             <div className="mt-2 flex items-center justify-between gap-2">
               <input
                 type="number"
-                min={0}
-                max={100}
+                min={MIN_TOTAL_AFFINITY_SCORE}
+                max={MAX_TOTAL_AFFINITY_SCORE}
                 value={debugAffinityInput}
                 onChange={(event) => setDebugAffinityInput(Number(event.target.value))}
-              className="glass-debug-input h-9 w-20 px-2 text-sm"
+                className="glass-debug-input h-9 w-20 px-2 text-sm"
               />
+              <span className="text-xs font-semibold text-[#7b3f5b]">
+                범위 {MIN_TOTAL_AFFINITY_SCORE} ~ +{MAX_TOTAL_AFFINITY_SCORE}
+              </span>
               <button
                 type="button"
                 onClick={applyDebugAffinity}
@@ -4661,15 +4904,20 @@ export default function Home() {
               aria-hidden
             />
           )}
+          <div className="pointer-events-none absolute inset-0 z-[190] overflow-hidden" aria-hidden>
+            <div
+              className={`absolute inset-0 bg-black transition-opacity ease-in-out ${episodeTransitionOverlayClassName}`}
+            />
+          </div>
 
           <div className="relative z-20 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-4 pt-8 md:px-8">
             <div className="flex flex-col items-start gap-3" style={uiScaleTopCenterStyle}>
               <div className={`w-full max-w-[1040px] rounded-xl border px-4 py-3 text-white relative shadow-lg heart-gauge-container transition-all duration-700 ${
-                affinityPercent >= 100 
+                rawScore >= MAX_TOTAL_AFFINITY_SCORE
                   ? "border-[#ff4f81] bg-black/60 shadow-[0_0_30px_rgba(255,79,129,0.7)]" 
                   : "border-white/40 bg-black/45"
               }`}>
-                {affinityPercent >= 100 && (
+                {rawScore >= MAX_TOTAL_AFFINITY_SCORE && (
                   <div className="pointer-events-none absolute inset-0 z-0 animate-pulse rounded-xl bg-gradient-to-r from-transparent via-white/20 to-transparent" />
                 )}
                 <canvas
@@ -4684,7 +4932,7 @@ export default function Home() {
                     {affinityMood}
                   </span>
                   <span className="font-gothic text-xs font-bold text-white/80">
-                    {Math.round(affinityPercent)}/100
+                    {formattedRawScore}점
                   </span>
                 </div>
                 <div className="relative flex items-center">
@@ -4704,21 +4952,42 @@ export default function Home() {
                   <div className="relative h-7 flex-1 overflow-visible">
                     <div className="shadow-gauge-glow absolute left-0 top-1/2 h-4 w-full -translate-y-1/2 rounded-full bg-[#2a1a22] opacity-70" />
                     <div
-                      className={`heart-gauge-bar absolute left-0 top-1/2 h-4 -translate-y-1/2 rounded-full transition-[width] duration-700 ease-out ${
-                        affinityPercent >= 100 ? "animate-pulse" : ""
+                      className="absolute top-1/2 z-10 h-6 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/70 shadow-[0_0_12px_rgba(255,255,255,0.45)]"
+                      style={{ left: `${zeroGaugePercent}%` }}
+                    />
+                    <div
+                      className={`heart-gauge-bar absolute top-1/2 h-4 -translate-y-1/2 rounded-full transition-[left,width] duration-700 ease-out ${
+                        rawScore >= MAX_TOTAL_AFFINITY_SCORE ? "animate-pulse" : ""
                       }`}
                       style={{
-                        width: `${visibleAffinityPercent}%`,
-                        background:
-                          "linear-gradient(90deg, #ffb6c1 0%, #ff4f81 50%, #c80032 100%)",
-                        boxShadow: affinityPercent >= 100 ? "0 0 25px 5px #ff4f81" : "0 0 16px 2px #ff4f81cc, 0 2px 8px #c8003233",
+                        left: `${gaugeFillLeftPercent}%`,
+                        width: `${visibleGaugeFillWidthPercent}%`,
+                        background: isNegativeAffinity
+                          ? "linear-gradient(90deg, #9b6a7e 0%, #d89ab1 100%)"
+                          : "linear-gradient(90deg, #ffb6c1 0%, #ff4f81 50%, #c80032 100%)",
+                        boxShadow:
+                          rawScore >= MAX_TOTAL_AFFINITY_SCORE
+                            ? "0 0 25px 5px #ff4f81"
+                            : isNegativeAffinity
+                              ? "0 0 14px 2px rgba(216,154,177,0.55), 0 2px 8px rgba(96,52,74,0.28)"
+                              : "0 0 16px 2px #ff4f81cc, 0 2px 8px #c8003233",
                       }}
                     />
                     <div
-                      key={affinityPercent}
+                      key={rawScore}
                       className="heart-gauge-knob absolute top-1/2 h-6 w-6 -translate-y-1/2 rounded-full"
                       style={{ left: `calc(${affinityKnobPercent}% - 12px)` }}
                     />
+                    <div className="pointer-events-none absolute inset-x-0 top-full mt-1 h-4 text-[10px] font-bold tracking-[0.08em] text-white/55">
+                      <span className="absolute left-0 top-0 -translate-x-0">-25</span>
+                      <span
+                        className="absolute top-0 -translate-x-1/2"
+                        style={{ left: `${zeroGaugePercent}%` }}
+                      >
+                        0
+                      </span>
+                      <span className="absolute right-0 top-0 translate-x-0">+50</span>
+                    </div>
                   </div>
                   {affinityDelta && (
                     <span
