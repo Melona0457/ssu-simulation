@@ -1,19 +1,26 @@
 import { NextResponse } from "next/server";
+import { HarmBlockThreshold, HarmCategory } from "@google/genai";
 import sharp from "sharp";
 import {
   buildIllustrationPrompt,
+  buildProfessorSummary,
   resolveProfessorForGeneration,
   type ProfessorFormState,
 } from "@/lib/game-data";
 import {
   createGeminiClient,
   extractFirstInlineData,
+  extractGeminiSafetyBlockMessage,
   getGeminiImageModel,
 } from "@/lib/gemini/server";
 import { recordMonitoringEvent } from "@/lib/monitoring/server";
 import { removeBackgroundSingle } from "@/lib/bg-remove/server";
+import { checkProfessorInputSafety } from "@/lib/professor-input-safety";
 import { checkRateLimit, getRequestIp } from "@/lib/rate-limit";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  type ProfessorGenerationInsert,
+  createSupabaseServerClient,
+} from "@/lib/supabase/server";
 
 type GenerateProfessorImagePayload = {
   professor?: ProfessorFormState;
@@ -24,6 +31,72 @@ function toImageDataUrl(data: string, mimeType: string) {
 }
 
 const PROFESSOR_IMAGE_BUCKET = process.env.SUPABASE_PROFESSOR_IMAGE_BUCKET?.trim() || "professor-images";
+const DEFAULT_PROFESSOR_INPUT: ProfessorFormState = {
+  name: "",
+  gender: "남자",
+  age: "30",
+  speakingStyle: "TONE_30S",
+  illustrationStyle: "DESIGN_3_CAMPUS_VISUAL_NOVEL",
+  feature1: "",
+  feature2: "",
+  feature3: "",
+  feature4: "",
+  feature5: "",
+  feature6: "",
+  feature7: "",
+  feature8: "",
+  customPrompt: "",
+};
+const PROFESSOR_GENDER_VALUES: ProfessorFormState["gender"][] = [
+  "남자",
+  "여자",
+  "남성",
+  "여성",
+  "논바이너리",
+  "미정(중성 표현)",
+];
+const ILLUSTRATION_STYLE_VALUES: ProfessorFormState["illustrationStyle"][] = [
+  "DESIGN_1_ROMANCE_FANTASY",
+  "DESIGN_2_CLEAN_CHARACTER_CARD",
+  "DESIGN_3_CAMPUS_VISUAL_NOVEL",
+];
+
+function coerceProfessorInput(value: unknown): ProfessorFormState {
+  const raw =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Partial<Record<keyof ProfessorFormState, unknown>>)
+      : {};
+
+  const readString = <T extends keyof ProfessorFormState>(key: T) =>
+    typeof raw[key] === "string" ? raw[key] : DEFAULT_PROFESSOR_INPUT[key];
+  const unsafeGender = readString("gender");
+  const unsafeIllustrationStyle = readString("illustrationStyle");
+  const gender = PROFESSOR_GENDER_VALUES.includes(unsafeGender as ProfessorFormState["gender"])
+    ? (unsafeGender as ProfessorFormState["gender"])
+    : DEFAULT_PROFESSOR_INPUT.gender;
+  const illustrationStyle = ILLUSTRATION_STYLE_VALUES.includes(
+    unsafeIllustrationStyle as ProfessorFormState["illustrationStyle"],
+  )
+    ? (unsafeIllustrationStyle as ProfessorFormState["illustrationStyle"])
+    : DEFAULT_PROFESSOR_INPUT.illustrationStyle;
+
+  return {
+    name: readString("name"),
+    gender,
+    age: readString("age"),
+    speakingStyle: readString("speakingStyle"),
+    illustrationStyle,
+    feature1: readString("feature1"),
+    feature2: readString("feature2"),
+    feature3: readString("feature3"),
+    feature4: readString("feature4"),
+    feature5: readString("feature5"),
+    feature6: readString("feature6"),
+    feature7: readString("feature7"),
+    feature8: readString("feature8"),
+    customPrompt: readString("customPrompt"),
+  };
+}
 
 function resolveProfessorStorageGenderSegment(gender: ProfessorFormState["gender"]) {
   if (gender === "남자" || gender === "남성") {
@@ -127,24 +200,34 @@ export async function POST(request: Request) {
     );
   }
 
-  const resolvedProfessor = resolveProfessorForGeneration(
-    payload.professor ?? {
-      name: "",
-      gender: "남자",
-      age: "30",
-      speakingStyle: "TONE_30S",
-      illustrationStyle: "DESIGN_3_CAMPUS_VISUAL_NOVEL",
-      feature1: "",
-      feature2: "",
-      feature3: "",
-      feature4: "",
-      feature5: "",
-      feature6: "",
-      feature7: "",
-      feature8: "",
-      customPrompt: "",
-    },
-  );
+  const inputProfessor = coerceProfessorInput(payload.professor);
+  const inputSafety = checkProfessorInputSafety(inputProfessor);
+
+  if (!inputSafety.ok) {
+    await recordMonitoringEvent({
+      eventType: "professor_image_generation",
+      status: "warning",
+      source: "input_guard",
+      durationMs: Date.now() - startedAt,
+      errorMessage: inputSafety.userMessage,
+      metadata: {
+        model: imageModel,
+        bgApiConfigured,
+        blockedCategory: inputSafety.category,
+        blockedField: inputSafety.field,
+      },
+    });
+
+    return NextResponse.json(
+      {
+        message: inputSafety.userMessage,
+      },
+      { status: 400 },
+    );
+  }
+
+  const resolvedProfessor = resolveProfessorForGeneration(inputProfessor);
+  const professorSummary = buildProfessorSummary(resolvedProfessor);
 
   const prompt = [
     buildIllustrationPrompt(resolvedProfessor),
@@ -167,15 +250,40 @@ export async function POST(request: Request) {
     const response = await client.models.generateContent({
       model: imageModel,
       contents: prompt,
+      config: {
+        safetySettings: [
+          {
+            category: HarmCategory.HARM_CATEGORY_IMAGE_SEXUALLY_EXPLICIT,
+            threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
+          },
+        ],
+      },
     });
 
     const imagePart = extractFirstInlineData(response);
     if (!imagePart) {
+      const blockedMessage = extractGeminiSafetyBlockMessage(response);
+
+      if (blockedMessage) {
+        await recordMonitoringEvent({
+          eventType: "professor_image_generation",
+          status: "warning",
+          source: "gemini",
+          durationMs: Date.now() - startedAt,
+          errorMessage: blockedMessage,
+          metadata: {
+            model: imageModel,
+            bgApiConfigured,
+            blockedBySafety: true,
+          },
+        });
+      }
+
       return NextResponse.json(
         {
-          message: "Gemini 응답에 이미지 데이터가 없습니다.",
+          message: blockedMessage || "Gemini 응답에 이미지 데이터가 없습니다.",
         },
-        { status: 500 },
+        { status: blockedMessage ? 400 : 500 },
       );
     }
 
@@ -187,6 +295,8 @@ export async function POST(request: Request) {
     let backgroundRemovalApplied = false;
     let backgroundRemovalWarning: string | null = null;
     let storageUploadWarning: string | null = null;
+    let generationRecordWarning: string | null = null;
+    let storageObjectPath: string | null = null;
     let image1Buffer = Buffer.from(imagePart.data, "base64");
     let image1MimeType = imagePart.mimeType;
 
@@ -223,10 +333,10 @@ export async function POST(request: Request) {
     if (supabase) {
       try {
         const genderSegment = resolveProfessorStorageGenderSegment(resolvedProfessor.gender);
-        const objectPath = `generated/${genderSegment}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.png`;
+        storageObjectPath = `generated/${genderSegment}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.png`;
         const { error: uploadError } = await supabase.storage
           .from(PROFESSOR_IMAGE_BUCKET)
-          .upload(objectPath, image1Buffer, {
+          .upload(storageObjectPath, image1Buffer, {
             contentType: image1MimeType || "image/png",
             upsert: false,
           });
@@ -237,7 +347,7 @@ export async function POST(request: Request) {
 
         const { data: publicUrlData } = supabase.storage
           .from(PROFESSOR_IMAGE_BUCKET)
-          .getPublicUrl(objectPath);
+          .getPublicUrl(storageObjectPath);
         storedFullImageUrl = publicUrlData.publicUrl;
       } catch (error) {
         storageUploadWarning =
@@ -250,7 +360,44 @@ export async function POST(request: Request) {
         "Supabase 환경 변수가 없어 원본 교수 이미지를 Storage에 저장하지 못했습니다.";
     }
 
-    const monitoringMessage = [backgroundRemovalWarning, storageUploadWarning]
+    if (supabase) {
+      try {
+        const generationRecord: ProfessorGenerationInsert = {
+          source: "generate-professor-image",
+          input_professor: inputProfessor as unknown as Record<string, unknown>,
+          resolved_professor: resolvedProfessor as unknown as Record<string, unknown>,
+          professor_summary: professorSummary,
+          illustration_prompt: prompt,
+          storage_bucket: PROFESSOR_IMAGE_BUCKET,
+          storage_object_path: storageObjectPath,
+          stored_full_image_url: storedFullImageUrl,
+          background_removal_applied: backgroundRemovalApplied,
+          background_removal_warning: backgroundRemovalWarning,
+          storage_upload_warning: storageUploadWarning,
+        };
+        const { error: generationInsertError } = await supabase
+          .from("professor_generations")
+          .insert(generationRecord);
+
+        if (generationInsertError) {
+          throw generationInsertError;
+        }
+      } catch (error) {
+        generationRecordWarning =
+          error instanceof Error
+            ? `교수 생성 메타데이터 DB 저장 실패: ${error.message}`
+            : "교수 생성 메타데이터 DB 저장에 실패했습니다.";
+      }
+    } else {
+      generationRecordWarning =
+        "Supabase 환경 변수가 없어 교수 생성 메타데이터를 DB에 저장하지 못했습니다.";
+    }
+
+    const monitoringMessage = [
+      backgroundRemovalWarning,
+      storageUploadWarning,
+      generationRecordWarning,
+    ]
       .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
       .join(" | ");
     await recordMonitoringEvent({
@@ -265,6 +412,7 @@ export async function POST(request: Request) {
         backgroundRemovalApplied,
         backgroundRemovalWarning,
         storageUploadWarning,
+        generationRecordWarning,
         storedFullImage: Boolean(storedFullImageUrl),
       },
     });
@@ -276,9 +424,11 @@ export async function POST(request: Request) {
       dialoguePortraitDataUrl,
       storedFullImageUrl,
       prompt,
+      professorSummary,
       backgroundRemovalApplied,
       backgroundRemovalWarning,
       storageUploadWarning,
+      generationRecordWarning,
     });
   } catch (error) {
     const errorMessage =

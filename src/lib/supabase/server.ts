@@ -21,6 +21,20 @@ export type PlaySessionInsert = {
   story_log: string[];
 };
 
+export type ProfessorGenerationInsert = {
+  source: string;
+  input_professor: Record<string, unknown>;
+  resolved_professor: Record<string, unknown>;
+  professor_summary: string;
+  illustration_prompt: string;
+  storage_bucket: string | null;
+  storage_object_path: string | null;
+  stored_full_image_url: string | null;
+  background_removal_applied: boolean;
+  background_removal_warning: string | null;
+  storage_upload_warning: string | null;
+};
+
 export type CreditMessageRecord = {
   id: string;
   created_at: string;

@@ -15,6 +15,8 @@ create table if not exists public.play_sessions (
 
 alter table public.play_sessions enable row level security;
 
+drop policy if exists "service role can manage play sessions" on public.play_sessions;
+
 create policy "service role can manage play sessions"
 on public.play_sessions
 for all
@@ -39,8 +41,39 @@ add column if not exists professor_image_url text;
 
 alter table public.credit_messages enable row level security;
 
+drop policy if exists "service role can manage credit messages" on public.credit_messages;
+
 create policy "service role can manage credit messages"
 on public.credit_messages
+for all
+using (auth.role() = 'service_role')
+with check (auth.role() = 'service_role');
+
+create table if not exists public.professor_generations (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  source text not null default 'generate-professor-image',
+  input_professor jsonb not null,
+  resolved_professor jsonb not null,
+  professor_summary text not null,
+  illustration_prompt text not null,
+  storage_bucket text,
+  storage_object_path text,
+  stored_full_image_url text,
+  background_removal_applied boolean not null default false,
+  background_removal_warning text,
+  storage_upload_warning text
+);
+
+create index if not exists professor_generations_created_at_idx
+on public.professor_generations (created_at desc);
+
+alter table public.professor_generations enable row level security;
+
+drop policy if exists "service role can manage professor generations" on public.professor_generations;
+
+create policy "service role can manage professor generations"
+on public.professor_generations
 for all
 using (auth.role() = 'service_role')
 with check (auth.role() = 'service_role');

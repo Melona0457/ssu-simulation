@@ -3617,7 +3617,6 @@ export default function Home() {
 
     const resolvedProfessor = resolveProfessorForGeneration(professor);
     setProfessor(resolvedProfessor);
-    setHasUsedProfessorGeneration(true);
     setIsGeneratingProfessorImage(true);
     setProfessorImageError("");
     if (!hasPromptedCreditMessageOnProfessorGeneration) {
@@ -3643,8 +3642,10 @@ export default function Home() {
         dialoguePortraitDataUrl?: string | null;
         storedFullImageUrl?: string | null;
         prompt?: string;
+        professorSummary?: string;
         message?: string;
         storageUploadWarning?: string | null;
+        generationRecordWarning?: string | null;
       };
 
       if (!response.ok || !data.imageDataUrl) {
@@ -3662,10 +3663,13 @@ export default function Home() {
           data.transparentDataUrl ||
           data.imageDataUrl,
       );
-      if (data.storageUploadWarning) {
-        setProfessorImageError(data.storageUploadWarning);
+      setHasUsedProfessorGeneration(true);
+      const generationWarning = data.generationRecordWarning || data.storageUploadWarning;
+      if (generationWarning) {
+        setProfessorImageError(generationWarning);
       }
     } catch (error) {
+      setHasUsedProfessorGeneration(false);
       setProfessorImageError(
         error instanceof Error ? error.message : "교수 이미지 생성에 실패했습니다.",
       );
