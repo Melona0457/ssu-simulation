@@ -571,7 +571,7 @@ const initialProfessorState: ProfessorFormState = {
 
 const DUMMY_SOLID_LAYER = "linear-gradient(145deg, #d892b0 0%, #f6d2e3 56%, #cb7fa4 100%)";
 const DUMMY_DARK_LAYER = "linear-gradient(140deg, rgba(80,24,48,0.76), rgba(35,12,28,0.72))";
-const SHOW_DEBUG_TOOLS = process.env.NODE_ENV !== "production";
+const SHOW_DEBUG_TOOLS = true;
 const BGM_BASE_URL = process.env.NEXT_PUBLIC_SUPABASE_BGM_BASE_URL?.replace(/\/+$/, "") || "/bgm";
 const VOICE_BASE_URL = process.env.NEXT_PUBLIC_SUPABASE_VOICE_BASE_URL?.replace(/\/+$/, "") || "/voice";
 const AUDIO_LEVEL_STORAGE_KEY = "ssu-simulation-audio-levels-v1";
@@ -2053,7 +2053,12 @@ export default function Home() {
   const [isAutoPlayOn, setIsAutoPlayOn] = useState(false);
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [isMobileNoticeDismissed, setIsMobileNoticeDismissed] = useState(false);
+  const [isDebugUnlocked, setIsDebugUnlocked] = useState(false);
   const [isDebugPanelOpen, setIsDebugPanelOpen] = useState(false);
+  const [isDebugPasswordModalOpen, setIsDebugPasswordModalOpen] = useState(false);
+  const [debugPasswordInput, setDebugPasswordInput] = useState("");
+  const [debugAuthError, setDebugAuthError] = useState("");
+  const [isSubmittingDebugPassword, setIsSubmittingDebugPassword] = useState(false);
   const [debugAffinityInput, setDebugAffinityInput] = useState(0);
   const [debugEpisodeSelect, setDebugEpisodeSelect] = useState("ep01_commute");
   const [debugSceneSelect, setDebugSceneSelect] = useState("ep01_scene01");
@@ -3464,7 +3469,54 @@ export default function Home() {
     if (!SHOW_DEBUG_TOOLS) {
       return;
     }
+
+    if (!isDebugUnlocked) {
+      setDebugPasswordInput("");
+      setDebugAuthError("");
+      setIsDebugPasswordModalOpen(true);
+      return;
+    }
+
     setIsDebugPanelOpen((current) => !current);
+  }
+
+  async function submitDebugPassword() {
+    const normalizedPassword = debugPasswordInput.trim();
+    if (!normalizedPassword) {
+      setDebugAuthError("비밀번호를 입력해주세요.");
+      return;
+    }
+
+    setIsSubmittingDebugPassword(true);
+    setDebugAuthError("");
+
+    try {
+      const response = await fetch("/api/debug-panel-auth", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          password: normalizedPassword,
+        }),
+      });
+
+      const data = (await response.json()) as { message?: string; ok?: boolean };
+      if (!response.ok || !data.ok) {
+        setDebugAuthError(data.message || "비밀번호가 틀렸습니다.");
+        return;
+      }
+
+      setIsDebugUnlocked(true);
+      setIsDebugPasswordModalOpen(false);
+      setDebugPasswordInput("");
+      setDebugAuthError("");
+      setIsDebugPanelOpen(true);
+    } catch {
+      setDebugAuthError("디버그 인증 중 오류가 발생했습니다.");
+    } finally {
+      setIsSubmittingDebugPassword(false);
+    }
   }
 
   function goScreen2() {
@@ -4152,7 +4204,7 @@ export default function Home() {
           <button
             type="button"
             onClick={handleDebugButtonClick}
-            className={`top-hud-button top-hud-secret-button ${isDebugPanelOpen ? "is-active" : ""}`}
+            className={`top-hud-button top-hud-secret-button ${isDebugUnlocked ? "is-active" : ""}`}
           >
             <span className="top-hud-button-label">♡에피소드 비밀 열쇠♡</span>
           </button>
@@ -4241,7 +4293,63 @@ export default function Home() {
         <audio ref={bgmSecondaryRef} src={bgmSecondaryUrl || undefined} preload="auto" autoPlay loop />
       </div>
 
-      {SHOW_DEBUG_TOOLS && isDebugPanelOpen && (
+      {SHOW_DEBUG_TOOLS && isDebugPasswordModalOpen && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl border-2 border-[#d59ab5] bg-white p-5 shadow-2xl">
+            <p className="text-lg font-black text-[#5a2240]">비밀 에피소드 잠금 해제</p>
+            <p className="mt-1 text-sm text-[#6a3951]">
+              비밀번호를 입력하면 운영진 패널을 열 수 있어요.
+            </p>
+            <input
+              type="password"
+              value={debugPasswordInput}
+              onChange={(event) => {
+                setDebugPasswordInput(event.target.value);
+                if (debugAuthError) {
+                  setDebugAuthError("");
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !isSubmittingDebugPassword) {
+                  void submitDebugPassword();
+                }
+              }}
+              className="mt-3 h-11 w-full rounded-lg border border-[#c98aa8] px-3 text-base outline-none focus:ring-2 focus:ring-[#d778a1]/60"
+              placeholder="비밀번호 입력"
+              disabled={isSubmittingDebugPassword}
+            />
+            {debugAuthError && (
+              <p className="mt-2 text-sm font-semibold text-[#b11c5c]">{debugAuthError}</p>
+            )}
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDebugPasswordModalOpen(false);
+                  setDebugPasswordInput("");
+                  setDebugAuthError("");
+                }}
+                className="rounded-lg border border-[#b88ea2] bg-white px-4 py-2 text-sm font-semibold text-[#5d2b44]"
+                disabled={isSubmittingDebugPassword}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void submitDebugPassword();
+                }}
+                className="rounded-lg border border-[#b45f84] bg-[#ffd7e9] px-4 py-2 text-sm font-black text-[#5d2140] disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={isSubmittingDebugPassword}
+              >
+                {isSubmittingDebugPassword ? "확인 중..." : "확인"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {SHOW_DEBUG_TOOLS && isDebugPanelOpen && isDebugUnlocked && (
         <aside className="glass-debug-panel fixed inset-x-3 top-20 z-[120] max-h-[calc(100dvh-6rem)] w-auto overflow-y-auto p-4 text-[#2f2f2f] md:inset-x-auto md:right-6 md:top-24 md:max-h-[calc(100dvh-8rem)] md:w-[min(92vw,430px)]">
           <div className="flex items-center justify-between">
             <p className="text-lg font-black text-[#5d2240]">디버그 패널</p>
