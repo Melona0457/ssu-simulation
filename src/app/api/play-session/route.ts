@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit, getRequestIp } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type PlaySessionPayload = {
@@ -26,7 +27,38 @@ type PlaySessionPayload = {
 };
 
 export async function POST(request: Request) {
-  const payload = (await request.json()) as PlaySessionPayload;
+  const rateLimit = checkRateLimit({
+    key: `play-session:${getRequestIp(request)}`,
+    max: 30,
+    windowMs: 10 * 60 * 1000,
+  });
+
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      {
+        message: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds),
+        },
+      },
+    );
+  }
+
+  let payload: PlaySessionPayload;
+  try {
+    payload = (await request.json()) as PlaySessionPayload;
+  } catch {
+    return NextResponse.json(
+      {
+        message: "플레이 기록 요청 형식이 올바르지 않습니다.",
+      },
+      { status: 400 },
+    );
+  }
+
   const supabase = createSupabaseServerClient();
 
   if (!supabase) {

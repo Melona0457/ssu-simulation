@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit, getRequestIp } from "@/lib/rate-limit";
 import { createSupabaseServerClient, type CreditMessageRecord } from "@/lib/supabase/server";
 
 type CreditMessagePayload = {
@@ -78,7 +79,38 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const payload = (await request.json()) as CreditMessagePayload;
+  const rateLimit = checkRateLimit({
+    key: `credit-message:${getRequestIp(request)}`,
+    max: 6,
+    windowMs: 10 * 60 * 1000,
+  });
+
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      {
+        message: "응원 문구 등록 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds),
+        },
+      },
+    );
+  }
+
+  let payload: CreditMessagePayload;
+  try {
+    payload = (await request.json()) as CreditMessagePayload;
+  } catch {
+    return NextResponse.json(
+      {
+        message: "응원 문구 요청 형식이 올바르지 않습니다.",
+      },
+      { status: 400 },
+    );
+  }
+
   const supabase = createSupabaseServerClient();
 
   const playerName =

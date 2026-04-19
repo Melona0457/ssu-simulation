@@ -36,6 +36,26 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const bgmOrigin = (() => {
+  try {
+    return process.env.NEXT_PUBLIC_SUPABASE_BGM_BASE_URL
+      ? new URL(process.env.NEXT_PUBLIC_SUPABASE_BGM_BASE_URL).origin
+      : null;
+  } catch {
+    return null;
+  }
+})();
+
+const voiceOrigin = (() => {
+  try {
+    return process.env.NEXT_PUBLIC_SUPABASE_VOICE_BASE_URL
+      ? new URL(process.env.NEXT_PUBLIC_SUPABASE_VOICE_BASE_URL).origin
+      : null;
+  } catch {
+    return null;
+  }
+})();
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -43,6 +63,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className="h-full antialiased">
+      <head>
+        {bgmOrigin && (
+          <>
+            <link rel="dns-prefetch" href={bgmOrigin} />
+            <link rel="preconnect" href={bgmOrigin} crossOrigin="anonymous" />
+          </>
+        )}
+        {voiceOrigin && voiceOrigin !== bgmOrigin && (
+          <>
+            <link rel="dns-prefetch" href={voiceOrigin} />
+            <link rel="preconnect" href={voiceOrigin} crossOrigin="anonymous" />
+          </>
+        )}
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
         <Analytics />

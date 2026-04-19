@@ -12,6 +12,7 @@ import {
 } from "@/lib/gemini/server";
 import { recordMonitoringEvent } from "@/lib/monitoring/server";
 import { removeBackgroundSingle } from "@/lib/bg-remove/server";
+import { checkRateLimit, getRequestIp } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type GenerateProfessorImagePayload = {
@@ -68,6 +69,26 @@ async function buildTopCropImageBuffer(trimmedBuffer: Buffer, cropRatio: number)
 
 export async function POST(request: Request) {
   const startedAt = Date.now();
+  const rateLimit = checkRateLimit({
+    key: `generate-professor-image:${getRequestIp(request)}`,
+    max: 6,
+    windowMs: 10 * 60 * 1000,
+  });
+
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      {
+        message: "이미지 생성 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds),
+        },
+      },
+    );
+  }
+
   const client = createGeminiClient();
   const supabase = createSupabaseServerClient();
   const imageModel = getGeminiImageModel();
@@ -94,7 +115,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const payload = (await request.json()) as GenerateProfessorImagePayload;
+  let payload: GenerateProfessorImagePayload;
+  try {
+    payload = (await request.json()) as GenerateProfessorImagePayload;
+  } catch {
+    return NextResponse.json(
+      {
+        message: "교수 이미지 생성 요청 형식이 올바르지 않습니다.",
+      },
+      { status: 400 },
+    );
+  }
+
   const resolvedProfessor = resolveProfessorForGeneration(
     payload.professor ?? {
       name: "",

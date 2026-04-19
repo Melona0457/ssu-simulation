@@ -14,7 +14,6 @@ import {
   type StoryScene,
 } from "@/lib/professor-route-story";
 import {
-  buildIllustrationPrompt,
   endingMeta,
   getEndingRank,
   playerGenderOptions,
@@ -572,7 +571,7 @@ const initialProfessorState: ProfessorFormState = {
 
 const DUMMY_SOLID_LAYER = "linear-gradient(145deg, #d892b0 0%, #f6d2e3 56%, #cb7fa4 100%)";
 const DUMMY_DARK_LAYER = "linear-gradient(140deg, rgba(80,24,48,0.76), rgba(35,12,28,0.72))";
-const DEBUG_PASSWORD = "ssulikelion";
+const SHOW_DEBUG_TOOLS = process.env.NODE_ENV !== "production";
 const BGM_BASE_URL = process.env.NEXT_PUBLIC_SUPABASE_BGM_BASE_URL?.replace(/\/+$/, "") || "/bgm";
 const VOICE_BASE_URL = process.env.NEXT_PUBLIC_SUPABASE_VOICE_BASE_URL?.replace(/\/+$/, "") || "/voice";
 const AUDIO_LEVEL_STORAGE_KEY = "ssu-simulation-audio-levels-v1";
@@ -1025,6 +1024,56 @@ function resolveBgmUrlByContext(phase: Phase, episodeId: string | null) {
   }
 
   return STORY_BGM_URLS.introSetup;
+}
+
+function dedupeBgmUrls(urls: Array<string | null | undefined>) {
+  return Array.from(new Set(urls.filter((url): url is string => Boolean(url))));
+}
+
+function resolvePriorityBgmUrls(phase: Phase, episodeId: string | null) {
+  const currentUrl = resolveBgmUrlByContext(phase, episodeId);
+
+  if (phase === "screen1_title" || phase === "screen2_player" || phase === "screen3_professor") {
+    return dedupeBgmUrls([currentUrl, STORY_BGM_URLS.commuteEpisode]);
+  }
+
+  if (phase === "screen9_ending" || phase === "screen10_temp" || phase === "screen11_credit") {
+    return dedupeBgmUrls([currentUrl]);
+  }
+
+  if (phase !== "screen4_8_chapter" || !episodeId) {
+    return dedupeBgmUrls([currentUrl, STORY_BGM_URLS.commuteEpisode]);
+  }
+
+  if (episodeId === "ep01_commute") {
+    return dedupeBgmUrls([currentUrl, STORY_BGM_URLS.morningClassroom]);
+  }
+
+  if (episodeId === "ep02_morning_classroom") {
+    return dedupeBgmUrls([
+      currentUrl,
+      STORY_BGM_URLS.cafeteriaRestaurantEpisode,
+      STORY_BGM_URLS.restroomEpisode,
+    ]);
+  }
+
+  if (episodeId.startsWith("ep03_")) {
+    return dedupeBgmUrls([currentUrl, STORY_BGM_URLS.afternoonLibraryEpisode]);
+  }
+
+  if (episodeId === "ep04_library") {
+    return dedupeBgmUrls([currentUrl, STORY_BGM_URLS.dinnerEpisode]);
+  }
+
+  if (episodeId === "ep05_simple_dinner") {
+    return dedupeBgmUrls([currentUrl, STORY_BGM_URLS.nightEpisode]);
+  }
+
+  if (episodeId.startsWith("ep06_")) {
+    return dedupeBgmUrls([currentUrl, STORY_BGM_URLS.endingCredit]);
+  }
+
+  return dedupeBgmUrls([currentUrl]);
 }
 
 /**
@@ -1563,20 +1612,6 @@ type CherryBlossomPetal = {
   verticalSpeed: number;
 };
 
-type HeartSparkParticle = {
-  x: number;
-  y: number;
-  size: number;
-  opacity: number;
-  color: string;
-  drift: number;
-  verticalSpeed: number;
-  wobble: number;
-  wobbleSpeed: number;
-  rotation: number;
-  rotationSpeed: number;
-};
-
 function CherryBlossomOverlay() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -1684,119 +1719,6 @@ function CherryBlossomOverlay() {
   return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 z-[25]" aria-hidden />;
 }
 
-function HeartSparkOverlay() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      return;
-    }
-
-    const colors = ["#ff7aa8", "#ff8fb8", "#ffb3ca", "#ffd1e0", "#fff0f6"];
-    const particles: HeartSparkParticle[] = [];
-    const totalParticles = 56;
-    let width = 0;
-    let height = 0;
-    let animationFrame = 0;
-
-    const createParticle = (initial = false): HeartSparkParticle => {
-      const size = Math.random() * 8 + 6;
-      return {
-        x: Math.random() * width,
-        y: initial ? Math.random() * height : height + Math.random() * height * 0.18,
-        size,
-        opacity: Math.random() * 0.38 + 0.28,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        drift: Math.random() * 1.8 - 0.9,
-        verticalSpeed: Math.random() * 2.8 + 1.8,
-        wobble: Math.random() * Math.PI * 2,
-        wobbleSpeed: Math.random() * 0.04 + 0.01,
-        rotation: Math.random() * Math.PI * 2,
-        rotationSpeed: Math.random() * 0.03 - 0.015,
-      };
-    };
-
-    const resize = () => {
-      const nextWidth = window.innerWidth;
-      const nextHeight = window.innerHeight;
-      const ratio = window.devicePixelRatio || 1;
-
-      width = nextWidth;
-      height = nextHeight;
-      canvas.width = Math.floor(nextWidth * ratio);
-      canvas.height = Math.floor(nextHeight * ratio);
-      canvas.style.width = `${nextWidth}px`;
-      canvas.style.height = `${nextHeight}px`;
-      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    };
-
-    const drawHeart = (particle: HeartSparkParticle) => {
-      const heartSize = particle.size;
-      const pulse = 0.92 + Math.sin(particle.wobble) * 0.08;
-
-      ctx.save();
-      ctx.translate(particle.x, particle.y);
-      ctx.rotate(particle.rotation);
-      ctx.scale(pulse, pulse);
-      ctx.globalAlpha = particle.opacity;
-      ctx.fillStyle = particle.color;
-      ctx.shadowColor = particle.color;
-      ctx.shadowBlur = heartSize * 1.8;
-      ctx.beginPath();
-      ctx.moveTo(0, heartSize * 0.35);
-      ctx.bezierCurveTo(heartSize * 0.95, -heartSize * 0.45, heartSize * 1.35, heartSize * 0.75, 0, heartSize * 1.55);
-      ctx.bezierCurveTo(-heartSize * 1.35, heartSize * 0.75, -heartSize * 0.95, -heartSize * 0.45, 0, heartSize * 0.35);
-      ctx.fill();
-      ctx.restore();
-    };
-
-    const animate = () => {
-      ctx.clearRect(0, 0, width, height);
-
-      for (let index = 0; index < particles.length; index += 1) {
-        const particle = particles[index];
-        particle.y -= particle.verticalSpeed;
-        particle.x += particle.drift + Math.sin(particle.wobble) * 0.7;
-        particle.wobble += particle.wobbleSpeed;
-        particle.rotation += particle.rotationSpeed;
-        particle.opacity = Math.max(0, particle.opacity - 0.0018);
-
-        if (particle.y < -particle.size * 3 || particle.opacity <= 0) {
-          particles[index] = createParticle(false);
-          continue;
-        }
-
-        drawHeart(particle);
-      }
-
-      animationFrame = window.requestAnimationFrame(animate);
-    };
-
-    resize();
-
-    for (let index = 0; index < totalParticles; index += 1) {
-      particles.push(createParticle(true));
-    }
-
-    animate();
-    window.addEventListener("resize", resize);
-
-    return () => {
-      window.cancelAnimationFrame(animationFrame);
-      window.removeEventListener("resize", resize);
-      ctx.clearRect(0, 0, width, height);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 z-[1]" aria-hidden />;
-}
-
 function DebugProfessorPlaceholder({
   className,
   label = "QA DUMMY PROFESSOR",
@@ -1831,7 +1753,6 @@ export default function Home() {
   const [generatedProfessorDialoguePortraitUrl, setGeneratedProfessorDialoguePortraitUrl] = useState("");
   const [isGeneratingProfessorImage, setIsGeneratingProfessorImage] = useState(false);
   const [professorImageError, setProfessorImageError] = useState("");
-  const [professorImagePromptSummary, setProfessorImagePromptSummary] = useState("");
   const [professorSpeakingStyleError, setProfessorSpeakingStyleError] = useState("");
 
   const [audioLevels, setAudioLevels] = useState<AudioLevels>(DEFAULT_AUDIO_LEVELS);
@@ -1846,9 +1767,11 @@ export default function Home() {
   const activeSfxRef = useRef<Array<{ audio: HTMLAudioElement; expiresAfterSerial: number }>>([]);
   const professorVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const tryPlayBgmRef = useRef<() => void>(() => {});
+  const bgmPreloadCacheRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const lastSfxTriggerRef = useRef<string>("");
   const lastProfessorVoiceTriggerRef = useRef<string>("");
   const [needsBgmUnlock, setNeedsBgmUnlock] = useState(false);
+  const [isBgmPlaybackActivated, setIsBgmPlaybackActivated] = useState(true);
   const [isProfessorVoicePlaying, setIsProfessorVoicePlaying] = useState(false);
   const [bgmPrimaryUrl, setBgmPrimaryUrl] = useState("");
   const [bgmSecondaryUrl, setBgmSecondaryUrl] = useState("");
@@ -1980,6 +1903,37 @@ export default function Home() {
     [],
   );
 
+  const primeBgmUrl = useCallback((url: string) => {
+    if (typeof window === "undefined" || !url || bgmPreloadCacheRef.current.has(url)) {
+      return;
+    }
+
+    const audio = new Audio();
+    audio.preload = "auto";
+    audio.src = url;
+    audio.load();
+    bgmPreloadCacheRef.current.set(url, audio);
+  }, []);
+
+  const ensureBgmSource = useCallback(
+    (layer: "primary" | "secondary", url: string) => {
+      const audio = resolveBgmAudioByLayer(layer);
+      if (!audio || !url) {
+        return null;
+      }
+
+      const isSameSource = audio.getAttribute("src") === url;
+      if (!isSameSource) {
+        audio.src = url;
+        audio.load();
+      }
+
+      audio.preload = "auto";
+      return audio;
+    },
+    [resolveBgmAudioByLayer],
+  );
+
   const pauseBgmAudio = useCallback(
     (layer: "primary" | "secondary") => {
       const audio = resolveBgmAudioByLayer(layer);
@@ -1993,8 +1947,14 @@ export default function Home() {
   );
 
   const playBgmAudio = useCallback(
-    (layer: "primary" | "secondary") => {
-      const audio = resolveBgmAudioByLayer(layer);
+    (layer: "primary" | "secondary", urlOverride?: string) => {
+      const candidateUrl =
+        urlOverride?.trim() ||
+        resolveBgmAudioByLayer(layer)?.getAttribute("src") ||
+        resolveBgmAudioByLayer(layer)?.src ||
+        "";
+      const audio = candidateUrl ? ensureBgmSource(layer, candidateUrl) : resolveBgmAudioByLayer(layer);
+
       if (!audio || !audio.src || !isBgmEnabled) {
         return;
       }
@@ -2003,25 +1963,31 @@ export default function Home() {
         .play()
         .then(() => setNeedsBgmUnlock(false))
         .catch((err) => {
-          if (err instanceof DOMException && err.name === "AbortError") {
+          if (
+            err instanceof DOMException &&
+            (err.name === "AbortError" || err.name === "NotAllowedError")
+          ) {
+            if (err.name === "NotAllowedError") {
+              setNeedsBgmUnlock(true);
+            }
             return;
           }
           console.error("BGM 재생 실패:", err);
           setNeedsBgmUnlock(true);
         });
     },
-    [isBgmEnabled, resolveBgmAudioByLayer],
+    [ensureBgmSource, isBgmEnabled, resolveBgmAudioByLayer],
   );
 
   tryPlayBgmRef.current = () => {
-    if (!isBgmEnabled) {
+    if (!isBgmPlaybackActivated || !isBgmEnabled) {
       return;
     }
-    if (bgmLayerMixRef.current.primary > 0.001) {
-      playBgmAudio("primary");
+    if (bgmLayerMixRef.current.primary > 0.001 && bgmPrimaryUrl) {
+      playBgmAudio("primary", bgmPrimaryUrl);
     }
-    if (bgmLayerMixRef.current.secondary > 0.001) {
-      playBgmAudio("secondary");
+    if (bgmLayerMixRef.current.secondary > 0.001 && bgmSecondaryUrl) {
+      playBgmAudio("secondary", bgmSecondaryUrl);
     }
   };
 
@@ -2087,11 +2053,7 @@ export default function Home() {
   const [isAutoPlayOn, setIsAutoPlayOn] = useState(false);
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [isMobileNoticeDismissed, setIsMobileNoticeDismissed] = useState(false);
-  const [isDebugUnlocked, setIsDebugUnlocked] = useState(false);
   const [isDebugPanelOpen, setIsDebugPanelOpen] = useState(false);
-  const [isDebugPasswordModalOpen, setIsDebugPasswordModalOpen] = useState(false);
-  const [debugPasswordInput, setDebugPasswordInput] = useState("");
-  const [debugAuthError, setDebugAuthError] = useState("");
   const [debugAffinityInput, setDebugAffinityInput] = useState(0);
   const [debugEpisodeSelect, setDebugEpisodeSelect] = useState("ep01_commute");
   const [debugSceneSelect, setDebugSceneSelect] = useState("ep01_scene01");
@@ -2117,6 +2079,10 @@ export default function Home() {
   const currentEpisode = storyCursor ? getStoryEpisode(storyCursor.episodeId) : null;
   const currentBgmUrl = useMemo(
     () => resolveBgmUrlByContext(phase, currentEpisode?.id ?? null),
+    [currentEpisode?.id, phase],
+  );
+  const priorityBgmUrls = useMemo(
+    () => resolvePriorityBgmUrls(phase, currentEpisode?.id ?? null),
     [currentEpisode?.id, phase],
   );
   const activeBgmUrl = activeBgmLayer === "primary" ? bgmPrimaryUrl : bgmSecondaryUrl;
@@ -2375,7 +2341,12 @@ export default function Home() {
   }, [activeBgmLayer]);
 
   useEffect(() => {
-    if (!currentBgmUrl || episodeTransitionStage !== "idle") {
+    if (
+      !isBgmPlaybackActivated ||
+      !currentBgmUrl ||
+      episodeTransitionStage !== "idle" ||
+      isBgmSuppressed
+    ) {
       return;
     }
 
@@ -2383,14 +2354,17 @@ export default function Home() {
       if (activeBgmLayer === "primary") {
         setBgmPrimaryUrl(currentBgmUrl);
         setBgmMix({ primary: 1, secondary: 0 });
+        playBgmAudio("primary", currentBgmUrl);
       } else {
         setBgmSecondaryUrl(currentBgmUrl);
         setBgmMix({ primary: 0, secondary: 1 });
+        playBgmAudio("secondary", currentBgmUrl);
       }
       return;
     }
 
     if (activeBgmUrl === currentBgmUrl) {
+      playBgmAudio(activeBgmLayer, currentBgmUrl);
       return;
     }
 
@@ -2398,12 +2372,70 @@ export default function Home() {
       pauseBgmAudio("secondary");
       setBgmPrimaryUrl(currentBgmUrl);
       setBgmMix({ primary: 1, secondary: 0 });
+      playBgmAudio("primary", currentBgmUrl);
     } else {
       pauseBgmAudio("primary");
       setBgmSecondaryUrl(currentBgmUrl);
       setBgmMix({ primary: 0, secondary: 1 });
+      playBgmAudio("secondary", currentBgmUrl);
     }
-  }, [activeBgmLayer, activeBgmUrl, currentBgmUrl, episodeTransitionStage, pauseBgmAudio]);
+  }, [
+    activeBgmLayer,
+    activeBgmUrl,
+    currentBgmUrl,
+    episodeTransitionStage,
+    isBgmPlaybackActivated,
+    isBgmSuppressed,
+    pauseBgmAudio,
+    playBgmAudio,
+  ]);
+
+  useEffect(() => {
+    if (!isBgmPlaybackActivated) {
+      return;
+    }
+
+    if (bgmPrimaryUrl) {
+      ensureBgmSource("primary", bgmPrimaryUrl);
+      primeBgmUrl(bgmPrimaryUrl);
+    }
+
+    if (bgmSecondaryUrl) {
+      ensureBgmSource("secondary", bgmSecondaryUrl);
+      primeBgmUrl(bgmSecondaryUrl);
+    }
+  }, [
+    bgmPrimaryUrl,
+    bgmSecondaryUrl,
+    ensureBgmSource,
+    isBgmPlaybackActivated,
+    primeBgmUrl,
+  ]);
+
+  useEffect(() => {
+    if (!isBgmPlaybackActivated || priorityBgmUrls.length === 0) {
+      return;
+    }
+
+    const [currentPriorityUrl, ...nextPriorityUrls] = priorityBgmUrls;
+    if (currentPriorityUrl) {
+      primeBgmUrl(currentPriorityUrl);
+    }
+
+    if (typeof window === "undefined" || nextPriorityUrls.length === 0) {
+      return;
+    }
+
+    const timeoutId = globalThis.setTimeout(() => {
+      nextPriorityUrls.forEach((url) => {
+        primeBgmUrl(url);
+      });
+    }, 180);
+
+    return () => {
+      globalThis.clearTimeout(timeoutId);
+    };
+  }, [isBgmPlaybackActivated, primeBgmUrl, priorityBgmUrls]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -3429,30 +3461,22 @@ export default function Home() {
   }
 
   function handleDebugButtonClick() {
-    if (!isDebugUnlocked) {
-      setDebugPasswordInput("");
-      setDebugAuthError("");
-      setIsDebugPasswordModalOpen(true);
+    if (!SHOW_DEBUG_TOOLS) {
       return;
     }
     setIsDebugPanelOpen((current) => !current);
   }
 
-  function submitDebugPassword() {
-    if (debugPasswordInput.trim() !== DEBUG_PASSWORD) {
-      setDebugAuthError("비밀번호가 틀렸습니다.");
-      return;
-    }
-    setIsDebugUnlocked(true);
-    setIsDebugPasswordModalOpen(false);
-    setDebugAuthError("");
-    setIsDebugPanelOpen(true);
-  }
-
   function goScreen2() {
-    if (isBgmEnabled && needsBgmUnlock) {
-      tryPlayBgmRef.current();
-    }
+    const introBgmUrl = STORY_BGM_URLS.introSetup;
+    setIsBgmPlaybackActivated(true);
+    primeBgmUrl(introBgmUrl);
+    setBgmPrimaryUrl(introBgmUrl);
+    setBgmSecondaryUrl("");
+    setBgmMix({ primary: 1, secondary: 0 });
+    setActiveBgmLayer("primary");
+    activeBgmLayerRef.current = "primary";
+    playBgmAudio("primary", introBgmUrl);
     setPhase("screen2_player");
   }
 
@@ -3554,7 +3578,6 @@ export default function Home() {
           data.transparentDataUrl ||
           data.imageDataUrl,
       );
-      setProfessorImagePromptSummary(data.prompt || buildIllustrationPrompt(resolvedProfessor));
       if (data.storageUploadWarning) {
         setProfessorImageError(data.storageUploadWarning);
       }
@@ -3592,6 +3615,14 @@ export default function Home() {
     if (!firstSceneId) {
       return;
     }
+    const firstEpisodeBgmUrl = resolveBgmUrlByContext("screen4_8_chapter", firstEpisodeId);
+    primeBgmUrl(firstEpisodeBgmUrl);
+    setBgmPrimaryUrl(firstEpisodeBgmUrl);
+    setBgmSecondaryUrl("");
+    setBgmMix({ primary: 1, secondary: 0 });
+    setActiveBgmLayer("primary");
+    activeBgmLayerRef.current = "primary";
+    playBgmAudio("primary", firstEpisodeBgmUrl);
     setStoryCursor({ episodeId: firstEpisodeId, sceneId: firstSceneId, lineIndex: 0 });
     setPendingChoice(null);
     stopActiveSfx();
@@ -3608,6 +3639,7 @@ export default function Home() {
     }
 
     const nextEpisodeBgmUrl = resolveBgmUrlByContext("screen4_8_chapter", episodeId);
+    primeBgmUrl(nextEpisodeBgmUrl);
 
     if (storyCursor?.episodeId === episodeId || phase !== "screen4_8_chapter") {
       setStoryCursor({
@@ -3648,7 +3680,7 @@ export default function Home() {
         lineIndex: 0,
       });
       setEpisodeTransitionStage("fade-in");
-      playBgmAudio(incomingLayer);
+      playBgmAudio(incomingLayer, nextEpisodeBgmUrl);
       setBgmMix({ primary: 0, secondary: 0 });
       animateBgmMix(
         incomingLayer === "primary"
@@ -3977,6 +4009,15 @@ export default function Home() {
   function resetToMain() {
     stopActiveSfx();
     stopProfessorVoice();
+    pauseBgmAudio("primary");
+    pauseBgmAudio("secondary");
+    setNeedsBgmUnlock(false);
+    setIsBgmPlaybackActivated(true);
+    setBgmPrimaryUrl("");
+    setBgmSecondaryUrl("");
+    setBgmMix({ primary: 1, secondary: 0 });
+    setActiveBgmLayer("primary");
+    activeBgmLayerRef.current = "primary";
     setPhase("screen1_title");
     setPlayer(initialPlayerState);
     setProfessor(initialProfessorState);
@@ -3985,7 +4026,6 @@ export default function Home() {
     setGeneratedProfessorStorySpriteUrl("");
     setGeneratedProfessorDialoguePortraitUrl("");
     setProfessorImageError("");
-    setProfessorImagePromptSummary("");
     setActiveProfessorScriptProfileKey("male_30s");
     setActiveProfessorScriptLines([]);
     setStoryCursor(null);
@@ -4108,13 +4148,15 @@ export default function Home() {
 
       {/* 상단 HUD 컨트롤 */}
       <div className="top-hud-controls" style={uiScaleTopRightStyle}>
-        <button
-          type="button"
-          onClick={handleDebugButtonClick}
-          className={`top-hud-button top-hud-secret-button ${isDebugUnlocked ? "is-active" : ""}`}
-        >
-          <span className="top-hud-button-label">♡에피소드 비밀 열쇠♡</span>
-        </button>
+        {SHOW_DEBUG_TOOLS ? (
+          <button
+            type="button"
+            onClick={handleDebugButtonClick}
+            className={`top-hud-button top-hud-secret-button ${isDebugPanelOpen ? "is-active" : ""}`}
+          >
+            <span className="top-hud-button-label">♡에피소드 비밀 열쇠♡</span>
+          </button>
+        ) : null}
         <div ref={soundPanelRef} className="top-hud-sound-stack">
           {phase === "screen1_title" && !isSoundPanelOpen && (
             <p className="top-hud-sound-hint">소리 조절과 화면배율 조절이 가능합니다! ↲</p>
@@ -4195,62 +4237,11 @@ export default function Home() {
           )}
         </div>
         {/* 실제 오디오 태그 */}
-        <audio ref={bgmPrimaryRef} src={bgmPrimaryUrl || undefined} loop />
-        <audio ref={bgmSecondaryRef} src={bgmSecondaryUrl || undefined} loop />
+        <audio ref={bgmPrimaryRef} src={bgmPrimaryUrl || undefined} preload="auto" autoPlay loop />
+        <audio ref={bgmSecondaryRef} src={bgmSecondaryUrl || undefined} preload="auto" autoPlay loop />
       </div>
 
-      {isDebugPasswordModalOpen && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-sm rounded-2xl border-2 border-[#d59ab5] bg-white p-5 shadow-2xl">
-            <p className="text-lg font-black text-[#5a2240]">비밀 에피소드 잠금 해제</p>
-            <p className="mt-1 text-sm text-[#6a3951]">
-              비밀번호를 입력하면 운영진 패널을 열 수 있어요.
-            </p>
-            <input
-              type="password"
-              value={debugPasswordInput}
-              onChange={(event) => {
-                setDebugPasswordInput(event.target.value);
-                if (debugAuthError) {
-                  setDebugAuthError("");
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  submitDebugPassword();
-                }
-              }}
-              className="mt-3 h-11 w-full rounded-lg border border-[#c98aa8] px-3 text-base outline-none focus:ring-2 focus:ring-[#d778a1]/60"
-              placeholder="비밀번호 입력"
-            />
-            {debugAuthError && (
-              <p className="mt-2 text-sm font-semibold text-[#b11c5c]">{debugAuthError}</p>
-            )}
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsDebugPasswordModalOpen(false);
-                  setDebugPasswordInput("");
-                  setDebugAuthError("");
-                }}
-                className="rounded-lg border border-[#b88ea2] bg-white px-4 py-2 text-sm font-semibold text-[#5d2b44]"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={submitDebugPassword}
-                className="rounded-lg border border-[#b45f84] bg-[#ffd7e9] px-4 py-2 text-sm font-black text-[#5d2140]"
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isDebugPanelOpen && isDebugUnlocked && (
+      {SHOW_DEBUG_TOOLS && isDebugPanelOpen && (
         <aside className="glass-debug-panel fixed inset-x-3 top-20 z-[120] max-h-[calc(100dvh-6rem)] w-auto overflow-y-auto p-4 text-[#2f2f2f] md:inset-x-auto md:right-6 md:top-24 md:max-h-[calc(100dvh-8rem)] md:w-[min(92vw,430px)]">
           <div className="flex items-center justify-between">
             <p className="text-lg font-black text-[#5d2240]">디버그 패널</p>
