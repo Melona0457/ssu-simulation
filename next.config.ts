@@ -1,6 +1,21 @@
 import type { NextConfig } from "next";
 
 const isDevelopment = process.env.NODE_ENV !== "production";
+const supabaseStorageRemotePatterns = (() => {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+    if (!supabaseUrl) {
+      return [];
+    }
+
+    const parsedUrl = new URL(supabaseUrl);
+    return [
+      new URL("/storage/v1/object/**", parsedUrl.origin),
+    ];
+  } catch {
+    return [];
+  }
+})();
 
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -33,6 +48,9 @@ const contentSecurityPolicy = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  images: {
+    remotePatterns: supabaseStorageRemotePatterns,
+  },
   async headers() {
     return [
       {

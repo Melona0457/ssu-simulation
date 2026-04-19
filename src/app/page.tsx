@@ -1,5 +1,6 @@
 "use client";
 
+import NextImage from "next/image";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { heartParticle } from "@/lib/heart-particle";
@@ -2088,6 +2089,13 @@ export default function Home() {
 
   const playerName = useMemo(() => toDisplayPlayerName(player.name), [player.name]);
   const professorName = useMemo(() => toDisplayProfessorName(professor.name), [professor.name]);
+  const shouldConfirmBeforeUnload =
+    phase !== "screen1_title" ||
+    isGeneratingProfessorImage ||
+    player.name.trim().length > 0 ||
+    professor.name.trim().length > 0 ||
+    professor.customPrompt.trim().length > 0 ||
+    generatedProfessorImageUrl.trim().length > 0;
 
   const currentEpisode = storyCursor ? getStoryEpisode(storyCursor.episodeId) : null;
   const currentBgmUrl = useMemo(
@@ -2472,6 +2480,22 @@ export default function Home() {
       window.localStorage.removeItem(AUDIO_LEVEL_STORAGE_KEY);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !shouldConfirmBeforeUnload) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [shouldConfirmBeforeUnload]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -3663,6 +3687,10 @@ export default function Home() {
   }
 
   async function startStory() {
+    if (isGeneratingProfessorImage) {
+      return;
+    }
+
     if (!ensureProfessorSpeakingStyleSelected()) {
       return;
     }
@@ -4682,7 +4710,10 @@ export default function Home() {
           <div className="font-pretendard relative z-10 w-full max-w-[980px] text-center" style={uiScaleCenterStyle}>
             <h2
               className="bg-[linear-gradient(180deg,#fffdfd_0%,#fff7fb_14%,#ffeef6_30%,#ffcbe1_48%,#ff86bb_66%,#ea4ca1_84%,#bf0d71_100%)] bg-clip-text text-[clamp(56px,8vw,108px)] font-black leading-none tracking-[-0.03em] text-transparent [text-shadow:_0_1px_0_rgba(255,240,247,0.52),_0_2px_0_rgba(208,96,149,0.42),_0_4px_0_rgba(176,58,119,0.42),_0_10px_18px_rgba(154,42,103,0.22)]"
-              style={{ WebkitTextStroke: "0.9px rgba(0,0,0,0.55)" }}
+              style={{
+                WebkitTextStroke: "0.9px rgba(0,0,0,0.55)",
+                fontSize: "clamp(54px, calc(8vw - 2px), 106px)",
+              }}
             >
               당신의 이름과 성별은?
             </h2>
@@ -4917,7 +4948,8 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={startStory}
-                  className="screen2-confirm-btn screen3-create-btn min-w-[240px]"
+                  disabled={isGeneratingProfessorImage}
+                  className="screen2-confirm-btn screen3-create-btn min-w-[240px] disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <span className="screen2-confirm-gloss" aria-hidden />
                   <span
@@ -4931,7 +4963,9 @@ export default function Home() {
                   <span className="screen2-confirm-heart screen2-confirm-heart-left" aria-hidden>
                     ♡
                   </span>
-                  <span className="screen2-confirm-label">스토리 시작</span>
+                  <span className="screen2-confirm-label">
+                    {isGeneratingProfessorImage ? "이미지 생성 중..." : "스토리 시작"}
+                  </span>
                   <span className="screen2-confirm-heart screen2-confirm-heart-right" aria-hidden>
                     ♡
                   </span>
@@ -5602,11 +5636,13 @@ export default function Home() {
                         className="font-story flex items-center gap-4 rounded-[24px] border border-white/14 bg-white/6 px-5 py-5 shadow-[0_18px_38px_rgba(0,0,0,0.18)] backdrop-blur-sm"
                       >
                         {entry.professor_image_url ? (
-                          <div className="h-[128px] w-[88px] shrink-0 overflow-hidden rounded-[18px] border border-white/16 bg-[rgba(255,255,255,0.08)] shadow-[0_12px_24px_rgba(0,0,0,0.18)] sm:h-[156px] sm:w-[108px]">
-                            <img
+                          <div className="relative h-[128px] w-[88px] shrink-0 overflow-hidden rounded-[18px] border border-white/16 bg-[rgba(255,255,255,0.08)] shadow-[0_12px_24px_rgba(0,0,0,0.18)] sm:h-[156px] sm:w-[108px]">
+                            <NextImage
                               src={entry.professor_image_url}
                               alt={`${entry.player_name} 교수 이미지`}
-                              className="h-full w-full object-cover object-top"
+                              fill
+                              sizes="(max-width: 640px) 88px, 108px"
+                              className="object-cover object-top"
                               loading="lazy"
                             />
                           </div>
