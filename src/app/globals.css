@@ -553,6 +553,13 @@ textarea {
   color: inherit;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
   -webkit-text-stroke: inherit;
+  font-size: clamp(24px, 2.5vw, 32px);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.screen2-confirm-label.is-compact {
+  /* font-size, letter-spacing, line-height are now inherited from .screen2-confirm-label */
 }
 
 .screen2-confirm-heart {

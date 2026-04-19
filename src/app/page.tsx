@@ -3419,6 +3419,15 @@ export default function Home() {
     return false;
   }
 
+  function ensureProfessorImageGenerated() {
+    if (generatedProfessorImageUrl.trim().length > 0) {
+      return true;
+    }
+
+    setProfessorImageError("교수님 이미지를 먼저 생성해주세요.");
+    return false;
+  }
+
   function openStoryDebugContext(targetEpisodeId: string, targetSceneId?: string) {
     const firstSceneId = targetSceneId || getFirstSceneId(targetEpisodeId);
     if (!firstSceneId) {
@@ -3696,6 +3705,10 @@ export default function Home() {
     }
 
     if (!ensureProfessorSpeakingStyleSelected()) {
+      return;
+    }
+
+    if (!ensureProfessorImageGenerated()) {
       return;
     }
 
@@ -4952,7 +4965,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={startStory}
-                  disabled={isGeneratingProfessorImage}
+                  disabled={isGeneratingProfessorImage || generatedProfessorImageUrl.trim().length === 0}
                   className="screen2-confirm-btn screen3-create-btn min-w-[240px] disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <span className="screen2-confirm-gloss" aria-hidden />
@@ -4967,8 +4980,18 @@ export default function Home() {
                   <span className="screen2-confirm-heart screen2-confirm-heart-left" aria-hidden>
                     ♡
                   </span>
-                  <span className="screen2-confirm-label">
-                    {isGeneratingProfessorImage ? "이미지 생성 중..." : "스토리 시작"}
+                  <span
+                    className={`screen2-confirm-label${
+                      !isGeneratingProfessorImage && generatedProfessorImageUrl.trim().length === 0
+                        ? " is-compact"
+                        : ""
+                    }`}
+                  >
+                    {isGeneratingProfessorImage
+                      ? "이미지 생성 중..."
+                      : generatedProfessorImageUrl.trim().length > 0
+                        ? "스토리 시작"
+                        : "교수님 생성 후 시작"}
                   </span>
                   <span className="screen2-confirm-heart screen2-confirm-heart-right" aria-hidden>
                     ♡
