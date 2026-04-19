@@ -143,6 +143,68 @@
   animation: heartbeat-bg 1.2s ease-in-out infinite;
 }
 
+@keyframes professor-cutin-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+    filter: blur(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.animate-professor-cutin-fade-in {
+  animation: professor-cutin-fade-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform, filter;
+}
+
+@keyframes library-vignette-flash {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.episode-library-vignette {
+  background:
+    radial-gradient(circle at center, rgba(20, 8, 16, 0) 28%, rgba(20, 8, 16, 0.36) 50%, rgba(10, 3, 8, 0.84) 100%);
+  animation: library-vignette-flash 1400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  pointer-events: none;
+}
+
+@keyframes corridor-light-glow {
+  0% {
+    opacity: 0.52;
+  }
+  50% {
+    opacity: 0.78;
+  }
+  100% {
+    opacity: 0.52;
+  }
+}
+
+.episode-corridor-light-overlay {
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 88% 46%, rgba(255, 238, 194, 0.5) 0%, rgba(255, 238, 194, 0.16) 30%, transparent 56%),
+    linear-gradient(108deg, rgba(255, 241, 203, 0.3) 0%, rgba(255, 241, 203, 0.08) 18%, transparent 42%),
+    linear-gradient(90deg, rgba(24, 9, 22, 0.18), rgba(24, 9, 22, 0));
+  filter: blur(0.4px);
+  animation: corridor-light-glow 2200ms ease-in-out infinite;
+}
+
 /* 호감도 증가 애니메이션 */
 .affinity-delta-anim {
   animation: affinity-delta-fade 1.2s cubic-bezier(0.4,0,0.2,1);

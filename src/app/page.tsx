@@ -76,7 +76,7 @@ type ChapterStep = {
   choices: ChapterChoice[];
 };
 
-type DialogueSpeakerLabel = "나레이션" | "교수" | "나" | "독백" | "남성";
+type DialogueSpeakerLabel = "나레이션" | "교수" | "나" | "독백" | "???";
 
 type DialogueLine = {
   speaker: DialogueSpeakerLabel;
@@ -279,7 +279,7 @@ const chapterStepScripts: Partial<Record<ChapterId, ChapterStep[]>> = {
   LUNCH_RESTROOM_STALL: [
     {
       dialogue:
-        "(장소: 학생회관 3층 화장실 맨 끝 변기칸. 화면 양옆 비네팅, 물방울 소리 '똑... 똑...') 고학번의 삶이란 철저한 고독과의 싸움이다. 결국 오늘 나는 괴담 속 '변기칸 혼밥'의 주인공이 되고 말았다. 독백: '에어컨도 나오고 조용하고... 나름 VIP 프라이빗 룸이잖아?' 그때 달칵 소리와 함께 누군가 바로 옆 칸으로 들어온다. (가쁜 숨을 내쉬며) \"후우... 하마터면 교수 품위 유지에 금이 갈 뻔했군.\" 이 목소리, 오전 강의의 그 교수님이다. 숨소리조차 내면 안 된다.",
+        "(장소: 학생회관 3층 화장실 맨 끝 변기칸. 화면 양옆 비네팅, 물방울 소리 '똑... 똑...') 고학번의 삶이란 철저한 고독과의 싸움이다. 동기들은 졸업하거나 휴학했고, 후배들의 빛나는 무리에 끼기엔 내 학번이 너무 무겁다. 독백: '에어컨도 나오고 조용하고... 나름 VIP 프라이빗 룸이잖아?' 그때 달칵 소리와 함께 누군가 바로 옆 칸으로 들어온다. (가쁜 숨을 내쉬며) \"후우... 하마터면 교수 품위 유지에 금이 갈 뻔했군.\" 이 목소리, 오전 강의의 그 교수님이다. 숨소리조차 내면 안 된다.",
       choices: [
         {
           text: "...네, 교수님. 접니다. 참치마요 먹고 있었습니다.",
@@ -838,7 +838,7 @@ function storyRoleToSpeaker(role: StoryRole): DialogueSpeakerLabel {
   }
 
   if (role === "side_male") {
-    return "남성";
+    return "???";
   }
 
   return "나레이션";
@@ -1027,10 +1027,20 @@ function resolveBgmUrlByContext(phase: Phase, episodeId: string | null) {
  * 에피소드 ID에 따라 배경 이미지를 결정합니다.
  * 파일이 준비되지 않았을 경우를 대비해 기존의 DUMMY_SOLID_LAYER를 fallback으로 사용합니다.
  */
-function resolveBackdropByContext(episodeId: string | null, sceneId: string | null) {
+function resolveBackdropByContext(
+  episodeId: string | null,
+  sceneId: string | null,
+  lineIndex: number | null,
+) {
   if (!episodeId) return DUMMY_SOLID_LAYER;
 
-  if (sceneId === "ep03b_scene05_sink") {
+  if (
+    sceneId === "ep03b_scene05_sink" ||
+    sceneId === "ep03b_choice02_steak" ||
+    sceneId === "ep03b_scene06_steak_1" ||
+    sceneId === "ep03b_scene07_steak_2" ||
+    sceneId === "ep03b_scene08_steak_3"
+  ) {
     return "url('/ui/backgrounds/ep03_restroom(sink).webp')";
   }
 
@@ -1050,6 +1060,34 @@ function resolveBackdropByContext(episodeId: string | null, sceneId: string | nu
     return "url('/ui/backgrounds/ep03_restaurant_out.webp')";
   }
 
+  if (sceneId === "ep06o_scene03_route_b" && lineIndex !== null && lineIndex >= 2) {
+    return "url('/ui/backgrounds/ep06_office_elevator.webp')";
+  }
+
+  if (sceneId === "ep06o_scene02_route_a") {
+    return "url('/ui/backgrounds/ep06_office_knock.webp')";
+  }
+
+  if (sceneId === "ep06o_scene04_common_office" || sceneId === "ep06o_scene05_umbrella") {
+    return "url('/ui/backgrounds/ep06_office_inside.webp')";
+  }
+
+  if (
+    (sceneId === "ep04_scene02_stacks" && lineIndex !== null && lineIndex >= 3) ||
+    sceneId === "ep04_scene03_meet_professor" ||
+    sceneId === "ep04_choice01" ||
+    sceneId === "ep04_scene04_opt01" ||
+    sceneId === "ep04_scene05_opt02" ||
+    sceneId === "ep04_scene06_opt03" ||
+    sceneId === "ep04_scene07_shelf_talk" ||
+    sceneId === "ep04_choice02" ||
+    sceneId === "ep04_scene08_opt01" ||
+    sceneId === "ep04_scene09_opt02" ||
+    (sceneId === "ep04_scene10_outro" && lineIndex !== null && lineIndex <= 3)
+  ) {
+    return "url('/ui/backgrounds/ep04_library_books.webp')";
+  }
+
   const bgMapping: Record<string, string> = {
     ep01_commute: "/ui/backgrounds/ep01_commute.webp",
     ep02_morning_classroom: "/ui/backgrounds/ep02_classroom.webp",
@@ -1060,7 +1098,7 @@ function resolveBackdropByContext(episodeId: string | null, sceneId: string | nu
     ep05_simple_dinner: "/ui/backgrounds/ep05_dinner.webp",
     ep06_night_professor_office: "/ui/backgrounds/ep06_office_night.webp",
     ep06_night_bench: "/ui/backgrounds/ep06_bench_night.webp",
-    ep06_night_self_study: "/ui/backgrounds/ep06_classroom_night.webp",
+    ep06_night_classroom: "/ui/backgrounds/ep06_classroom_night.webp",
   };
 
   const imagePath = bgMapping[episodeId];
@@ -1116,7 +1154,7 @@ function resolveSfxKeysByContext(
     return ["doorKnock"];
   }
 
-  if (sceneId === "ep06o_scene03_route_b" && lineText.includes("콰광")) {
+  if (sceneId === "ep06o_scene03_route_b" && lineText.includes("일기예보엔 비 없었잖아")) {
     return ["thunder"];
   }
 
@@ -1160,7 +1198,12 @@ function resolveSfxKeysByContext(
     return ["footsteps"];
   }
 
-  if (sceneId === "ep06c_scene04_opt02" && lineText.includes("문이 다시 열리며")) {
+  if (
+    sceneId === "ep06c_scene04_opt02" &&
+    ((normalizedLineText.includes("자판기밖에 없더군") && normalizedLineText.includes("초콜릿")) ||
+      (normalizedLineText.includes("자판기밖에 없더라고") && normalizedLineText.includes("초콜릿")) ||
+      normalizedLineText.includes("몬스터랑 초콜릿"))
+  ) {
     return ["heartbeat"];
   }
 
@@ -1306,82 +1349,28 @@ function resolveStoryVisualCue(
 
   const cueMap: Record<string, StoryVisualCue> = {
     "ep01_scene01:1": {
-      key: cueKey,
+      key: "ep01_scene01:professor_intro",
       title: "교수님 실루엣",
       subtitle: "등굣길에서 익숙한 뒷모습이 시야에 들어오는 순간",
       variant: "professor",
     },
+    "ep01_scene01:2": {
+      key: "ep01_scene01:professor_intro",
+      title: "교수님 실루엣",
+      subtitle: "강의실로 향하기 전까지 시선에 남아 있는 교수님의 모습",
+      variant: "professor",
+    },
     "ep02_scene01_intro:0": {
-      key: cueKey,
+      key: "ep02_scene01_intro:professor_look",
       title: "강의실 시선",
       subtitle: "문을 열자마자 교수님의 시선이 정면으로 꽂히는 타이밍",
       variant: "professor",
     },
-    "ep04_scene03_meet_professor:2": {
-      key: cueKey,
-      title: "서가 조우",
-      subtitle: "코너를 돌자마자 교수님이 눈앞에 서는 타이밍",
-      variant: "professor",
-    },
-    "ep04_scene04_opt01:2": {
-      key: cueKey,
-      title: "책 건네기",
-      subtitle: "손에서 손으로 참고 도서가 넘어오는 순간",
-      variant: "prop",
-    },
-    "ep04_scene05_opt02:2": {
-      key: cueKey,
-      title: "추천 도서",
-      subtitle: "시험 범위를 짚어 주는 참고 도서 컷인",
-      variant: "prop",
-    },
-    "ep06o_scene01_intro:1": {
-      key: cueKey,
-      title: "연구실 불빛",
-      subtitle: "캄캄한 건물 속 한 칸만 따뜻하게 빛나는 창문",
-      variant: "mood",
-    },
-    "ep06o_scene03_route_b:0": {
-      key: cueKey,
-      title: "폭우 전환",
-      subtitle: "천둥과 함께 화면 중앙을 가르는 폭우 연출",
-      variant: "mood",
-    },
-    "ep06o_scene04_common_office:0": {
-      key: cueKey,
-      title: "연구실 내부",
-      subtitle: "주황빛 조명과 시더우드 향의 공간이 처음 열리는 순간",
-      variant: "mood",
-    },
     "ep06o_scene05_umbrella:5": {
-      key: cueKey,
+      key: "ep06o_scene05_umbrella:professor_name_call",
       title: "이름을 부르는 순간",
-      subtitle: "정적 속에서 교수님 얼굴이 중앙으로 클로즈업되는 타이밍",
+      subtitle: "학생이 아닌 한 사람으로 불린 찰나",
       variant: "professor",
-    },
-    "ep06o_scene05_umbrella:7": {
-      key: cueKey,
-      title: "장우산 컷인",
-      subtitle: "연구실 향기와 온기가 남은 우산을 건네는 순간",
-      variant: "prop",
-    },
-    "ep06b_scene05_emotion:2": {
-      key: cueKey,
-      title: "곁을 내주는 거리",
-      subtitle: "옆자리에 앉아 위로를 건네는 밤 벤치 장면",
-      variant: "professor",
-    },
-    "ep06c_scene02_professor_enters:0": {
-      key: cueKey,
-      title: "복도 실루엣",
-      subtitle: "문틈 빛 속으로 교수님 그림자가 길게 들어오는 순간",
-      variant: "professor",
-    },
-    "ep06c_scene04_opt02:3": {
-      key: cueKey,
-      title: "편의점 봉투",
-      subtitle: "에너지 음료와 초콜릿이 든 흰 봉투가 책상 위에 놓이는 타이밍",
-      variant: "prop",
     },
   };
 
@@ -1556,6 +1545,277 @@ function buildHangulTypingFrames(text: string) {
   return frames.length > 0 ? frames : [text];
 }
 
+type CherryBlossomPetal = {
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  opacity: number;
+  rotation: number;
+  rotationSpeed: number;
+  flip: number;
+  flipSpeed: number;
+  horizontalSpeed: number;
+  verticalSpeed: number;
+};
+
+type HeartSparkParticle = {
+  x: number;
+  y: number;
+  size: number;
+  opacity: number;
+  color: string;
+  drift: number;
+  verticalSpeed: number;
+  wobble: number;
+  wobbleSpeed: number;
+  rotation: number;
+  rotationSpeed: number;
+};
+
+function CherryBlossomOverlay() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+
+    const colors = ["#ffd1df", "#ffc0d2", "#ffb1c7", "#f9dbe7"];
+    const petals: CherryBlossomPetal[] = [];
+    const totalPetals = 42;
+    let width = 0;
+    let height = 0;
+    let animationFrame = 0;
+
+    const createPetal = (initial = false): CherryBlossomPetal => {
+      const size = Math.random() * 8 + 8;
+      return {
+        x: initial ? Math.random() * width : Math.random() * width * 0.35 + width * 0.65,
+        y: initial ? Math.random() * height : -Math.random() * height * 0.35 - size,
+        size,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        opacity: Math.random() * 0.32 + 0.28,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: Math.random() * 0.02 - 0.01,
+        flip: Math.random() * Math.PI * 2,
+        flipSpeed: Math.random() * 0.04 + 0.02,
+        horizontalSpeed: -(Math.random() * 1.4 + 0.8),
+        verticalSpeed: Math.random() * 1.8 + 1.2,
+      };
+    };
+
+    const resize = () => {
+      const nextWidth = window.innerWidth;
+      const nextHeight = window.innerHeight;
+      const ratio = window.devicePixelRatio || 1;
+
+      width = nextWidth;
+      height = nextHeight;
+      canvas.width = Math.floor(nextWidth * ratio);
+      canvas.height = Math.floor(nextHeight * ratio);
+      canvas.style.width = `${nextWidth}px`;
+      canvas.style.height = `${nextHeight}px`;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    };
+
+    const drawPetal = (petal: CherryBlossomPetal) => {
+      ctx.save();
+      ctx.translate(petal.x, petal.y);
+      ctx.rotate(petal.rotation);
+      ctx.scale(Math.sin(petal.flip), 1);
+      ctx.beginPath();
+      ctx.fillStyle = petal.color;
+      ctx.globalAlpha = petal.opacity;
+      ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(-petal.size, -petal.size, -petal.size, petal.size, 0, petal.size * 1.15);
+      ctx.bezierCurveTo(petal.size, petal.size, petal.size, -petal.size, 0, 0);
+      ctx.fill();
+      ctx.restore();
+    };
+
+    const animate = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      for (let index = 0; index < petals.length; index += 1) {
+        const petal = petals[index];
+        petal.x += petal.horizontalSpeed;
+        petal.y += petal.verticalSpeed;
+        petal.rotation += petal.rotationSpeed;
+        petal.flip += petal.flipSpeed;
+
+        if (petal.y > height + petal.size * 2 || petal.x < -petal.size * 2) {
+          petals[index] = createPetal(false);
+          petals[index].y = Math.random() * height * 0.25;
+        }
+
+        drawPetal(petals[index]);
+      }
+
+      animationFrame = window.requestAnimationFrame(animate);
+    };
+
+    resize();
+
+    for (let index = 0; index < totalPetals; index += 1) {
+      petals.push(createPetal(true));
+    }
+
+    animate();
+    window.addEventListener("resize", resize);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("resize", resize);
+      ctx.clearRect(0, 0, width, height);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 z-[25]" aria-hidden />;
+}
+
+function HeartSparkOverlay() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+
+    const colors = ["#ff7aa8", "#ff8fb8", "#ffb3ca", "#ffd1e0", "#fff0f6"];
+    const particles: HeartSparkParticle[] = [];
+    const totalParticles = 56;
+    let width = 0;
+    let height = 0;
+    let animationFrame = 0;
+
+    const createParticle = (initial = false): HeartSparkParticle => {
+      const size = Math.random() * 8 + 6;
+      return {
+        x: Math.random() * width,
+        y: initial ? Math.random() * height : height + Math.random() * height * 0.18,
+        size,
+        opacity: Math.random() * 0.38 + 0.28,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        drift: Math.random() * 1.8 - 0.9,
+        verticalSpeed: Math.random() * 2.8 + 1.8,
+        wobble: Math.random() * Math.PI * 2,
+        wobbleSpeed: Math.random() * 0.04 + 0.01,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: Math.random() * 0.03 - 0.015,
+      };
+    };
+
+    const resize = () => {
+      const nextWidth = window.innerWidth;
+      const nextHeight = window.innerHeight;
+      const ratio = window.devicePixelRatio || 1;
+
+      width = nextWidth;
+      height = nextHeight;
+      canvas.width = Math.floor(nextWidth * ratio);
+      canvas.height = Math.floor(nextHeight * ratio);
+      canvas.style.width = `${nextWidth}px`;
+      canvas.style.height = `${nextHeight}px`;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    };
+
+    const drawHeart = (particle: HeartSparkParticle) => {
+      const heartSize = particle.size;
+      const pulse = 0.92 + Math.sin(particle.wobble) * 0.08;
+
+      ctx.save();
+      ctx.translate(particle.x, particle.y);
+      ctx.rotate(particle.rotation);
+      ctx.scale(pulse, pulse);
+      ctx.globalAlpha = particle.opacity;
+      ctx.fillStyle = particle.color;
+      ctx.shadowColor = particle.color;
+      ctx.shadowBlur = heartSize * 1.8;
+      ctx.beginPath();
+      ctx.moveTo(0, heartSize * 0.35);
+      ctx.bezierCurveTo(heartSize * 0.95, -heartSize * 0.45, heartSize * 1.35, heartSize * 0.75, 0, heartSize * 1.55);
+      ctx.bezierCurveTo(-heartSize * 1.35, heartSize * 0.75, -heartSize * 0.95, -heartSize * 0.45, 0, heartSize * 0.35);
+      ctx.fill();
+      ctx.restore();
+    };
+
+    const animate = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      for (let index = 0; index < particles.length; index += 1) {
+        const particle = particles[index];
+        particle.y -= particle.verticalSpeed;
+        particle.x += particle.drift + Math.sin(particle.wobble) * 0.7;
+        particle.wobble += particle.wobbleSpeed;
+        particle.rotation += particle.rotationSpeed;
+        particle.opacity = Math.max(0, particle.opacity - 0.0018);
+
+        if (particle.y < -particle.size * 3 || particle.opacity <= 0) {
+          particles[index] = createParticle(false);
+          continue;
+        }
+
+        drawHeart(particle);
+      }
+
+      animationFrame = window.requestAnimationFrame(animate);
+    };
+
+    resize();
+
+    for (let index = 0; index < totalParticles; index += 1) {
+      particles.push(createParticle(true));
+    }
+
+    animate();
+    window.addEventListener("resize", resize);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("resize", resize);
+      ctx.clearRect(0, 0, width, height);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 z-[1]" aria-hidden />;
+}
+
+function DebugProfessorPlaceholder({
+  className,
+  label = "QA DUMMY PROFESSOR",
+}: {
+  className: string;
+  label?: string;
+}) {
+  return (
+    <div
+      className={`${className} flex items-center justify-center rounded-[32px] border-2 border-dashed border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.2),rgba(255,192,203,0.16))] text-center text-white/92 shadow-[0_20px_50px_rgba(0,0,0,0.24)] backdrop-blur-sm`}
+    >
+      <div className="rounded-[24px] border border-white/25 bg-black/22 px-5 py-4">
+        <p className="font-gothic text-xs font-black tracking-[0.28em] text-[#ffd5e3]">
+          {label}
+        </p>
+        <p className="mt-2 text-[clamp(18px,1.8vw,28px)] font-bold leading-tight text-white">
+          교수 등장 타이밍 확인용
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [phase, setPhase] = useState<Phase>("screen1_title");
 
@@ -1650,6 +1910,10 @@ export default function Home() {
   } | null>(null);
   const [timedOverlayImage, setTimedOverlayImage] = useState<string | null>(null);
   const timedOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [menuQuestionOverlayVisible, setMenuQuestionOverlayVisible] = useState(false);
+  const menuQuestionOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [libraryVignetteVisible, setLibraryVignetteVisible] = useState(false);
+  const libraryVignetteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [heartbeatOverlayImage, setHeartbeatOverlayImage] = useState<string | null>(null);
   const heartbeatOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingChoice, setPendingChoice] = useState<StoryChoice | null>(null);
@@ -1673,6 +1937,9 @@ export default function Home() {
   const revealCurrentDialogueImmediatelyRef = useRef<() => void>(() => {});
   const isDialogueLineTypingRef = useRef(false);
   const canAdvanceCurrentStepRef = useRef(false);
+  const timedOverlayImageRef = useRef<string | null>(null);
+  const menuQuestionOverlayVisibleRef = useRef(false);
+  const libraryVignetteVisibleRef = useRef(false);
 
   const [ending, setEnding] = useState<EndingState | null>(null);
   const [isEndingTransition, setIsEndingTransition] = useState(false);
@@ -1771,7 +2038,11 @@ export default function Home() {
     ? {
         title: currentEpisode.title,
         location: currentEpisode.location,
-        backdrop: resolveBackdropByContext(currentEpisode.id, storyCursor?.sceneId ?? null),
+        backdrop: resolveBackdropByContext(
+          currentEpisode.id,
+          storyCursor?.sceneId ?? null,
+          pendingChoice ? null : storyCursor?.lineIndex ?? null,
+        ),
       }
     : null;
   const currentBackdropLayers = [currentChapterInfo?.backdrop ?? DUMMY_SOLID_LAYER];
@@ -1863,12 +2134,22 @@ export default function Home() {
       ),
     [currentScene?.id, pendingChoice, storyCursor],
   );
+  const isBareProfessorCue =
+    currentVisualCue?.key === "ep01_scene01:professor_intro" ||
+    currentVisualCue?.key === "ep02_scene01_intro:professor_look" ||
+    currentVisualCue?.key === "ep06o_scene05_umbrella:professor_name_call";
+  const shouldShowProfessorBlossomOverlay =
+    currentVisualCue?.key === "ep01_scene01:professor_intro";
   const shouldShowProfessorBaseVisual =
     phase === "screen4_8_chapter" &&
     !shouldShowChoiceOverlay &&
     !currentVisualCue &&
-    Boolean(professorVisualSrc) &&
     currentLine?.speaker === "교수";
+  const shouldShowCorridorLightOverlay =
+    phase === "screen4_8_chapter" &&
+    storyCursor?.sceneId === "ep06c_scene02_professor_enters" &&
+    !pendingChoice &&
+    storyCursor?.lineIndex === 0;
 
   function revealCurrentDialogueImmediately() {
     const line = activeDialogueLine.trim();
@@ -1885,6 +2166,9 @@ export default function Home() {
 
   isDialogueLineTypingRef.current = isDialogueLineTyping;
   canAdvanceCurrentStepRef.current = canAdvanceCurrentStep;
+  timedOverlayImageRef.current = timedOverlayImage;
+  menuQuestionOverlayVisibleRef.current = menuQuestionOverlayVisible;
+  libraryVignetteVisibleRef.current = libraryVignetteVisible;
   revealCurrentDialogueImmediatelyRef.current = revealCurrentDialogueImmediately;
   moveNextChapterRef.current = moveNextChapter;
 
@@ -2199,10 +2483,6 @@ export default function Home() {
       storyCursor.episodeId === "ep02_morning_classroom" &&
       storyCursor.sceneId === "ep02_scene06_pen_gift" &&
       storyCursor.lineIndex === 1;
-    const isEp3Intro =
-      storyCursor.episodeId === "ep03_lunch_student_cafeteria" &&
-      storyCursor.sceneId === "ep03c_scene01_intro" &&
-      storyCursor.lineIndex === 0;
     const isEp3Choice1 =
       storyCursor.episodeId === "ep03_lunch_student_cafeteria" &&
       storyCursor.sceneId === "ep03c_scene02_opt01" &&
@@ -2218,7 +2498,7 @@ export default function Home() {
     const isEp3NewSpoon =
       storyCursor.episodeId === "ep03_lunch_student_cafeteria" &&
       storyCursor.sceneId === "ep03c_scene05_spoon_drop" &&
-      storyCursor.lineIndex === 2;
+      storyCursor.lineIndex === 3;
     const isEp3Tissue =
       storyCursor.episodeId === "ep03_lunch_student_cafeteria" &&
       storyCursor.sceneId === "ep03c_scene06_outro" &&
@@ -2227,55 +2507,113 @@ export default function Home() {
       storyCursor.episodeId === "ep03_lunch_off_campus_restaurant" &&
       storyCursor.sceneId === "ep03r_scene01_intro" &&
       storyCursor.lineIndex === 0;
-    const isEp3RestaurantOut =
-      storyCursor.episodeId === "ep03_lunch_off_campus_restaurant" &&
-      storyCursor.sceneId === "ep03r_scene06_outro" &&
-      storyCursor.lineIndex === 0;
     const isEp4Ballpen =
       storyCursor.episodeId === "ep04_library" &&
       storyCursor.sceneId === "ep04_scene01_intro" &&
       storyCursor.lineIndex === 2;
+    const isEp4LibraryZigzag =
+      storyCursor.episodeId === "ep04_library" &&
+      storyCursor.sceneId === "ep04_scene01_intro" &&
+      storyCursor.lineIndex === 4;
+    const isEp4LibraryTurnOver =
+      storyCursor.episodeId === "ep04_library" &&
+      ((storyCursor.sceneId === "ep04_scene04_opt01" && storyCursor.lineIndex === 2) ||
+        (storyCursor.sceneId === "ep04_scene05_opt02" && storyCursor.lineIndex === 2));
+    const isEp6OfficeCoffee =
+      storyCursor.episodeId === "ep06_night_professor_office" &&
+      storyCursor.sceneId === "ep06o_scene04_common_office" &&
+      storyCursor.lineIndex === 6;
+    const isEp6OfficeUmbrella =
+      storyCursor.episodeId === "ep06_night_professor_office" &&
+      storyCursor.sceneId === "ep06o_scene05_umbrella" &&
+      storyCursor.lineIndex === 7;
+    const isEp4LibraryVignette =
+      storyCursor.episodeId === "ep04_library" &&
+      storyCursor.sceneId === "ep04_scene02_stacks" &&
+      storyCursor.lineIndex === 2;
+    const isEp6BenchHeartbeat =
+      storyCursor.episodeId === "ep06_night_bench" &&
+      ((storyCursor.sceneId === "ep06b_scene02_opt01" && storyCursor.lineIndex === 1) ||
+        (storyCursor.sceneId === "ep06b_scene03_opt02" && storyCursor.lineIndex === 1) ||
+        (storyCursor.sceneId === "ep06b_scene04_opt03" && storyCursor.lineIndex === 1));
+    const isEp6ClassroomHeartbeat =
+      storyCursor.episodeId === "ep06_night_classroom" &&
+      storyCursor.sceneId === "ep06c_scene03_opt01" &&
+      storyCursor.lineIndex === 5;
+    const isEp6ClassroomSnack =
+      storyCursor.episodeId === "ep06_night_classroom" &&
+      storyCursor.sceneId === "ep06c_scene04_opt02" &&
+      storyCursor.lineIndex === 4;
 
     if (
       isEp2Choice1 ||
       isEp2Choice2 ||
       isEp2End ||
-      isEp3Intro ||
       isEp3Choice1 ||
       isEp3Choice3 ||
       isEp3SpoonDrop ||
       isEp3NewSpoon ||
       isEp3Tissue ||
       isEp3Menu ||
-      isEp3RestaurantOut ||
-      isEp4Ballpen
+      isEp4Ballpen ||
+      isEp4LibraryZigzag ||
+      isEp4LibraryTurnOver ||
+      isEp6OfficeCoffee ||
+      isEp6OfficeUmbrella ||
+      isEp6ClassroomSnack
     ) {
       if (timedOverlayTimerRef.current) {
         clearTimeout(timedOverlayTimerRef.current);
       }
+      if (menuQuestionOverlayTimerRef.current) {
+        clearTimeout(menuQuestionOverlayTimerRef.current);
+        menuQuestionOverlayTimerRef.current = null;
+      }
+      setMenuQuestionOverlayVisible(false);
 
       let imageUrl = "";
       if (isEp2Choice1) imageUrl = "/ui/backgrounds/ep02_choice1.webp";
       else if (isEp2Choice2) imageUrl = "/ui/backgrounds/ep02_choice2.webp";
       else if (isEp2End) imageUrl = "/ui/backgrounds/ep02_end.webp";
-      else if (isEp3Intro) imageUrl = "/ui/backgrounds/ep03_cafeteria.webp";
       else if (isEp3Choice1) imageUrl = "/ui/backgrounds/ep03_choice1.webp";
       else if (isEp3Choice3) imageUrl = "/ui/backgrounds/ep03_choice3.webp";
       else if (isEp3SpoonDrop) imageUrl = "/ui/backgrounds/ep03_drop.webp";
       else if (isEp3NewSpoon) imageUrl = "/ui/backgrounds/ep03_newspoon.webp";
       else if (isEp3Tissue) imageUrl = "/ui/backgrounds/ep03_tissue.webp";
       else if (isEp3Menu) imageUrl = "/ui/backgrounds/ep03_menu.webp";
-      else if (isEp3RestaurantOut) imageUrl = "/ui/backgrounds/ep03_restaurant_out.webp";
       else if (isEp4Ballpen) imageUrl = "/ui/backgrounds/ep04_ballpen.webp";
+      else if (isEp4LibraryZigzag) imageUrl = "/ui/backgrounds/ep04_library_zigzag.webp";
+      else if (isEp4LibraryTurnOver) imageUrl = "/ui/backgrounds/ep04_library_turn_over.webp";
+      else if (isEp6OfficeCoffee) imageUrl = "/ui/backgrounds/ep06_office_coffee.webp";
+      else if (isEp6OfficeUmbrella) imageUrl = "/ui/backgrounds/ep06_office_umbrella.webp";
+      else if (isEp6ClassroomSnack) imageUrl = "/ui/backgrounds/ep06_classroom_snack.webp";
 
       setTimedOverlayImage(imageUrl);
       timedOverlayTimerRef.current = setTimeout(() => {
         setTimedOverlayImage(null);
         timedOverlayTimerRef.current = null;
+        if (isEp3Menu) {
+          setMenuQuestionOverlayVisible(true);
+          menuQuestionOverlayTimerRef.current = setTimeout(() => {
+            setMenuQuestionOverlayVisible(false);
+            menuQuestionOverlayTimerRef.current = null;
+          }, 900);
+        }
       }, 3000);
     }
 
-    if (isEp2Choice3) {
+    if (isEp4LibraryVignette) {
+      if (libraryVignetteTimerRef.current) {
+        clearTimeout(libraryVignetteTimerRef.current);
+      }
+      setLibraryVignetteVisible(true);
+      libraryVignetteTimerRef.current = setTimeout(() => {
+        setLibraryVignetteVisible(false);
+        libraryVignetteTimerRef.current = null;
+      }, 1400);
+    }
+
+    if (isEp2Choice3 || isEp6BenchHeartbeat || isEp6ClassroomHeartbeat) {
       if (heartbeatOverlayTimerRef.current) {
         clearTimeout(heartbeatOverlayTimerRef.current);
       }
@@ -2392,6 +2730,14 @@ export default function Home() {
       if (timedOverlayTimerRef.current) {
         clearTimeout(timedOverlayTimerRef.current);
         timedOverlayTimerRef.current = null;
+      }
+      if (menuQuestionOverlayTimerRef.current) {
+        clearTimeout(menuQuestionOverlayTimerRef.current);
+        menuQuestionOverlayTimerRef.current = null;
+      }
+      if (libraryVignetteTimerRef.current) {
+        clearTimeout(libraryVignetteTimerRef.current);
+        libraryVignetteTimerRef.current = null;
       }
       if (heartbeatOverlayTimerRef.current) {
         clearTimeout(heartbeatOverlayTimerRef.current);
@@ -2693,6 +3039,18 @@ export default function Home() {
       }
 
       event.preventDefault();
+
+      if (timedOverlayImageRef.current) {
+        return;
+      }
+
+      if (menuQuestionOverlayVisibleRef.current) {
+        return;
+      }
+
+      if (libraryVignetteVisibleRef.current) {
+        return;
+      }
 
       if (isDialogueLineTypingRef.current) {
         revealCurrentDialogueImmediatelyRef.current();
@@ -3105,7 +3463,9 @@ export default function Home() {
       return;
     }
 
-    setPendingChoice(choice);
+    const shouldSkipChoiceEcho =
+      currentScene?.id === "ep02_choice03_lunch_destination" || currentScene?.id === "ep05_choice01";
+
     if (meaningfulChoiceIds.has(choice.id)) {
       const gainedScore = getChoiceAffinity(choice.id);
       const currentChoiceMaxScore = getChoiceSceneMaxScore(currentChoiceList);
@@ -3135,6 +3495,26 @@ export default function Home() {
     } else {
       setAffinityDelta(null);
     }
+
+    if (shouldSkipChoiceEcho) {
+      if (!storyCursor) {
+        return;
+      }
+
+      if (choice.next_scene) {
+        moveToScene(storyCursor.episodeId, choice.next_scene);
+        return;
+      }
+
+      if (choice.next_episode) {
+        moveToEpisode(choice.next_episode);
+        return;
+      }
+
+      return;
+    }
+
+    setPendingChoice(choice);
 
   }
 
@@ -3392,6 +3772,16 @@ export default function Home() {
     if (timedOverlayTimerRef.current) {
       clearTimeout(timedOverlayTimerRef.current);
       timedOverlayTimerRef.current = null;
+    }
+    setMenuQuestionOverlayVisible(false);
+    if (menuQuestionOverlayTimerRef.current) {
+      clearTimeout(menuQuestionOverlayTimerRef.current);
+      menuQuestionOverlayTimerRef.current = null;
+    }
+    setLibraryVignetteVisible(false);
+    if (libraryVignetteTimerRef.current) {
+      clearTimeout(libraryVignetteTimerRef.current);
+      libraryVignetteTimerRef.current = null;
     }
     setHeartbeatOverlayImage(null);
     if (heartbeatOverlayTimerRef.current) {
@@ -4215,6 +4605,10 @@ export default function Home() {
           />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(44,14,33,0.22),rgba(34,10,27,0.58))]" />
           <div className="episode-soft-pink-tint absolute inset-0" />
+          {shouldShowCorridorLightOverlay && (
+            <div className="episode-corridor-light-overlay absolute inset-0 z-[14]" aria-hidden />
+          )}
+          {libraryVignetteVisible && <div className="episode-library-vignette absolute inset-0 z-[12]" aria-hidden />}
           {heartbeatOverlayImage && (
             <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -4229,20 +4623,35 @@ export default function Home() {
           {timedOverlayImage && (
             <div className="pointer-events-none fixed inset-0 z-[110] flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-black/60 animate-in fade-in duration-500" aria-hidden />
-              <div className="relative animate-in fade-in zoom-in duration-500 ease-out">
+              <div className="relative z-[2] animate-in fade-in zoom-in duration-500 ease-out">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={timedOverlayImage}
                   alt="Special Event"
-                  className="h-auto max-h-[60vh] w-auto max-w-[min(85vw,700px)] overflow-hidden rounded-[32px] border-[5px] border-black object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.6)]"
+                  className={`h-auto max-h-[60vh] w-auto max-w-[min(85vw,700px)] overflow-hidden rounded-[32px] object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.6)] ${
+                    timedOverlayImage === "/ui/backgrounds/ep04_ballpen.webp"
+                      ? ""
+                      : "border-[2px] border-[rgba(0,0,0,0.72)]"
+                  }`}
                   draggable={false}
                 />
+              </div>
+            </div>
+          )}
+          {menuQuestionOverlayVisible && (
+            <div className="pointer-events-none fixed inset-0 z-[111] flex items-center justify-center p-4">
+              <div
+                className="relative z-[2] select-none text-[min(30vw,220px)] font-black leading-none text-white drop-shadow-[0_0_30px_rgba(0,0,0,0.72)] animate-in fade-in zoom-in duration-300 animate-bounce"
+                aria-hidden
+              >
+                !
               </div>
             </div>
           )}
           {currentVisualCue && !shouldShowChoiceOverlay && (
             <div className="absolute inset-0 z-20 bg-black/60 animate-in fade-in duration-500" aria-hidden />
           )}
+          {shouldShowProfessorBlossomOverlay && <CherryBlossomOverlay />}
           {isNightEpisodeEndingTransition && (
             <div className="episode-night-fade-overlay absolute inset-0 z-40" aria-hidden />
           )}
@@ -4348,44 +4757,62 @@ export default function Home() {
             <div className="relative mt-4 flex flex-1 items-end justify-center pb-[260px] md:pb-[300px]" style={uiScaleCenterStyle}>
               {currentVisualCue && !shouldShowChoiceOverlay && (
                 <div className="pointer-events-none absolute inset-x-0 top-[8%] z-30 flex justify-center px-4">
-                  <div
-                    key={currentVisualCue.key}
-                    className="w-full max-w-[min(70vw,560px)] rounded-[30px] border border-white/60 bg-[linear-gradient(180deg,rgba(255,248,251,0.94),rgba(255,231,241,0.88))] p-4 shadow-[0_28px_60px_rgba(37,10,24,0.3)] backdrop-blur-sm"
-                  >
-                    <div className="overflow-hidden rounded-[24px] border border-[#d7a1b9] bg-[radial-gradient(circle_at_50%_16%,rgba(255,255,255,0.98),rgba(255,240,245,0.86)_40%,rgba(225,171,195,0.66)_100%)]">
-                      {(currentVisualCue.image || (currentVisualCue.variant === "professor" && professorVisualSrc)) ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={currentVisualCue.image || professorVisualSrc}
-                          alt={currentVisualCue.title}
-                          className={`mx-auto h-auto max-h-[42vh] w-auto object-contain ${
-                            currentVisualCue.image
-                              ? "rounded-[32px] border-[5px] border-black drop-shadow-[0_20px_50px_rgba(0,0,0,0.6)]"
-                              : "drop-shadow-[0_16px_24px_rgba(58,18,37,0.24)]"
-                          }`}
-                          draggable={false}
-                        />
-                      ) : (
-                        <div className="flex min-h-[260px] flex-col items-center justify-center px-8 py-10 text-center">
-                          <span className="font-gothic text-xs font-black tracking-[0.24em] text-[#b35d86]">
-                            {currentVisualCue.variant === "prop" ? "OBJECT CUE" : currentVisualCue.variant === "mood" ? "MOOD CUE" : "PROFESSOR CUE"}
-                          </span>
-                          <div className="mt-4 rounded-full border border-[#e2aec5] bg-white/72 px-5 py-2 text-sm font-semibold text-[#9d4e73]">
-                            {currentVisualCue.title}
+                  {isBareProfessorCue ? (
+                    professorVisualSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={currentVisualCue.key}
+                        src={professorVisualSrc}
+                        alt={currentVisualCue.title}
+                        className="animate-professor-cutin-fade-in h-auto max-h-[56vh] w-auto max-w-[min(72vw,560px)] object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.35)]"
+                        draggable={false}
+                      />
+                    ) : (
+                      <DebugProfessorPlaceholder
+                        key={currentVisualCue.key}
+                        className="animate-professor-cutin-fade-in h-[min(56vh,560px)] w-[min(72vw,560px)]"
+                      />
+                    )
+                  ) : (
+                    <div
+                      key={currentVisualCue.key}
+                      className="w-full max-w-[min(70vw,560px)] rounded-[30px] border border-white/60 bg-[linear-gradient(180deg,rgba(255,248,251,0.94),rgba(255,231,241,0.88))] p-4 shadow-[0_28px_60px_rgba(37,10,24,0.3)] backdrop-blur-sm"
+                    >
+                      <div className="overflow-hidden rounded-[24px] border border-[#d7a1b9] bg-[radial-gradient(circle_at_50%_16%,rgba(255,255,255,0.98),rgba(255,240,245,0.86)_40%,rgba(225,171,195,0.66)_100%)]">
+                        {(currentVisualCue.image || (currentVisualCue.variant === "professor" && professorVisualSrc)) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={currentVisualCue.image || professorVisualSrc}
+                            alt={currentVisualCue.title}
+                            className={`mx-auto h-auto max-h-[42vh] w-auto object-contain ${
+                              currentVisualCue.image
+                                ? "rounded-[32px] border-[2px] border-[rgba(0,0,0,0.72)] drop-shadow-[0_20px_50px_rgba(0,0,0,0.6)]"
+                                : "drop-shadow-[0_16px_24px_rgba(58,18,37,0.24)]"
+                            }`}
+                            draggable={false}
+                          />
+                        ) : (
+                          <div className="flex min-h-[260px] flex-col items-center justify-center px-8 py-10 text-center">
+                            <span className="font-gothic text-xs font-black tracking-[0.24em] text-[#b35d86]">
+                              {currentVisualCue.variant === "prop" ? "OBJECT CUE" : currentVisualCue.variant === "mood" ? "MOOD CUE" : "PROFESSOR CUE"}
+                            </span>
+                            <div className="mt-4 rounded-full border border-[#e2aec5] bg-white/72 px-5 py-2 text-sm font-semibold text-[#9d4e73]">
+                              {currentVisualCue.title}
+                            </div>
+                            <div className="mt-6 h-24 w-24 rounded-[28px] border border-dashed border-[#c782a2] bg-white/58 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]" />
                           </div>
-                          <div className="mt-6 h-24 w-24 rounded-[28px] border border-dashed border-[#c782a2] bg-white/58 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]" />
-                        </div>
-                      )}
+                        )}
+                      </div>
+                      <div className="px-2 pb-1 pt-3 text-center text-[#6b2848]">
+                        <p className="text-[clamp(22px,1.8vw,30px)] font-black leading-none">
+                          {currentVisualCue.title}
+                        </p>
+                        <p className="mt-2 text-sm leading-[1.5] text-[#8c5570]">
+                          {currentVisualCue.subtitle}
+                        </p>
+                      </div>
                     </div>
-                    <div className="px-2 pb-1 pt-3 text-center text-[#6b2848]">
-                      <p className="text-[clamp(22px,1.8vw,30px)] font-black leading-none">
-                        {currentVisualCue.title}
-                      </p>
-                      <p className="mt-2 text-sm leading-[1.5] text-[#8c5570]">
-                        {currentVisualCue.subtitle}
-                      </p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>
@@ -4415,30 +4842,41 @@ export default function Home() {
                 <div className="absolute inset-x-0 bottom-0 flex h-full items-end justify-center">
                   <div className="relative flex h-full w-full items-end justify-center">
                     <div className="absolute inset-x-6 bottom-5 h-12 rounded-full bg-[radial-gradient(circle,rgba(0,0,0,0.18),rgba(0,0,0,0))]" />
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={professorVisualSrc}
-                      alt="교수 비주얼"
-                      className="h-[82%] w-[82%] object-contain object-bottom drop-shadow-[0_30px_48px_rgba(39,11,26,0.42)] md:h-[94%] md:w-[94%]"
-                      draggable={false}
-                    />
+                    {professorVisualSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={professorVisualSrc}
+                        alt="교수 비주얼"
+                        className="h-[82%] w-[82%] object-contain object-bottom drop-shadow-[0_30px_48px_rgba(39,11,26,0.42)] md:h-[94%] md:w-[94%]"
+                        draggable={false}
+                      />
+                    ) : (
+                      <DebugProfessorPlaceholder className="h-[68%] w-[54%] max-w-[520px] rounded-[44px] md:h-[78%] md:w-[60%]" />
+                    )}
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {shouldShowProfessorBaseVisual && professorDialoguePortraitSrc && (
+          {shouldShowProfessorBaseVisual && (
             <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[88] hidden md:block md:bottom-8" style={uiScaleBottomStyle}>
               <div className="mx-auto relative h-[290px] max-w-6xl">
                 <div className="absolute left-[-253px] top-1/2 flex h-[282px] w-[225px] -translate-y-1/2 items-center justify-center overflow-visible">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={professorDialoguePortraitSrc}
-                    alt="교수 대사 포트레이트"
-                    className="h-full w-full object-contain object-center drop-shadow-[0_20px_34px_rgba(27,8,18,0.34)]"
-                    draggable={false}
-                  />
+                  {professorDialoguePortraitSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={professorDialoguePortraitSrc}
+                      alt="교수 대사 포트레이트"
+                      className="h-full w-full object-contain object-center drop-shadow-[0_20px_34px_rgba(27,8,18,0.34)]"
+                      draggable={false}
+                    />
+                  ) : (
+                    <DebugProfessorPlaceholder
+                      className="h-full w-full rounded-[28px]"
+                      label="QA DUMMY PORTRAIT"
+                    />
+                  )}
                 </div>
               </div>
             </div>

@@ -288,7 +288,7 @@ export const professorRouteStory = {
             "어딘가에서 물방울이 '똑... 똑...' 떨어지는 소리가 들리고, 나의 손에는 비닐봉지가 반쯤 벗겨진 참치마요 김밥이 들려 있다.",
           ],
           lines: [
-            { role: "narration", text: "고학번의 삶이란 철저한 고독과의 싸움이다. 동기들은 졸업하거나 휴학했고, 후배들의 빛나는 무리에 끼기엔 내 학번이 너무 무겁다. 결국 시간표마저 꼬여 버린 오늘, 나는 학교 괴담으로만 듣던 '변기 칸 혼밥'의 주인공이 되고 말았다." },
+            { role: "narration", text: "고학번의 삶이란 철저한 고독과의 싸움이다. 동기들은 졸업하거나 휴학했고, 후배들의 빛나는 무리에 끼기엔 내 학번이 너무 무겁다." },
             { role: "monologue", text: "그래... 에어컨도 나오고, 조용하고. 나름 VIP 프라이빗 룸이잖아? 비닐 바스락거리는 소리만 조심하면 완벽해." },
             { role: "narration", text: "그때, 달칵— 하는 소리와 함께 누군가 급한 발걸음으로 바로 옆 칸에 들어온다." },
             { role: "side_male", text: "후우... 하마터면 교수 품위 유지에 금이 갈 뻔했군.", expression: "가쁜 숨을 내쉬며" },
@@ -408,7 +408,6 @@ export const professorRouteStory = {
         {
           id: "ep03c_scene01_intro",
           type: "linear",
-          stage_direction: ["식판을 앞에 둔 플레이어의 1인칭 시점.", "주변엔 학생들로 가득하지만 내 앞자리만 비어 있음.", "그때 그림자가 드리워짐."],
           lines: [
             { role: "narration", text: "역시 시험 전날 점심은 혼밥이지. 대충 한 끼 때우고 도서관 가려는데... 내 앞자리에 낯익은 정장 소매가 보인다. 설마." },
             { role: "professor", text: "여긴 늘 붐비는군. __, 앞자리 비어 있나? 자네 식사 속도를 보니 시험 공부하러 마음이 급한 모양이야.", action: "식판을 내려놓으며 자연스럽게" },
@@ -492,7 +491,7 @@ export const professorRouteStory = {
         {
           id: "ep03r_scene01_intro",
           type: "linear",
-          stage_direction: ["창가 쪽 2인 테이블에 앉은 플레이어의 1인칭 시점.", "메뉴판을 펼쳐 든 채 주문을 고민하는 중.", "문에 달린 작은 종이 딸랑— 하고 울린다."],
+          stage_direction: ["문에 달린 작은 종이 딸랑— 하고 울린다."],
           lines: [
             { role: "narration", text: "학식은 오늘따라 줄이 너무 길어서, 조용히 밥이나 먹으러 학교 앞 한식당으로 왔다. 시험 전날이니 빠르게 먹고 공부를 할 계획." },
             { role: "narration", text: "문 쪽에서 시선을 느껴 고개를 든다. 입구에 서서 실내를 훑어보던 눈과, 내 눈이 정확하게 마주친다." },
@@ -556,13 +555,15 @@ export const professorRouteStory = {
           id: "ep03r_scene06_outro",
           type: "linear",
           lines: [
-            { role: "professor", text: "됐네. 오늘 내가 합석한 거니까.", action: "돌아보지 않고 코트를 여미며" },
+            { role: "narration", text: "교수님이 먼저 자리에서 일어나며 자연스럽게 계산대 쪽으로 걷는다." },
             { role: "narration", text: "정신없이 짐을 챙긴다. 나도 얼른 지갑을 꺼내려는데—" },
             { role: "narration", text: "교수님이 이미 두 사람 몫의 금액을 내고 있다." },
             { role: "student", text: "교수님, 제 것은 제가—" },
+            { role: "professor", text: "됐어. 오늘 내가 불쑥 합석한 거니까." },
             { role: "narration", text: "그 한마디로 끝이었다. 이유도, 설명도 그게 전부였다." },
             { role: "professor", text: "내일 시험, 잘 보게.", action: "문을 열며, 뒤도 안 돌아보고" },
             { role: "narration", text: "딸랑— 문이 닫힌다. 계산대 앞 사장님이 나를 보며 빙긋 웃으신다." },
+            { role: "narration", text: "밥값을 내려고 꺼낸 지갑을 멍하니 쥔 채, 한동안 자리에서 일어나지 못했다." },
             { role: "narration", text: "\"합석한 거니까\"— 그 말이, 이상하게 자꾸 머릿속에서 재생된다." },
             { role: "narration", text: "이제 도서관 가야 하는데. 머릿속에 아무 생각도 들지 않는다." },
           ],
@@ -579,7 +580,6 @@ export const professorRouteStory = {
         {
           id: "ep04_scene01_intro",
           type: "linear",
-          stage_direction: ["1인칭 시점. 펼쳐진 교재와 형광펜, 포스트잇이 가득한 책상. 창밖으로 캠퍼스 나무가 보인다."],
           lines: [
             { role: "narration", text: "밥도 먹었겠다, 이제 진짜 집중할 시간이다. 시험은 내일. 오늘 오후만 제대로 잡으면 돼." },
             { role: "narration", text: "……근데 왜 교재가 눈에 안 들어오지." },
@@ -723,9 +723,9 @@ export const professorRouteStory = {
           type: "choice",
           prompt: "저녁 식사 후 이동",
           choices: [
-            { id: "ep05_c01_opt01", label: "선택지 1", text: "집", next_episode: "ep06_night_professor_office" },
-            { id: "ep05_c01_opt02", label: "선택지 2", text: "강의실", next_episode: "ep06_night_classroom" },
-            { id: "ep05_c01_opt03", label: "선택지 3", text: "학교 벤치", next_episode: "ep06_night_bench" },
+            { id: "ep05_c01_opt01", label: "선택지 1", text: "집으로 가서 공부를 한다.", next_episode: "ep06_night_professor_office" },
+            { id: "ep05_c01_opt02", label: "선택지 2", text: "빈 강의실에 가서 공부를 한다.", next_episode: "ep06_night_classroom" },
+            { id: "ep05_c01_opt03", label: "선택지 3", text: "학교 벤치에 앉아 생각을 정리한다.", next_episode: "ep06_night_bench" },
           ],
         },
       ],
@@ -739,7 +739,7 @@ export const professorRouteStory = {
           id: "ep06o_scene01_intro",
           type: "linear",
           chapter: "저녁 시간 - 연구실의 불빛",
-          stage_direction: ["어둑해진 캠퍼스 전경.", "가로등이 하나둘 켜지기 시작하고, 다른 창문들은 모두 캄캄하지만, __님의 연구실 창문만은 유난히 따뜻하고 밝은 노란빛을 내뿜고 있다."],
+          stage_direction: [],
           lines: [
             { role: "narration", text: "저녁을 먹고 나오니 이미 사방은 어둑해졌다. 시험 전날의 캠퍼스는 평소보다 훨씬 고요했고, 그 고요함은 내 어깨를 더 무겁게 눌렀다. 집으로 향하려던 발걸음이 문득, 익숙한 창문 앞에서 멈췄다." },
             { role: "monologue", text: "교수님... 아직 안 가셨네. 불이 켜져 있어." },
@@ -761,7 +761,7 @@ export const professorRouteStory = {
           lines: [
             { role: "narration", text: "나는 결연한 의지로 교수 연구실이 있는 4층으로 향했다. 복도 끝, 그분의 문앞에 서자 긴장감에 마른침이 넘어갔다." },
           ],
-          stage_direction: ["'__ 교수 연구실' 명패가 걸린 문. 똑똑— 노크 소리."],
+          stage_direction: [],
           next_scene: "ep06o_scene04_common_office",
         },
         {
@@ -774,7 +774,7 @@ export const professorRouteStory = {
             { role: "professor", text: "아니, 자네는 왜 아직도 학교에... 꼴을 보니 우산도 없는 모양이군. 이 장대비에 가긴 어디 가겠나. 일단 올라가세. 내 연구실에 여분의 우산이 있을 테니." },
             { role: "narration", text: "결국, 나는 운명의 데스티니에 이끌려 교수님의 뒤를 따라 연구실로 향하게 되었다." },
           ],
-          stage_direction: ["갑자기 콰광— 하는 천둥소리와 함께 양동이로 들이붓는 듯한 폭우가 쏟아진다.", "엘리베이터에서 내리는 __ 교수님. 한 손에는 서류 가방, 다른 한 손에는 고급 장우산을 들고 있다. 물에 젖은 나를 보며 미간을 찌푸린다."],
+          stage_direction: [],
           next_scene: "ep06o_scene04_common_office",
         },
         {
@@ -801,7 +801,7 @@ export const professorRouteStory = {
         {
           id: "ep06o_scene05_umbrella",
           type: "linear",
-          stage_direction: ["시간 경과 연출: 창밖의 빗소리가 조금 가늘어지고, 시계는 9시를 가리킨다.", "교수님의 얼굴이 클로즈업된다. 주황빛 조명을 받아 눈동자가 유난히 빛난다."],
+          stage_direction: ["시간 경과 연출: 창밖의 빗소리가 조금 가늘어지고, 시계는 9시를 가리킨다."],
           lines: [
             { role: "professor", text: "벌써 시간이 이렇게 됐군. 자네도 이제 집에 가서 마무리 공부를 해야겠어." },
             { role: "narration", text: "나는 자리에서 일어나 예의 바르게 인사를 드렸다. 오늘 하루, 화장실에서 한우, 그리고 연구실 커피까지. 교수님의 새로운 면모를 너무 많이 본 것 같다." },
@@ -823,7 +823,7 @@ export const professorRouteStory = {
         {
           id: "ep06b_scene01_intro",
           type: "linear",
-          stage_direction: ["어두운 캠퍼스, 은은한 가로등 아래 벤치.", "교수님이 코트를 옆에 두고 앉아 서류를 보고 있다가 다가오는 나를 발견함."],
+          stage_direction: [],
           lines: [
             { role: "narration", text: "도서관에서 나오니 벌써 해가 졌다. 머리도 식힐 겸 걷는데, 늘 그 자리에 있는 벤치에 교수님이 앉아 계신다. 밤에 보는 교수님은 강의실에서보다 조금 더... 사람 냄새가 난다." },
             { role: "professor", text: "이 시간에 여기서 자네를 다 보군. __, 공부하다 막히는 거라도 있나? 얼굴에 '고민'이라고 쓰여 있는데.", action: "고개를 들며" },
@@ -907,7 +907,7 @@ export const professorRouteStory = {
         {
           id: "ep06c_scene01_intro",
           type: "linear",
-          stage_direction: ["소등된 강의실, 비상등만 켜진 늦은 밤.", "1인칭 시점. 희미한 빛 속에서 천천히 시야가 열린다.", "책상 위에 엎드려 있던 자세. 강의 노트가 뺨에 붙어 있고, 형광펜 뚜껑은 어딘가로 굴러가 있다."],
+          stage_direction: [],
           lines: [
             { role: "monologue", text: "……어둡다. 여기가 어디지." },
             { role: "narration", text: "천장을 보니 강의실이다. 창밖은 완전히 깜깜하고, 복도 불빛만 문틈으로 가늘게 새어 들어온다. 얼마나 잔 거지. 시험이 내일인데—" },
@@ -953,7 +953,8 @@ export const professorRouteStory = {
           type: "branch",
           lines: [
             { role: "professor", text: "앉아. 갑자기 일어나면 어지러워.", action: "황급히 일어나는 나를 보며 한 손을 들어 제지하듯" },
-            { role: "professor", text: "……잠깐 있게." },
+            { role: "professor", text: "잠깐만 있어요." },
+            { role: "narration", text: "(교수님이 가방만 내려놓고 강의실을 나간다. 복도 발소리가 멀어진다. 2~3분의 정적.)" },
             { role: "narration", text: "뭐지. 나 혼자 강의실에 남겨졌다. 어리둥절한 채로 노트를 정리하고 있는데—" },
             { role: "professor", text: "1층에 자판기밖에 없더군. 에너지 음료랑 초콜릿. 시험 전날 밤샘엔 당이 필요하니까.", action: "봉투를 내 책상에 올려놓으며 무심하게" },
             { role: "professor", text: "영수증은 됐고, 내일 시험이나 잘 보게.", action: "코트를 털며 자리를 잡으며" },
@@ -961,7 +962,7 @@ export const professorRouteStory = {
             { role: "professor", text: "강의실에 학생 혼자 두고 그냥 가면 내가 찜찜하지. 동기들과 나눠 먹어도 되고.", action: "서류를 꺼내며 시선을 내리깔고" },
             { role: "narration", text: "봉투 안 에너지 음료 캔이 차갑다. 근데 왜 나는 지금 이게 그렇게 뭉클하지." },
           ],
-          stage_direction: ["교수님이 가방만 내려놓고 강의실을 나간다. 복도 발소리가 멀어진다. 2~3분의 정적.", "문이 다시 열리며 교수님이 들어온다. 손에 편의점 봉투."],
+          stage_direction: [],
           next_scene: "ep06c_scene06_outro",
         },
         {
