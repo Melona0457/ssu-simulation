@@ -144,7 +144,7 @@ export async function POST(request: Request) {
   const startedAt = Date.now();
   const rateLimit = checkRateLimit({
     key: `generate-professor-image:${getRequestIp(request)}`,
-    max: 6,
+    max: 10,
     windowMs: 10 * 60 * 1000,
   });
 
@@ -235,12 +235,21 @@ export async function POST(request: Request) {
     "single character only",
     "front-facing full body professor sprite",
     "adult character proportions, at least six-head-tall figure",
+    "target body ratio around 6.5 to 7 heads tall",
+    "normal-sized head, not oversized head, not cute miniature proportions",
+    "real adult leg length and torso balance",
+    "professional university professor campus outfit only",
+    "suitable for classroom, faculty office, or campus lecture setting",
+    "modest and tasteful wardrobe, polished academic styling",
     "entire figure fully visible from head to toes",
     "show full legs, ankles, and shoes",
     "camera zoomed out enough to keep full body inside frame",
     "leave safe empty margin above head and below feet",
     "no cropped limbs, no cut-off head, no knee-up composition",
     "no chibi or super-deformed proportions",
+    "no three-head-tall body, no four-head-tall body, no short doll-like body ratio",
+    "no bikini, no swimsuit, no swimwear, no beachwear, no lingerie, no underwear",
+    "no exposed cleavage, no exposed bare midriff, no skin-focused seductive styling",
     "clean silhouette for visual novel cut-in usage",
     "no props in hands unless naturally subtle",
     "no text, no watermark, no frame",
@@ -253,7 +262,7 @@ export async function POST(request: Request) {
       config: {
         safetySettings: [
           {
-            category: HarmCategory.HARM_CATEGORY_IMAGE_SEXUALLY_EXPLICIT,
+            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
             threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
           },
         ],

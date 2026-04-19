@@ -888,6 +888,11 @@ export function buildIllustrationPrompt(form: ProfessorFormState) {
   const promptParts = [
     "full-body 2D Korean campus visual novel professor sprite",
     "standing pose",
+    "adult body ratio with a small head relative to the body, around six-and-a-half to seven heads tall",
+    "balanced torso and leg length, elegant real adult silhouette",
+    "outfit: tasteful university professor campus attire suitable for lectures and office hours",
+    "modest, polished, professional styling",
+    "no beachwear, no swimwear, no bikini, no lingerie, no underwear, no revealing fashion focus",
     `style lock: ${professorSpriteStylePreset.join(", ")}`,
     `reference fusion lock: ${professorReferenceFusionGuide}`,
     `style profile name: ${fusedIllustrationReferenceProfile.name}`,
