@@ -1019,6 +1019,10 @@ function resolveBgmUrlByContext(phase: Phase, episodeId: string | null) {
     return STORY_BGM_URLS.dinnerEpisode;
   }
 
+  if (episodeId === "ep06_night_classroom") {
+    return STORY_BGM_URLS.nightEpisode;
+  }
+
   if (episodeId.startsWith("ep06_")) {
     return STORY_BGM_URLS.nightEpisode;
   }
@@ -1067,6 +1071,10 @@ function resolvePriorityBgmUrls(phase: Phase, episodeId: string | null) {
 
   if (episodeId === "ep05_simple_dinner") {
     return dedupeBgmUrls([currentUrl, STORY_BGM_URLS.nightEpisode]);
+  }
+
+  if (episodeId === "ep06_night_classroom") {
+    return dedupeBgmUrls([currentUrl, STORY_BGM_URLS.endingCredit]);
   }
 
   if (episodeId.startsWith("ep06_")) {
