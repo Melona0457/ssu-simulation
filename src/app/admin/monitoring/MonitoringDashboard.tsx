@@ -555,23 +555,25 @@ export function MonitoringDashboard() {
 
                           return (
                             <div key={bucket.isoHour} className={styles.chartColumn}>
-                              <div
-                                className={styles.stackedBar}
-                                title={`${toLocalDateTime(bucket.isoHour)} / 전체 ${bucket.generationTotal}건 / 성공 ${bucket.generationSuccess} / 경고 ${bucket.generationWarning} / 오류 ${bucket.generationError}`}
-                                style={{ height: totalHeight }}
-                              >
-                                <span
-                                  className={`${styles.barSegment} ${styles.barSuccess}`}
-                                  style={{ height: successHeight }}
-                                />
-                                <span
-                                  className={`${styles.barSegment} ${styles.barWarning}`}
-                                  style={{ height: warningHeight }}
-                                />
-                                <span
-                                  className={`${styles.barSegment} ${styles.barError}`}
-                                  style={{ height: errorHeight }}
-                                />
+                              <div className={styles.stackedBarTrack}>
+                                <div
+                                  className={styles.stackedBar}
+                                  title={`${toLocalDateTime(bucket.isoHour)} / 전체 ${bucket.generationTotal}건 / 성공 ${bucket.generationSuccess} / 경고 ${bucket.generationWarning} / 오류 ${bucket.generationError}`}
+                                  style={{ height: totalHeight }}
+                                >
+                                  <span
+                                    className={`${styles.barSegment} ${styles.barSuccess}`}
+                                    style={{ height: successHeight }}
+                                  />
+                                  <span
+                                    className={`${styles.barSegment} ${styles.barWarning}`}
+                                    style={{ height: warningHeight }}
+                                  />
+                                  <span
+                                    className={`${styles.barSegment} ${styles.barError}`}
+                                    style={{ height: errorHeight }}
+                                  />
+                                </div>
                               </div>
                               <span className={styles.chartValue}>{bucket.generationTotal}</span>
                               <span className={styles.chartLabel}>{showLabel ? formatAxisHour(bucket.isoHour) : " "}</span>
