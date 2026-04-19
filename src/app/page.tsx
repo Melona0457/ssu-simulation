@@ -608,6 +608,7 @@ const STORY_BGM_URLS = {
   afternoonLibraryEpisode: `${BGM_BASE_URL}/afternoon_library_episode.ogg`,
   dinnerEpisode: `${BGM_BASE_URL}/dinner_episode.ogg`,
   nightEpisode: `${BGM_BASE_URL}/night_episode.ogg`,
+  nightClassroomEpisode: `${BGM_BASE_URL}/night_classroom.ogg`,
   endingCredit: `${BGM_BASE_URL}/ending_credit.ogg`,
 } as const;
 
@@ -1018,6 +1019,10 @@ function resolveBgmUrlByContext(phase: Phase, episodeId: string | null) {
 
   if (episodeId === "ep05_simple_dinner") {
     return STORY_BGM_URLS.dinnerEpisode;
+  }
+
+  if (episodeId === "ep06_night_classroom") {
+    return STORY_BGM_URLS.nightClassroomEpisode;
   }
 
   if (episodeId.startsWith("ep06_")) {

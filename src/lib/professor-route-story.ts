@@ -801,7 +801,7 @@ export const professorRouteStory = {
         {
           id: "ep06o_scene05_umbrella",
           type: "linear",
-          stage_direction: ["시간 경과 연출: 창밖의 빗소리가 조금 가늘어지고, 시계는 9시를 가리킨다."],
+          stage_direction: ["창밖의 빗소리가 조금 가늘어지고, 시계는 9시를 가리킨다."],
           lines: [
             { role: "professor", text: "벌써 시간이 이렇게 됐군. 자네도 이제 집에 가서 마무리 공부를 해야겠어." },
             { role: "narration", text: "나는 자리에서 일어나 예의 바르게 인사를 드렸다. 오늘 하루, 화장실에서 한우, 그리고 연구실 커피까지. 교수님의 새로운 면모를 너무 많이 본 것 같다." },

@@ -1659,3 +1659,15 @@
 ### 검증
 
 - 코드 검색 기준 `src/app/온글잎 밑미.ttf` 참조 없음 확인
+
+## 2026-04-19 추가 로그 (밤 에피소드 강의실 BGM 연결)
+
+### 결정사항
+
+- 밤 에피소드 강의실(`ep06_night_classroom`) 진입 시 전용 배경음악(`night_classroom.ogg`)이 정상적으로 재생되도록 BGM URL 매핑 추가
+
+### 구현/수정 내용
+
+- `src/app/page.tsx`
+  - `STORY_BGM_URLS`에 `nightClassroomEpisode` 추가
+  - `resolveBgmUrlByContext`에서 `ep06_night_classroom`일 때 해당 URL을 반환하도록 분기 처리
