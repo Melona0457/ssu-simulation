@@ -48,3 +48,6 @@ __pycache__/
 
 # local script backups
 *_old.md
+
+# local Supabase backups
+/backups/
